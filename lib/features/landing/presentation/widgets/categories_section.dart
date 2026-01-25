@@ -137,10 +137,7 @@ class _CategoryCardState extends State<_CategoryCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        onTap: () {
-          // TODO: Navigate to search with mediaType filter
-          // Navigator.push(context, '/search?mediaType=${widget.category['id']}');
-        },
+        onTap: () {},
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppRadius.lg),

@@ -133,9 +133,7 @@ class _MediaListingCardState extends State<_MediaListingCard> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-        onTap: () {
-          // TODO: Navigate to listing detail
-        },
+        onTap: () {},
         child: Container(
           width: 280,
           decoration: BoxDecoration(
@@ -151,11 +149,12 @@ class _MediaListingCardState extends State<_MediaListingCard> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.lg),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Image
                 Container(
-                  height: 180,
+                  height: 160,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -177,20 +176,21 @@ class _MediaListingCardState extends State<_MediaListingCard> {
                 // Content
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         widget.listing['title'],
-                        style: AppTypography.h4.copyWith(
+                        style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.foreground,
                           fontWeight: FontWeight.w600,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Icon(
@@ -211,10 +211,10 @@ class _MediaListingCardState extends State<_MediaListingCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       Text(
                         '\$${_formatPrice(widget.listing['price'])}/${widget.listing['priceUnit']}',
-                        style: AppTypography.bodyLarge.copyWith(
+                        style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,
                         ),

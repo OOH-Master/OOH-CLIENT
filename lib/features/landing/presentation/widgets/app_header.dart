@@ -63,7 +63,7 @@ class _AppHeaderState extends State<AppHeader> {
       actions: [
         if (context.isDesktop) ...[
           TextButton(
-            onPressed: () => context.go('/login'),
+            onPressed: () => context.go('/auth/login'),
             child: Text(
               'Log in',
               style: AppTypography.bodyMedium.copyWith(
@@ -73,7 +73,7 @@ class _AppHeaderState extends State<AppHeader> {
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: () => context.go('/register'),
+            onPressed: () => context.go('/auth/register'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.primaryForeground,
@@ -135,7 +135,7 @@ class _AppHeaderState extends State<AppHeader> {
               title: const Text('Find media'),
               onTap: () {
                 Navigator.pop(context);
-                context.go('/search');
+                context.go('/discover');
               },
             ),
             const Divider(),
@@ -143,13 +143,13 @@ class _AppHeaderState extends State<AppHeader> {
               title: const Text('Log in'),
               onTap: () {
                 Navigator.pop(context);
-                context.go('/login');
+                context.go('/auth/login');
               },
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                context.go('/register');
+                context.go('/auth/register');
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,

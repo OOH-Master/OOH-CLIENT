@@ -6,6 +6,7 @@ import '../features/auth/presentation/pages/register_page.dart';
 import '../features/landing/presentation/pages/landing_page.dart';
 import '../features/shell/presentation/pages/main_shell_page.dart';
 import '../features/discover/presentation/pages/discover_page.dart';
+import '../features/discover/presentation/pages/discover_detail_page.dart';
 import '../features/map/presentation/pages/map_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 
@@ -27,6 +28,19 @@ class AppRouter {
         path: '/auth/register',
         builder: (context, state) => const RegisterPage(),
       ),
+      // Public routes - NO shell/bottom bar
+      GoRoute(
+        path: '/discover',
+        builder: (context, state) => const DiscoverPage(),
+      ),
+      GoRoute(
+        path: '/discover/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return DiscoverDetailPage(unitId: id);
+        },
+      ),
+      // Authenticated routes with shell
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainShellPage(navigationShell: navigationShell);
@@ -37,6 +51,15 @@ class AppRouter {
               GoRoute(
                 path: '/app/discover',
                 builder: (context, state) => const DiscoverPage(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (context, state) {
+                      final id = state.pathParameters['id'] ?? '';
+                      return DiscoverDetailPage(unitId: id);
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -64,19 +87,20 @@ class AppRouter {
       final isLoggedIn = authState is AuthAuthenticated;
       final isLoggingIn = state.uri.toString().startsWith('/auth');
       final isLanding = state.uri.toString() == '/';
+      final isPublicDiscover = state.uri.toString().startsWith('/discover');
 
-      if (!isLoggedIn) {
-        // If not logged in, allow landing and auth pages
-        if (isLanding || isLoggingIn) {
-          return null;
-        }
-        // Otherwise redirect to login
+      // Allow public routes without auth
+      if (isLanding || isLoggingIn || isPublicDiscover) {
+        return null;
+      }
+
+      // For /app/* routes, require auth
+      if (!isLoggedIn && state.uri.toString().startsWith('/app')) {
         return '/auth/login';
       }
 
-      // If logged in
-      if (isLoggingIn || isLanding) {
-        // Redirect to discover if trying to access auth or landing
+      // If logged in and trying to access auth pages, redirect to app
+      if (isLoggedIn && (isLoggingIn || isLanding)) {
         return '/app/discover';
       }
 

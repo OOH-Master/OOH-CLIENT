@@ -64,8 +64,9 @@ dependencies:
   shimmer: ^3.0.0
   
   # Maps (for inventory search)
-  flutter_map: ^8.2.2
+  flutter_map: ^7.0.2
   latlong2: ^0.9.1
+  flutter_map_marker_cluster: ^1.3.6
   geolocator: ^14.0.2
   
   # Forms & Validation

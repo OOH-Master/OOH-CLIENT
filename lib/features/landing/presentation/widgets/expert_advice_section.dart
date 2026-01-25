@@ -170,10 +170,13 @@ class ExpertAdviceSection extends StatelessWidget {
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(width: 16),
-          Text(
-            label,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w500,
+          Expanded(
+            child: Text(
+              label,
+              style: AppTypography.bodyMedium.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

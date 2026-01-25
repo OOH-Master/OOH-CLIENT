@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/l10n/l10n.dart';
-import '../../../../core/widgets/app_scaffold.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/widgets/main_app_bar.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/role.dart';
 import '../blocs/auth_bloc.dart';
 
@@ -49,8 +50,9 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
 
-    return AppScaffold(
-      appBar: AppBar(title: Text(l10n.authRegisterTitle)),
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: MainAppBar(showBackButton: true, showLoginButton: false),
       body: BlocListener<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthFailure) {
@@ -78,8 +80,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         controller: _nameController,
                         prefixIcon: Icons.person_outline,
                         validator: (value) => (value == null || value.isEmpty)
-                            ? 'Required'
-                            : null,
+                          ? l10n.validatorRequired
+                          : null,
                       ),
                       const SizedBox(height: Spacing.md),
                       AppTextField(
@@ -88,8 +90,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         keyboardType: TextInputType.emailAddress,
                         prefixIcon: Icons.email_outlined,
                         validator: (value) => (value == null || value.isEmpty)
-                            ? 'Required'
-                            : null,
+                          ? l10n.validatorRequired
+                          : null,
                       ),
                       const SizedBox(height: Spacing.md),
                       AppTextField(
@@ -98,8 +100,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         obscureText: true,
                         prefixIcon: Icons.lock_outline,
                         validator: (value) => (value == null || value.isEmpty)
-                            ? 'Required'
-                            : null,
+                          ? l10n.validatorRequired
+                          : null,
                       ),
                       const SizedBox(height: Spacing.md),
                       DropdownButtonFormField<Role>(

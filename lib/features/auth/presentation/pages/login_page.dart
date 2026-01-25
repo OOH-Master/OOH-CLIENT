@@ -5,6 +5,7 @@ import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_constants.dart';
+import '../../../../core/widgets/main_app_bar.dart';
 import '../blocs/auth_bloc.dart';
 
 class LoginPage extends StatefulWidget {
@@ -43,6 +44,7 @@ class _LoginPageState extends State<LoginPage> {
 
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: const MainAppBar(showLoginButton: false),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -66,7 +68,9 @@ class _LoginPageState extends State<LoginPage> {
                 // Title
                 Text(
                   l10n.authLoginTitle,
-                  style: AppTypography.h1,
+                  style: AppTypography.h1.copyWith(
+                    color: AppColors.foreground,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -76,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'New here? ',
+                      l10n.newHere,
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.mutedForeground,
                       ),
@@ -84,7 +88,7 @@ class _LoginPageState extends State<LoginPage> {
                     GestureDetector(
                       onTap: () => context.go('/register'),
                       child: Text(
-                        'Create an account',
+                        l10n.createAccountLink,
                         style: AppTypography.bodyMedium.copyWith(
                           color: AppColors.primary,
                           decoration: TextDecoration.underline,
@@ -138,10 +142,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your email';
+                                  return l10n.validatorEmailRequired;
                                 }
                                 if (!value.contains('@')) {
-                                  return 'Please enter a valid email';
+                                  return l10n.validatorEmailInvalid;
                                 }
                                 return null;
                               },
@@ -164,10 +168,10 @@ class _LoginPageState extends State<LoginPage> {
                               ),
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
-                                  return 'Please enter your password';
+                                  return l10n.validatorPasswordRequired;
                                 }
                                 if (value.length < 6) {
-                                  return 'Password must be at least 6 characters';
+                                  return l10n.validatorPasswordMin;
                                 }
                                 return null;
                               },

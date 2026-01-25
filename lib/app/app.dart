@@ -6,6 +6,7 @@ import 'router.dart';
 import '../core/theme/app_theme.dart';
 import '../core/l10n/l10n.dart';
 import '../features/auth/presentation/blocs/auth_bloc.dart';
+import '../features/discover/data/repository/discover_repository.dart';
 import '../features/discover/presentation/blocs/discover_bloc.dart';
 import '../features/map/presentation/blocs/map_bloc.dart';
 import '../features/profile/presentation/blocs/profile_bloc.dart';
@@ -46,7 +47,9 @@ class _OohAppState extends State<OohApp> {
       providers: [
         BlocProvider.value(value: _authBloc),
         BlocProvider(
-          create: (context) => DiscoverBloc(getOohUnitsUseCase: getIt()),
+          create: (context) => DiscoverBloc(
+            repository: getIt<DiscoverRepository>(),
+          ),
         ),
         BlocProvider(create: (context) => MapBloc()),
         BlocProvider(create: (context) => ProfileBloc()),
@@ -55,8 +58,9 @@ class _OohAppState extends State<OohApp> {
         title: 'OOH Planner',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.light,
         routerConfig: _appRouter.router,
+        locale: const Locale('sr'),
         localizationsDelegates: const [
           AppLocalizations.delegate, // This will be available after generation
           GlobalMaterialLocalizations.delegate,

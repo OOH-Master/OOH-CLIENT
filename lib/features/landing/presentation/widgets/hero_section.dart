@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_constants.dart';
@@ -13,31 +15,40 @@ class HeroSection extends StatefulWidget {
 }
 
 class _HeroSectionState extends State<HeroSection> {
-  final List<String> heroKeywords = [
-    'Bus station',
-    'Shopping mall',
-    'Metro',
-    'Airport',
-    'Digital billboard',
-    'Anamorphic',
-    'Wrapping',
+  static const List<String> _keywordKeys = [
+    'heroKeywordBusStation',
+    'heroKeywordShoppingMall',
+    'heroKeywordMetro',
+    'heroKeywordAirport',
+    'heroKeywordDigitalBillboard',
+    'heroKeywordAnamorphic',
+    'heroKeywordWrapping',
+    'heroKeywordElectronic',
+  ];
+
+  static const List<String> _pillKeys = [
+    'heroKeywordBusStation',
+    'heroKeywordMetro',
+    'heroKeywordShoppingMall',
+    'heroKeywordAirport',
+    'heroKeywordDigitalBillboard',
+    'heroKeywordAnamorphic',
+    'heroKeywordWrapping',
+    'heroKeywordElectronic',
+  ];
+
+  static const List<String> _countryCodes = [
+    'korea',
+    'usa',
+    'uk',
+    'germany',
+    'france',
   ];
 
   int _currentKeywordIndex = 0;
-  String _selectedCountry = 'Republic of Korea';
+  String _selectedCountryCode = 'korea';
   String _searchQuery = '';
-  String? _selectedPill;
-
-  final List<String> pillOptions = [
-    'Bus station',
-    'Metro',
-    'Shopping mall',
-    'Airport',
-    'Digital',
-    'Anamorphic',
-    'Wrapping',
-    'Electronic',
-  ];
+  String? _selectedPillKey;
 
   @override
   void initState() {
@@ -49,7 +60,7 @@ class _HeroSectionState extends State<HeroSection> {
     Future.delayed(const Duration(milliseconds: 2200), () {
       if (mounted) {
         setState(() {
-          _currentKeywordIndex = (_currentKeywordIndex + 1) % heroKeywords.length;
+          _currentKeywordIndex = (_currentKeywordIndex + 1) % _keywordKeys.length;
         });
         _startKeywordAnimation();
       }
@@ -57,22 +68,25 @@ class _HeroSectionState extends State<HeroSection> {
   }
 
   void _handleSearch() {
-    // TODO: Navigate to search page with params
-    print('Search: country=$_selectedCountry, query=$_searchQuery, pill=$_selectedPill');
+    // Navigate to discover page
+    context.go('/discover');
   }
 
   void _handleSeeMap() {
-    // TODO: Navigate to map view
-    print('See Map clicked');
+    context.go('/discover');
   }
 
   void _scrollToCategoriesSection() {
-    // TODO: Scroll to categories section
-    print('Scroll to categories');
+    // Scroll to categories (not implemented)
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final keywordLabels = _keywordKeys.map((key) => _keywordLabel(key, l10n)).toList();
+    final pillLabels = _pillKeys.map((key) => _keywordLabel(key, l10n)).toList();
+    final countryLabels = _countryCodes.map((code) => _countryLabel(code, l10n)).toList();
+
     return ResponsiveBuilder(
       builder: (context, deviceType) {
         final bool isMobile = deviceType == DeviceType.mobile;
@@ -102,48 +116,52 @@ class _HeroSectionState extends State<HeroSection> {
             child: SafeArea(
               child: Padding(
                 padding: context.responsivePadding,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Animated headline
-                    _buildAnimatedHeadline(isMobile),
-                    
-                    SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
-                    
-                    // Subheadline
-                    Text(
-                      'Discover and filter available inventory in seconds.',
-                      style: AppTypography.lead.copyWith(
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                      textAlign: TextAlign.center,
-                    )
-                        .animate()
-                        .fadeIn(duration: 600.ms, delay: 200.ms)
-                        .slideY(begin: 0.3, end: 0),
-                    
-                    SizedBox(height: isMobile ? AppSpacing.xl : AppSpacing.xxl),
-                    
-                    // Search form
-                    _buildSearchForm(isMobile),
-                    
-                    SizedBox(height: AppSpacing.lg),
-                    
-                    // Pills
-                    _buildPills(),
-                    
-                    SizedBox(height: AppSpacing.xl),
-                    
-                    // CTA buttons
-                    _buildCTAButtons(isMobile),
-                    
-                    const Spacer(),
-                    
-                    // Scroll down button
-                    _buildScrollDownButton(),
-                    
-                    SizedBox(height: AppSpacing.lg),
-                  ],
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
+                      
+                      // Animated headline
+                      _buildAnimatedHeadline(isMobile),
+                      
+                      SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+                      
+                      // Subheadline
+                      Text(
+                        l10n.heroSubheadlineShort,
+                        style: AppTypography.lead.copyWith(
+                          color: Colors.white.withOpacity(0.9),
+                        ),
+                        textAlign: TextAlign.center,
+                      )
+                          .animate()
+                          .fadeIn(duration: 600.ms, delay: 200.ms)
+                          .slideY(begin: 0.3, end: 0),
+                      
+                      SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
+                      
+                      // Search form
+                      _buildSearchForm(isMobile, l10n, countryLabels),
+                      
+                      SizedBox(height: isMobile ? AppSpacing.md : AppSpacing.lg),
+                      
+                      // Pills
+                      _buildPills(pillLabels),
+                      
+                      SizedBox(height: isMobile ? AppSpacing.lg : AppSpacing.xl),
+                      
+                      // CTA buttons
+                      _buildCTAButtons(isMobile, l10n),
+                      
+                      SizedBox(height: isMobile ? AppSpacing.xl : AppSpacing.xxl),
+                      
+                      // Scroll down button
+                      _buildScrollDownButton(l10n),
+                      
+                      SizedBox(height: AppSpacing.lg),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -154,6 +172,8 @@ class _HeroSectionState extends State<HeroSection> {
   }
 
   Widget _buildAnimatedHeadline(bool isMobile) {
+    final l10n = AppLocalizations.of(context)!;
+    final keywordLabels = _keywordKeys.map((key) => _keywordLabel(key, l10n)).toList();
     return Column(
       children: [
         AnimatedSwitcher(
@@ -171,7 +191,7 @@ class _HeroSectionState extends State<HeroSection> {
             );
           },
           child: Text(
-            heroKeywords[_currentKeywordIndex],
+            keywordLabels[_currentKeywordIndex],
             key: ValueKey(_currentKeywordIndex),
             style: (isMobile ? AppTypography.displaySmall : AppTypography.displayLarge).copyWith(
               color: Colors.white,
@@ -182,7 +202,7 @@ class _HeroSectionState extends State<HeroSection> {
         ),
         SizedBox(height: AppSpacing.sm),
         Text(
-          'Are you looking for media?',
+          l10n.heroHeadlineQuestion,
           style: (isMobile ? AppTypography.displaySmall : AppTypography.displayLarge).copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -196,57 +216,53 @@ class _HeroSectionState extends State<HeroSection> {
         .slideY(begin: 0.3, end: 0);
   }
 
-  Widget _buildSearchForm(bool isMobile) {
+  Widget _buildSearchForm(bool isMobile, AppLocalizations l10n, List<String> countryLabels) {
     return Container(
       constraints: const BoxConstraints(maxWidth: 768),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withOpacity(0.95),
         borderRadius: BorderRadius.circular(AppRadius.full),
         border: Border.all(
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withOpacity(0.3),
         ),
       ),
       child: Row(
         children: [
           // Country dropdown
           Container(
-            width: 190,
+            width: 160,
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: AppColors.muted,
               borderRadius: BorderRadius.circular(AppRadius.full),
               border: Border.all(
-                color: Colors.white.withOpacity(0.15),
+                color: AppColors.border,
               ),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: _selectedCountry,
+                value: _selectedCountryCode,
                 dropdownColor: Colors.white,
-                style: AppTypography.bodyMedium.copyWith(color: Colors.white),
-                icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                items: [
-                  'Republic of Korea',
-                  'United States',
-                  'United Kingdom',
-                  'Germany',
-                  'France',
-                ].map((country) {
+                isExpanded: true,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
+                icon: Icon(Icons.arrow_drop_down, color: AppColors.foreground, size: 20),
+                items: List.generate(_countryCodes.length, (index) {
+                  final code = _countryCodes[index];
                   return DropdownMenuItem(
-                    value: country,
+                    value: code,
                     child: Text(
-                      country,
+                      countryLabels[index],
                       style: AppTypography.bodyMedium.copyWith(
                         color: AppColors.foreground,
                       ),
                     ),
                   );
-                }).toList(),
+                }),
                 onChanged: (value) {
                   setState(() {
-                    _selectedCountry = value!;
+                    _selectedCountryCode = value!;
                   });
                 },
               ),
@@ -258,11 +274,11 @@ class _HeroSectionState extends State<HeroSection> {
           // Search input
           Expanded(
             child: TextField(
-              style: AppTypography.bodyMedium.copyWith(color: Colors.white),
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
               decoration: InputDecoration(
-                hintText: 'Search locations...',
+                hintText: l10n.searchLocationsPlaceholder,
                 hintStyle: AppTypography.bodyMedium.copyWith(
-                  color: Colors.white.withOpacity(0.6),
+                  color: AppColors.mutedForeground,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -299,28 +315,30 @@ class _HeroSectionState extends State<HeroSection> {
         .slideY(begin: 0.3, end: 0);
   }
 
-  Widget _buildPills() {
+  Widget _buildPills(List<String> pillLabels) {
     return Wrap(
       spacing: AppSpacing.xs,
       runSpacing: AppSpacing.xs,
       alignment: WrapAlignment.center,
-      children: pillOptions.map((pill) {
-        final isSelected = _selectedPill == pill;
+      children: List.generate(_pillKeys.length, (index) {
+        final pillKey = _pillKeys[index];
+        final pill = pillLabels[index];
+        final isSelected = _selectedPillKey == pillKey;
         return FilterChip(
           label: Text(pill),
           selected: isSelected,
           onSelected: (selected) {
             setState(() {
-              _selectedPill = selected ? pill : null;
+              _selectedPillKey = selected ? pillKey : null;
             });
           },
-          backgroundColor: Colors.white.withOpacity(0.1),
+          backgroundColor: Colors.white.withOpacity(0.9),
           selectedColor: AppColors.primary,
           labelStyle: AppTypography.bodySmall.copyWith(
-            color: isSelected ? Colors.white : Colors.white.withOpacity(0.9),
+            color: isSelected ? Colors.white : AppColors.foreground,
           ),
           side: BorderSide(
-            color: isSelected ? AppColors.primary : Colors.white.withOpacity(0.3),
+            color: isSelected ? AppColors.primary : AppColors.border,
           ),
         );
       }).toList(),
@@ -330,14 +348,14 @@ class _HeroSectionState extends State<HeroSection> {
         .slideY(begin: 0.3, end: 0);
   }
 
-  Widget _buildCTAButtons(bool isMobile) {
+  Widget _buildCTAButtons(bool isMobile, AppLocalizations l10n) {
     if (isMobile) {
       return Column(
         children: [
           ElevatedButton.icon(
             onPressed: _handleSeeMap,
             icon: const Icon(Icons.map),
-            label: const Text('See Map'),
+            label: Text(l10n.seeMap),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size(double.infinity, 48),
             ),
@@ -352,7 +370,7 @@ class _HeroSectionState extends State<HeroSection> {
         ElevatedButton.icon(
           onPressed: _handleSeeMap,
           icon: const Icon(Icons.map),
-          label: const Text('See Map'),
+          label: Text(l10n.seeMap),
         ),
       ],
     )
@@ -361,7 +379,7 @@ class _HeroSectionState extends State<HeroSection> {
         .slideY(begin: 0.3, end: 0);
   }
 
-  Widget _buildScrollDownButton() {
+  Widget _buildScrollDownButton(AppLocalizations l10n) {
     return IconButton(
       onPressed: _scrollToCategoriesSection,
       icon: Icon(
@@ -369,10 +387,50 @@ class _HeroSectionState extends State<HeroSection> {
         color: Colors.white.withOpacity(0.7),
         size: 32,
       ),
+      tooltip: l10n.scrollDown,
     )
         .animate(onPlay: (controller) => controller.repeat())
         .fadeIn(duration: 1000.ms)
-        .then()
-        .fadeOut(duration: 1000.ms);
+        .slideY(begin: -0.05, end: 0.05);
+  }
+
+  String _keywordLabel(String key, AppLocalizations l10n) {
+    switch (key) {
+      case 'heroKeywordBusStation':
+        return l10n.heroKeywordBusStation;
+      case 'heroKeywordShoppingMall':
+        return l10n.heroKeywordShoppingMall;
+      case 'heroKeywordMetro':
+        return l10n.heroKeywordMetro;
+      case 'heroKeywordAirport':
+        return l10n.heroKeywordAirport;
+      case 'heroKeywordDigitalBillboard':
+        return l10n.heroKeywordDigitalBillboard;
+      case 'heroKeywordAnamorphic':
+        return l10n.heroKeywordAnamorphic;
+      case 'heroKeywordWrapping':
+        return l10n.heroKeywordWrapping;
+      case 'heroKeywordElectronic':
+        return l10n.heroKeywordElectronic;
+      default:
+        return key;
+    }
+  }
+
+  String _countryLabel(String code, AppLocalizations l10n) {
+    switch (code) {
+      case 'korea':
+        return l10n.countryKorea;
+      case 'usa':
+        return l10n.countryUSA;
+      case 'uk':
+        return l10n.countryUK;
+      case 'germany':
+        return l10n.countryGermany;
+      case 'france':
+        return l10n.countryFrance;
+      default:
+        return code;
+    }
   }
 }

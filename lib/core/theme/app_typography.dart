@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'app_colors.dart';
 
 /// Typography system - using Space Grotesk like React web app
 class AppTypography {
   // Font family
-  static TextStyle get baseTextStyle => GoogleFonts.spaceGrotesk();
+  static TextStyle get baseTextStyle => GoogleFonts.spaceGrotesk(
+    color: AppColors.foreground,
+  );
   
   // Display styles (for hero sections)
   static TextStyle get displayLarge => baseTextStyle.copyWith(

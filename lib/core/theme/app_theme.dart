@@ -14,9 +14,12 @@ class AppTheme {
       onSecondary: AppColors.secondaryForeground,
       error: AppColors.destructive,
       onError: AppColors.destructiveForeground,
-      surface: AppColors.background,
+      surface: Colors.white,
       onSurface: AppColors.foreground,
-      surfaceContainerHighest: AppColors.card,
+      surfaceContainerHighest: Colors.white,
+      surfaceContainer: Colors.white,
+      surfaceContainerHigh: Colors.white,
+      surfaceContainerLow: Colors.white,
       outline: AppColors.border,
       outlineVariant: AppColors.input,
     );
@@ -278,6 +281,13 @@ class AppTheme {
         contentTextStyle: AppTypography.bodyMedium.copyWith(
           color: AppColors.foreground,
         ),
+      ),
+      
+      // Drawer Theme
+      drawerTheme: const DrawerThemeData(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
       ),
       
       // Snackbar Theme

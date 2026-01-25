@@ -229,6 +229,378 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming Soon'**
   String get comingSoon;
+
+  /// No description provided for @results.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} results'**
+  String results(Object count);
+
+  /// No description provided for @selectCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Select City'**
+  String get selectCity;
+
+  /// No description provided for @searchPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for \"Location or Billboard\"'**
+  String get searchPlaceholder;
+
+  /// No description provided for @allCategories.
+  ///
+  /// In en, this message translates to:
+  /// **'All Categories'**
+  String get allCategories;
+
+  /// No description provided for @filters.
+  ///
+  /// In en, this message translates to:
+  /// **'Filters'**
+  String get filters;
+
+  /// No description provided for @view.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get view;
+
+  /// No description provided for @available.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get available;
+
+  /// No description provided for @booked.
+  ///
+  /// In en, this message translates to:
+  /// **'Booked'**
+  String get booked;
+
+  /// No description provided for @maintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get maintenance;
+
+  /// No description provided for @noInventoryFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No inventory found'**
+  String get noInventoryFound;
+
+  /// No description provided for @selectCityToViewInventory.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a city to view inventory'**
+  String get selectCityToViewInventory;
+
+  /// No description provided for @error.
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get error;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @houseOfOoh.
+  ///
+  /// In en, this message translates to:
+  /// **'HOUSE of OOH'**
+  String get houseOfOoh;
+
+  /// No description provided for @billboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Billboard'**
+  String get billboard;
+
+  /// No description provided for @digital.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital'**
+  String get digital;
+
+  /// No description provided for @transit.
+  ///
+  /// In en, this message translates to:
+  /// **'Transit'**
+  String get transit;
+
+  /// No description provided for @search.
+  ///
+  /// In en, this message translates to:
+  /// **'Search...'**
+  String get search;
+
+  /// No description provided for @day.
+  ///
+  /// In en, this message translates to:
+  /// **'day'**
+  String get day;
+
+  /// No description provided for @week.
+  ///
+  /// In en, this message translates to:
+  /// **'week'**
+  String get week;
+
+  /// No description provided for @twoWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'2 weeks'**
+  String get twoWeeks;
+
+  /// No description provided for @fourWeeks.
+  ///
+  /// In en, this message translates to:
+  /// **'4 weeks'**
+  String get fourWeeks;
+
+  /// No description provided for @month.
+  ///
+  /// In en, this message translates to:
+  /// **'month'**
+  String get month;
+
+  /// No description provided for @heroHeadlineQuestion.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you looking for media?'**
+  String get heroHeadlineQuestion;
+
+  /// No description provided for @heroSubheadlineShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Discover and filter available inventory in seconds.'**
+  String get heroSubheadlineShort;
+
+  /// No description provided for @searchLocationsPlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Search locations...'**
+  String get searchLocationsPlaceholder;
+
+  /// No description provided for @seeMap.
+  ///
+  /// In en, this message translates to:
+  /// **'See Map'**
+  String get seeMap;
+
+  /// No description provided for @scrollDown.
+  ///
+  /// In en, this message translates to:
+  /// **'Scroll down'**
+  String get scrollDown;
+
+  /// No description provided for @heroKeywordBusStation.
+  ///
+  /// In en, this message translates to:
+  /// **'Bus station'**
+  String get heroKeywordBusStation;
+
+  /// No description provided for @heroKeywordShoppingMall.
+  ///
+  /// In en, this message translates to:
+  /// **'Shopping mall'**
+  String get heroKeywordShoppingMall;
+
+  /// No description provided for @heroKeywordMetro.
+  ///
+  /// In en, this message translates to:
+  /// **'Metro'**
+  String get heroKeywordMetro;
+
+  /// No description provided for @heroKeywordAirport.
+  ///
+  /// In en, this message translates to:
+  /// **'Airport'**
+  String get heroKeywordAirport;
+
+  /// No description provided for @heroKeywordDigitalBillboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Digital billboard'**
+  String get heroKeywordDigitalBillboard;
+
+  /// No description provided for @heroKeywordAnamorphic.
+  ///
+  /// In en, this message translates to:
+  /// **'Anamorphic'**
+  String get heroKeywordAnamorphic;
+
+  /// No description provided for @heroKeywordWrapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Wrapping'**
+  String get heroKeywordWrapping;
+
+  /// No description provided for @heroKeywordElectronic.
+  ///
+  /// In en, this message translates to:
+  /// **'Electronic'**
+  String get heroKeywordElectronic;
+
+  /// No description provided for @countryKorea.
+  ///
+  /// In en, this message translates to:
+  /// **'Korea'**
+  String get countryKorea;
+
+  /// No description provided for @countryUSA.
+  ///
+  /// In en, this message translates to:
+  /// **'USA'**
+  String get countryUSA;
+
+  /// No description provided for @countryUK.
+  ///
+  /// In en, this message translates to:
+  /// **'UK'**
+  String get countryUK;
+
+  /// No description provided for @countryGermany.
+  ///
+  /// In en, this message translates to:
+  /// **'Germany'**
+  String get countryGermany;
+
+  /// No description provided for @countryFrance.
+  ///
+  /// In en, this message translates to:
+  /// **'France'**
+  String get countryFrance;
+
+  /// No description provided for @newHere.
+  ///
+  /// In en, this message translates to:
+  /// **'New here?'**
+  String get newHere;
+
+  /// No description provided for @createAccountLink.
+  ///
+  /// In en, this message translates to:
+  /// **'Create an account'**
+  String get createAccountLink;
+
+  /// No description provided for @validatorEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your email'**
+  String get validatorEmailRequired;
+
+  /// No description provided for @validatorEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid email'**
+  String get validatorEmailInvalid;
+
+  /// No description provided for @validatorPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter your password'**
+  String get validatorPasswordRequired;
+
+  /// No description provided for @validatorPasswordMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 6 characters'**
+  String get validatorPasswordMin;
+
+  /// No description provided for @validatorRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get validatorRequired;
+
+  /// No description provided for @viewLargerPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'View larger photo'**
+  String get viewLargerPhoto;
+
+  /// No description provided for @seeMore.
+  ///
+  /// In en, this message translates to:
+  /// **'see more'**
+  String get seeMore;
+
+  /// No description provided for @seeLess.
+  ///
+  /// In en, this message translates to:
+  /// **'see less'**
+  String get seeLess;
+
+  /// No description provided for @updated.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated'**
+  String get updated;
+
+  /// No description provided for @share.
+  ///
+  /// In en, this message translates to:
+  /// **'Share'**
+  String get share;
+
+  /// No description provided for @startMediaInquiry.
+  ///
+  /// In en, this message translates to:
+  /// **'Start a media inquiry'**
+  String get startMediaInquiry;
+
+  /// No description provided for @addToProposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your desired products to the proposal!'**
+  String get addToProposal;
+
+  /// No description provided for @howToUseMediaProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'How do I use media products?'**
+  String get howToUseMediaProducts;
+
+  /// No description provided for @howToUseMediaProductsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'At HOO, you can quickly and easily create a proposal that includes products from the media you want.'**
+  String get howToUseMediaProductsDescription;
+
+  /// No description provided for @viewDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'View Details'**
+  String get viewDetails;
+
+  /// No description provided for @perMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'per month'**
+  String get perMonth;
+
+  /// No description provided for @individual.
+  ///
+  /// In en, this message translates to:
+  /// **'Individual'**
+  String get individual;
+
+  /// No description provided for @advertisingPeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Advertising period'**
+  String get advertisingPeriod;
+
+  /// No description provided for @addProposal.
+  ///
+  /// In en, this message translates to:
+  /// **'Add proposal'**
+  String get addProposal;
 }
 
 class _AppLocalizationsDelegate
