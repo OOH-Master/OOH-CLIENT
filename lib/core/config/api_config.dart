@@ -21,12 +21,12 @@ class ApiConfig {
 
   /// Public endpoints (no auth required)
   static const String publicUnits = '/public/units';
-  static const String publicConfig = '/public/config';
-  static const String publicCities = '/public/config/cities';
-  static const String publicCountries = '/public/config/countries';
-  static const String publicUnitTypes = '/public/config/unit-types';
-  static const String publicMediaFormats = '/public/config/media-formats';
-  static const String publicVenueTypes = '/public/config/venue-types';
+  static const String publicConfig = '/public/dictionaries';
+  static const String publicCities = '/public/dictionaries/cities';
+  static const String publicCountries = '/public/dictionaries/countries';
+  static const String publicUnitTypes = '/public/dictionaries/unit-types';
+  static const String publicMediaFormats = '/public/dictionaries/media-formats';
+  static const String publicVenueTypes = '/public/dictionaries/venue-types';
 
   /// Auth endpoints
   static const String authLogin = '/auth/login';

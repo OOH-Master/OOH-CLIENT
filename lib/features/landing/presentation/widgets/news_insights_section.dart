@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_constants.dart';
+
 import '../../../../core/responsive/responsive.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_constants.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class NewsInsightsSection extends StatelessWidget {
   const NewsInsightsSection({super.key});
@@ -92,7 +93,7 @@ class NewsInsightsSection extends StatelessWidget {
               delay: entry.key * 100,
             ),
           );
-        }).toList(),
+        }),
         const SizedBox(height: 32),
         _buildTrendingTopics(),
       ],
@@ -181,7 +182,7 @@ class NewsInsightsSection extends StatelessWidget {
               delay: entry.key * 100,
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

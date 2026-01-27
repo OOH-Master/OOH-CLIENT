@@ -1,6 +1,6 @@
-import '../dto/dto.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/ooh_unit.dart';
+import '../dto/dto.dart';
 
 /// Maps DTOs from API to domain entities
 class DiscoverMapper {
@@ -35,6 +35,8 @@ class DiscoverMapper {
       latitude: dto.lat ?? 0.0,
       longitude: dto.lng ?? 0.0,
       price: dto.pricePerCycle ?? 0.0,
+      currency: dto.currency ?? 'EUR',
+      cycleType: _mapCycleType(dto.cycleType),
       imageUrl: dto.assetUrl,
       images: dto.assetUrl != null ? [dto.assetUrl!] : [],
       status: _mapStatus(dto.status),
@@ -68,6 +70,25 @@ class DiscoverMapper {
       return OohType.bus;
     }
     return OohType.other;
+  }
+
+  static CycleType _mapCycleType(String? cycleType) {
+    if (cycleType == null) return CycleType.oneMonth;
+
+    final lower = cycleType.toLowerCase();
+    if (lower.contains('day') || lower == '1-day' || lower == 'one_day') {
+      return CycleType.oneDay;
+    }
+    if (lower == 'week' || lower == '1-week' || lower == 'one_week') {
+      return CycleType.oneWeek;
+    }
+    if (lower.contains('two') || lower == '2-week' || lower == 'two_week') {
+      return CycleType.twoWeek;
+    }
+    if (lower.contains('four') || lower == '4-week' || lower == 'four_week') {
+      return CycleType.fourWeek;
+    }
+    return CycleType.oneMonth;
   }
 
   static OohStatus _mapStatus(String? status) {

@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../../../core/l10n/l10n.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/responsive/breakpoints.dart';
+import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
@@ -42,133 +44,84 @@ class _DiscoverPageState extends State<DiscoverPage> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: AppColors.background,
-      appBar: _buildAppBar(isDesktop),
-      body: BlocConsumer<DiscoverBloc, DiscoverState>(
-        listener: (context, state) {
-          if (state is DiscoverLoaded &&
-              state.selectedCity != null &&
-              state.units.isEmpty &&
-              !state.isLoadingUnits) {
-            context
-                .read<DiscoverBloc>()
-                .add(LoadInventoryUnits(cityId: state.selectedCity!.id));
-          }
-        },
-        builder: (context, state) {
-          if (state is DiscoverInitial ||
-              (state is DiscoverLoading && state is! DiscoverLoaded)) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      appBar: const AppHeader(),
+      body: Column(
+        children: [
+          // Secondary toolbar with city dropdown and filters
+          _buildSecondaryToolbar(isDesktop),
+          // Main content
+          Expanded(
+            child: BlocConsumer<DiscoverBloc, DiscoverState>(
+              listener: (context, state) {
+                if (state is DiscoverLoaded &&
+                    state.selectedCity != null &&
+                    state.units.isEmpty &&
+                    !state.isLoadingUnits) {
+                  context.read<DiscoverBloc>().add(LoadInventoryUnits(cityId: state.selectedCity!.id));
+                }
+              },
+              builder: (context, state) {
+                if (state is DiscoverInitial || (state is DiscoverLoading && state is! DiscoverLoaded)) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (state is DiscoverFailure) {
-            return _buildErrorState(state.message);
-          }
+                if (state is DiscoverFailure) {
+                  return _buildErrorState(state.message);
+                }
 
-          if (state is DiscoverLoaded) {
-            if (isDesktop) {
-              return _buildDesktopLayout(state);
-            } else {
-              return _buildMobileLayout(state);
-            }
-          }
+                if (state is DiscoverLoaded) {
+                  if (isDesktop) {
+                    return _buildDesktopLayout(state);
+                  } else {
+                    return _buildMobileLayout(state);
+                  }
+                }
 
-          return Center(
-            child: Text(
-              l10n.selectCityToViewInventory,
-              style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
+                return Center(
+                  child: Text(
+                    l10n.selectCityToViewInventory,
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 
-  PreferredSizeWidget _buildAppBar(bool isDesktop) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.white,
-      elevation: 0,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 16),
-        child: GestureDetector(
-          onTap: () => context.go('/'),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.apartment, color: Colors.white, size: 18),
-              ),
-            ],
-          ),
-        ),
+  Widget _buildSecondaryToolbar(bool isDesktop) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
       ),
-      leadingWidth: 60,
-      title: BlocBuilder<DiscoverBloc, DiscoverState>(
+      child: BlocBuilder<DiscoverBloc, DiscoverState>(
         builder: (context, state) {
           if (state is DiscoverLoaded) {
             return Row(
               children: [
-                if (isDesktop) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.houseOfOoh,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.foreground,
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                ],
-                _buildCityDropdown(state, isDesktop),
+                Expanded(
+                  child: _buildCityDropdown(state, isDesktop),
+                ),
                 const SizedBox(width: 12),
-                if (isDesktop) Expanded(child: _buildSearchField()),
+                if (isDesktop) ...[
+                  Expanded(child: _buildSearchField()),
+                  const SizedBox(width: 12),
+                  _buildCategoryDropdown(),
+                  const SizedBox(width: 12),
+                  _buildFilterButton(),
+                ],
+                if (!isDesktop) ...[
+                  _buildFilterButton(),
+                ],
               ],
             );
           }
-          return Text(
-            l10n.houseOfOoh,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.foreground,
-            ),
-          );
+          return const SizedBox(height: 48);
         },
-      ),
-      actions: [
-        if (isDesktop) ...[
-          BlocBuilder<DiscoverBloc, DiscoverState>(
-            builder: (context, state) {
-              if (state is DiscoverLoaded) {
-                return _buildCategoryDropdown();
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          const SizedBox(width: 12),
-          _buildFilterButton(),
-          const SizedBox(width: 24),
-        ],
-        OutlinedButton(
-          onPressed: () => context.push('/auth/login'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          ),
-          child: Text(
-            l10n.loginButton,
-            style: AppTypography.button.copyWith(color: AppColors.foreground),
-          ),
-        ),
-        const SizedBox(width: 16),
-      ],
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppColors.border),
       ),
     );
   }
@@ -578,16 +531,19 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     ),
                     const Spacer(),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          unit.priceDisplay,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                        Expanded(
+                          child: Text(
+                            unit.priceDisplay,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 4),
                         GestureDetector(
                           onTap: () => _navigateToDetail(unit),
                           child: Container(
@@ -734,22 +690,51 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Widget _buildEmptyState(DiscoverLoaded state) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.search_off, size: 48, color: AppColors.mutedForeground),
-          const SizedBox(height: 16),
-          Text(
-            state.selectedCity == null
-              ? l10n.selectCityToViewInventory
-              : '${l10n.noInventoryFound} ${state.selectedCity!.name}',
-            style: TextStyle(
-              fontSize: 14,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              state.selectedCity == null ? Icons.location_city : Icons.search_off,
+              size: 64,
               color: AppColors.mutedForeground,
             ),
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 16),
+            Text(
+              state.selectedCity == null ? l10n.selectCityToViewInventory : l10n.noInventoryFound,
+              style: AppTypography.bodyLarge.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.foreground,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (state.selectedCity != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${state.selectedCity!.name} - ${l10n.noAvailableBillboards}',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: () {
+                  // Try selecting Belgrade as it has inventory
+                  final belgrade = state.cities
+                      .where((c) => c.name.toLowerCase() == 'belgrade' || c.name.toLowerCase() == 'beograd')
+                      .firstOrNull;
+                  if (belgrade != null) {
+                    context.read<DiscoverBloc>().add(SelectCity(belgrade));
+                  }
+                },
+                icon: const Icon(Icons.explore),
+                label: Text(l10n.exploreBelgrade),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

@@ -6,6 +6,94 @@ OOH Mobile je Flutter aplikacija za Out-of-Home advertising platformu. Koristi *
 
 ---
 
+## 🦋 Flutter Cross-Platform
+
+### Kako Flutter funkcioniše
+
+Flutter je Google-ov UI framework koji omogućava pisanje jednog koda koji radi na **Web-u**, **Android-u**, **iOS-u**, **macOS-u**, **Windows-u** i **Linux-u**.
+
+#### Arhitektura Flutter-a
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    DART KOD (naš kod)                    │
+│         UI Widgets, Business Logic, State               │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                   FLUTTER FRAMEWORK                      │
+│     Widgets, Rendering, Animation, Gestures             │
+└─────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+┌─────────────────────────────────────────────────────────┐
+│                    FLUTTER ENGINE                        │
+│          Skia (rendering), Dart VM, Platform Channels   │
+└─────────────────────────────────────────────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+         ┌────────┐  ┌──────────┐  ┌────────┐
+         │  WEB   │  │ ANDROID  │  │  iOS   │
+         │ Canvas │  │   NDK    │  │  Metal │
+         └────────┘  └──────────┘  └────────┘
+```
+
+#### Web Build
+
+Kada pokrenemo `flutter build web`, Flutter:
+1. **Kompajlira Dart u JavaScript** - koristi dart2js ili dart2wasm
+2. **Renderuje na HTML Canvas** - Skia crta direktno na canvas element
+3. **Generiše:** `build/web/` folder sa `index.html`, `main.dart.js`, assets
+
+```bash
+flutter build web --release
+# Rezultat: build/web/ (deploy na bilo koji web server)
+```
+
+#### Android Native Build
+
+Kada pokrenemo `flutter build apk`, Flutter:
+1. **Kompajlira Dart u native ARM kod** (AOT - Ahead of Time)
+2. **Pakuje Flutter Engine** (C++ Skia renderer)
+3. **Generiše:** APK/AAB sa native bibliotekama
+
+```bash
+flutter build apk --release
+# Rezultat: build/app/outputs/flutter-apk/app-release.apk
+```
+
+#### iOS Native Build
+
+Slično Android-u, Flutter kompajlira u native ARM kod, koristi Metal API za rendering.
+
+#### Prednosti ovog pristupa
+
+| Aspekt | Opis |
+|--------|------|
+| **Jedan codebase** | Isti Dart kod za sve platforme |
+| **Native performanse** | AOT kompilacija, ne koristi bridge kao React Native |
+| **Konzistentan UI** | Isti pixel-perfect izgled na svim platformama |
+| **Hot Reload** | Instant promene tokom razvoja |
+
+#### Naš projekat
+
+```bash
+# Development
+flutter run -d chrome          # Web (localhost:8080)
+flutter run -d android         # Android emulator/device
+flutter run -d ios             # iOS simulator/device
+
+# Production
+flutter build web --release    # Web deploy
+flutter build apk --release    # Android APK
+flutter build appbundle        # Google Play (AAB)
+flutter build ios --release    # iOS App Store
+```
+
+---
+
 ## 📁 Struktura Projekta
 
 ```

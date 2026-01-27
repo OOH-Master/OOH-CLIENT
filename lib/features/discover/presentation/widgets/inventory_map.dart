@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
 import 'package:latlong2/latlong.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/ooh_unit.dart';
@@ -71,6 +72,8 @@ class _InventoryMapState extends State<InventoryMap> {
               options: MarkerClusterLayerOptions(
                 maxClusterRadius: 80,
                 size: const Size(50, 50),
+                showPolygon: false,
+                disableClusteringAtZoom: 16,
                 markers: widget.units.map((unit) {
                   return Marker(
                     point: LatLng(unit.latitude, unit.longitude),
@@ -219,15 +222,18 @@ class _InventoryMapState extends State<InventoryMap> {
                     ),
                     const SizedBox(height: 8),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          unit.priceDisplay,
-                          style: AppTypography.bodyMedium.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
+                        Expanded(
+                          child: Text(
+                            unit.priceDisplay,
+                            style: AppTypography.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(

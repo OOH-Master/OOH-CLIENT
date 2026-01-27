@@ -9,7 +9,10 @@ class AppLocalizationsSr extends AppLocalizations {
   AppLocalizationsSr([String locale = 'sr']) : super(locale);
 
   @override
-  String get appTitle => 'OOH Planer';
+  String get appTitle => 'AutoHome';
+
+  @override
+  String get appName => 'AutoHome';
 
   @override
   String get landingHeadline =>
@@ -118,9 +121,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get retry => 'Pokušaj ponovo';
 
   @override
-  String get houseOfOoh => 'HOUSE of OOH';
-
-  @override
   String get billboard => 'Bilbord';
 
   @override
@@ -188,21 +188,6 @@ class AppLocalizationsSr extends AppLocalizations {
   String get heroKeywordElectronic => 'Elektronski';
 
   @override
-  String get countryKorea => 'Koreja';
-
-  @override
-  String get countryUSA => 'SAD';
-
-  @override
-  String get countryUK => 'UK';
-
-  @override
-  String get countryGermany => 'Nemačka';
-
-  @override
-  String get countryFrance => 'Francuska';
-
-  @override
   String get newHere => 'Novi ste?';
 
   @override
@@ -249,7 +234,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get howToUseMediaProductsDescription =>
-      'Na HOO možete brzo i lako kreirati ponudu koja uključuje proizvode od medija koje želite.';
+      'Na AutoHome možete brzo i lako kreirati ponudu koja uključuje proizvode od medija koje želite.';
 
   @override
   String get viewDetails => 'Pogledaj detalje';
@@ -265,4 +250,37 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get addProposal => 'Dodaj ponudu';
+
+  @override
+  String get navSolutions => 'Rešenja';
+
+  @override
+  String get navProducts => 'Proizvodi';
+
+  @override
+  String get navResources => 'Resursi';
+
+  @override
+  String get navCompany => 'Kompanija';
+
+  @override
+  String get navLocations => 'Lokacije';
+
+  @override
+  String get getStarted => 'Započni';
+
+  @override
+  String get menu => 'Meni';
+
+  @override
+  String get home => 'Početna';
+
+  @override
+  String get findMedia => 'Pronađi medije';
+
+  @override
+  String get noAvailableBillboards => 'Trenutno nema dostupnih bilborda';
+
+  @override
+  String get exploreBelgrade => 'Istraži Beograd';
 }

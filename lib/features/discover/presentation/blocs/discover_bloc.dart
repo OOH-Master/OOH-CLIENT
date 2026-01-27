@@ -1,5 +1,6 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/utils/result.dart';
 import '../../data/api/inventory_api_service.dart';
 import '../../data/repository/discover_repository.dart';
@@ -127,21 +128,34 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     
     switch (result) {
       case Success(data: final cities):
-        // Find Belgrade as default city
-        final belgrade = cities.firstWhere(
-          (city) => city.name.toLowerCase() == 'belgrade' || city.name.toLowerCase() == 'beograd',
-          orElse: () => cities.isNotEmpty ? cities.first : throw Exception('No cities found'),
-        );
-        
+        if (cities.isEmpty) {
+          emit(DiscoverLoaded(
+            cities: [],
+            units: [],
+            selectedCity: null,
+          ));
+          return;
+        }
+
+        // Find Belgrade as default city (or first available)
+        City? defaultCity;
+        try {
+          defaultCity = cities.firstWhere(
+            (city) => city.name.toLowerCase() == 'belgrade' || city.name.toLowerCase() == 'beograd',
+          );
+        } catch (_) {
+          defaultCity = cities.first;
+        }
+
         emit(DiscoverLoaded(
           cities: cities,
           units: [],
-          selectedCity: belgrade,
+          selectedCity: defaultCity,
         ));
-        
-        // Load units for Belgrade
-        add(LoadInventoryUnits(cityId: belgrade.id));
-        
+
+        // Load units for default city
+        add(LoadInventoryUnits(cityId: defaultCity.id));
+
       case Error(failure: final failure):
         emit(DiscoverFailure('Failed to load cities: ${failure.message}'));
     }

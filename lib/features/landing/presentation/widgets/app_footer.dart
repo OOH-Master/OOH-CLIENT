@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+
+import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/responsive/responsive.dart';
 
 class AppFooter extends StatelessWidget {
   const AppFooter({super.key});
@@ -86,11 +87,11 @@ class AppFooter extends StatelessWidget {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               const SizedBox(height: 24),
             ],
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -123,7 +124,7 @@ class AppFooter extends StatelessWidget {
             title: entry.key,
             links: entry.value,
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -152,7 +153,7 @@ class AppFooter extends StatelessWidget {
               links: entry.value,
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -193,7 +194,7 @@ class _FooterColumn extends StatelessWidget {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     )
         .animate()

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../../core/l10n/l10n.dart';
+import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/responsive/responsive.dart';
 
 class AppHeader extends StatefulWidget implements PreferredSizeWidget {
   const AppHeader({super.key});
@@ -17,27 +19,19 @@ class AppHeader extends StatefulWidget implements PreferredSizeWidget {
 class _AppHeaderState extends State<AppHeader> {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+
     return AppBar(
-      backgroundColor: AppColors.background.withOpacity(0.8),
+      backgroundColor: AppColors.background.withValues(alpha: 0.95),
       elevation: 0,
       surfaceTintColor: Colors.transparent,
       flexibleSpace: Container(
         decoration: BoxDecoration(
-          color: AppColors.background.withOpacity(0.8),
-          border: Border(
+          color: AppColors.background.withValues(alpha: 0.95),
+          border: const Border(
             bottom: BorderSide(
               color: AppColors.border,
               width: 1,
-            ),
-          ),
-        ),
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: context.isDesktop
-                ? const ColorFilter.mode(Colors.transparent, BlendMode.src)
-                : const ColorFilter.mode(Colors.transparent, BlendMode.src),
-            child: Container(
-              color: Colors.transparent,
             ),
           ),
         ),
@@ -47,7 +41,7 @@ class _AppHeaderState extends State<AppHeader> {
           GestureDetector(
             onTap: () => context.go('/'),
             child: Text(
-              'AutoHome',
+              l10n.appName,
               style: AppTypography.h3.copyWith(
                 color: AppColors.foreground,
                 fontWeight: FontWeight.bold,
@@ -56,7 +50,7 @@ class _AppHeaderState extends State<AppHeader> {
           ),
           if (context.isDesktop) ...[
             const SizedBox(width: 64),
-            _buildDesktopNav(context),
+            _buildDesktopNav(context, l10n),
           ],
         ],
       ),
@@ -65,7 +59,7 @@ class _AppHeaderState extends State<AppHeader> {
           TextButton(
             onPressed: () => context.go('/auth/login'),
             child: Text(
-              'Log in',
+              l10n.loginButton,
               style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.mutedForeground,
               ),
@@ -79,36 +73,36 @@ class _AppHeaderState extends State<AppHeader> {
               foregroundColor: AppColors.primaryForeground,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
-            child: const Text('Get started'),
+            child: Text(l10n.getStarted),
           ),
           const SizedBox(width: 16),
         ] else ...[
           IconButton(
             icon: const Icon(Icons.menu),
-            onPressed: () => _showMobileMenu(context),
+            onPressed: () => _showMobileMenu(context, l10n),
           ),
         ],
       ],
     );
   }
 
-  Widget _buildDesktopNav(BuildContext context) {
+  Widget _buildDesktopNav(BuildContext context, AppLocalizations l10n) {
     return Row(
       children: [
-        _NavLink(label: 'Solutions', onTap: () {}),
+        _NavLink(label: l10n.navSolutions, onTap: () {}),
         const SizedBox(width: 24),
-        _NavLink(label: 'Products', onTap: () {}),
+        _NavLink(label: l10n.navProducts, onTap: () {}),
         const SizedBox(width: 24),
-        _NavLink(label: 'Resources', onTap: () {}),
+        _NavLink(label: l10n.navResources, onTap: () {}),
         const SizedBox(width: 24),
-        _NavLink(label: 'Company', onTap: () {}),
+        _NavLink(label: l10n.navCompany, onTap: () {}),
         const SizedBox(width: 24),
-        _NavLink(label: 'Locations', onTap: () {}),
+        _NavLink(label: l10n.navLocations, onTap: () => context.go('/discover')),
       ],
     );
   }
 
-  void _showMobileMenu(BuildContext context) {
+  void _showMobileMenu(BuildContext context, AppLocalizations l10n) {
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -118,21 +112,21 @@ class _AppHeaderState extends State<AppHeader> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Menu',
+              l10n.menu,
               style: AppTypography.h3.copyWith(
                 color: AppColors.foreground,
               ),
             ),
             const SizedBox(height: 24),
             ListTile(
-              title: const Text('Home'),
+              title: Text(l10n.home),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/');
               },
             ),
             ListTile(
-              title: const Text('Find media'),
+              title: Text(l10n.findMedia),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/discover');
@@ -140,7 +134,7 @@ class _AppHeaderState extends State<AppHeader> {
             ),
             const Divider(),
             ListTile(
-              title: const Text('Log in'),
+              title: Text(l10n.loginButton),
               onTap: () {
                 Navigator.pop(context);
                 context.go('/auth/login');
@@ -155,7 +149,7 @@ class _AppHeaderState extends State<AppHeader> {
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.primaryForeground,
               ),
-              child: const Text('Get started'),
+              child: Text(l10n.getStarted),
             ),
           ],
         ),

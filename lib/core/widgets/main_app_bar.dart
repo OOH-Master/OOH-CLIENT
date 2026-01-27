@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../l10n/l10n.dart';
+import '../responsive/breakpoints.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
-import '../responsive/breakpoints.dart';
 
 /// Reusable AppBar that should be used across ALL pages in the app.
 /// Provides consistent branding, navigation, and actions.
@@ -68,7 +69,7 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
                     if (isDesktop) ...[
                       const SizedBox(width: 12),
                       Text(
-                        l10n.houseOfOoh,
+                        l10n.appName,
                         style: AppTypography.bodyMedium.copyWith(
                           fontWeight: FontWeight.bold,
                           color: AppColors.foreground,

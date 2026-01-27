@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../features/auth/presentation/blocs/auth_bloc.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
-import '../features/landing/presentation/pages/landing_page.dart';
-import '../features/shell/presentation/pages/main_shell_page.dart';
-import '../features/discover/presentation/pages/discover_page.dart';
 import '../features/discover/presentation/pages/discover_detail_page.dart';
-import '../features/map/presentation/pages/map_page.dart';
+import '../features/discover/presentation/pages/discover_page.dart';
+import '../features/landing/presentation/pages/landing_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
+import '../features/shell/presentation/pages/main_shell_page.dart';
 
 class AppRouter {
   final AuthBloc authBloc;
@@ -60,14 +60,6 @@ class AppRouter {
                     },
                   ),
                 ],
-              ),
-            ],
-          ),
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/app/map',
-                builder: (context, state) => const MapPage(),
               ),
             ],
           ),

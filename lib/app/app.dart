@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'di.dart';
-import 'router.dart';
-import '../core/theme/app_theme.dart';
+
 import '../core/l10n/l10n.dart';
+import '../core/theme/app_theme.dart';
 import '../features/auth/presentation/blocs/auth_bloc.dart';
 import '../features/discover/data/repository/discover_repository.dart';
 import '../features/discover/presentation/blocs/discover_bloc.dart';
-import '../features/map/presentation/blocs/map_bloc.dart';
 import '../features/profile/presentation/blocs/profile_bloc.dart';
+import 'di.dart';
+import 'router.dart';
 
 class OohApp extends StatefulWidget {
   const OohApp({super.key});
@@ -51,7 +51,6 @@ class _OohAppState extends State<OohApp> {
             repository: getIt<DiscoverRepository>(),
           ),
         ),
-        BlocProvider(create: (context) => MapBloc()),
         BlocProvider(create: (context) => ProfileBloc()),
       ],
       child: MaterialApp.router(
@@ -62,7 +61,7 @@ class _OohAppState extends State<OohApp> {
         routerConfig: _appRouter.router,
         locale: const Locale('sr'),
         localizationsDelegates: const [
-          AppLocalizations.delegate, // This will be available after generation
+          AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,

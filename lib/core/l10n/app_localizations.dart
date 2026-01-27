@@ -101,8 +101,14 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'OOH Planner'**
+  /// **'AutoHome'**
   String get appTitle;
+
+  /// No description provided for @appName.
+  ///
+  /// In en, this message translates to:
+  /// **'AutoHome'**
+  String get appName;
 
   /// No description provided for @landingHeadline.
   ///
@@ -308,12 +314,6 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
-  /// No description provided for @houseOfOoh.
-  ///
-  /// In en, this message translates to:
-  /// **'HOUSE of OOH'**
-  String get houseOfOoh;
-
   /// No description provided for @billboard.
   ///
   /// In en, this message translates to:
@@ -446,36 +446,6 @@ abstract class AppLocalizations {
   /// **'Electronic'**
   String get heroKeywordElectronic;
 
-  /// No description provided for @countryKorea.
-  ///
-  /// In en, this message translates to:
-  /// **'Korea'**
-  String get countryKorea;
-
-  /// No description provided for @countryUSA.
-  ///
-  /// In en, this message translates to:
-  /// **'USA'**
-  String get countryUSA;
-
-  /// No description provided for @countryUK.
-  ///
-  /// In en, this message translates to:
-  /// **'UK'**
-  String get countryUK;
-
-  /// No description provided for @countryGermany.
-  ///
-  /// In en, this message translates to:
-  /// **'Germany'**
-  String get countryGermany;
-
-  /// No description provided for @countryFrance.
-  ///
-  /// In en, this message translates to:
-  /// **'France'**
-  String get countryFrance;
-
   /// No description provided for @newHere.
   ///
   /// In en, this message translates to:
@@ -569,7 +539,7 @@ abstract class AppLocalizations {
   /// No description provided for @howToUseMediaProductsDescription.
   ///
   /// In en, this message translates to:
-  /// **'At HOO, you can quickly and easily create a proposal that includes products from the media you want.'**
+  /// **'At AutoHome, you can quickly and easily create a proposal that includes products from the media you want.'**
   String get howToUseMediaProductsDescription;
 
   /// No description provided for @viewDetails.
@@ -601,6 +571,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Add proposal'**
   String get addProposal;
+
+  /// No description provided for @navSolutions.
+  ///
+  /// In en, this message translates to:
+  /// **'Solutions'**
+  String get navSolutions;
+
+  /// No description provided for @navProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'Products'**
+  String get navProducts;
+
+  /// No description provided for @navResources.
+  ///
+  /// In en, this message translates to:
+  /// **'Resources'**
+  String get navResources;
+
+  /// No description provided for @navCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get navCompany;
+
+  /// No description provided for @navLocations.
+  ///
+  /// In en, this message translates to:
+  /// **'Locations'**
+  String get navLocations;
+
+  /// No description provided for @getStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Get started'**
+  String get getStarted;
+
+  /// No description provided for @menu.
+  ///
+  /// In en, this message translates to:
+  /// **'Menu'**
+  String get menu;
+
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get home;
+
+  /// No description provided for @findMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Find media'**
+  String get findMedia;
+
+  /// No description provided for @noAvailableBillboards.
+  ///
+  /// In en, this message translates to:
+  /// **'No available billboards at the moment'**
+  String get noAvailableBillboards;
+
+  /// No description provided for @exploreBelgrade.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore Belgrade'**
+  String get exploreBelgrade;
 }
 
 class _AppLocalizationsDelegate

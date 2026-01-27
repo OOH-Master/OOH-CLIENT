@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
 import '../../../../core/l10n/l10n.dart';
+import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/responsive/breakpoints.dart';
-import '../../../../core/widgets/main_app_bar.dart';
+import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
 
@@ -38,15 +40,49 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
 
         if (unit == null) {
           return Scaffold(
-            appBar: const MainAppBar(showBackButton: true, showLoginButton: true),
+            appBar: const AppHeader(),
             body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          appBar: const MainAppBar(showBackButton: true, showLoginButton: true),
-          body: isDesktop ? _buildDesktopLayout(unit) : _buildMobileLayout(unit),
+          appBar: const AppHeader(),
+          body: Column(
+            children: [
+              // Back navigation bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(bottom: BorderSide(color: AppColors.border)),
+                ),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back),
+                      onPressed: () => context.pop(),
+                      tooltip: 'Back',
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        unit.name,
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Main content
+              Expanded(
+                child: isDesktop ? _buildDesktopLayout(unit) : _buildMobileLayout(unit),
+              ),
+            ],
+          ),
           bottomNavigationBar: !isDesktop ? _buildMobileBottomBar(unit) : null,
         );
       },
@@ -281,12 +317,128 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildTitleSection(unit),
+          const SizedBox(height: 16),
+          _buildLocationInfo(unit),
+          const SizedBox(height: 20),
+          _buildPriceCard(unit),
+          const SizedBox(height: 20),
+          _buildSpecificationsSection(unit),
           const SizedBox(height: 20),
           _buildDescriptionSection(unit),
           const SizedBox(height: 20),
           _buildUpdatedDate(unit),
           const Divider(height: 40),
           _buildDesktopActions(unit),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationInfo(OohUnit unit) {
+    return Row(
+      children: [
+        Icon(Icons.location_on, size: 16, color: AppColors.mutedForeground),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            unit.address.isNotEmpty ? unit.address : unit.cityName,
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.mutedForeground,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceCard(OohUnit unit) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.advertisingPeriod,
+            style: AppTypography.labelSmall.copyWith(color: AppColors.mutedForeground),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _getCycleDisplayLocalized(unit.cycleType),
+            style: AppTypography.bodyMedium.copyWith(
+              fontWeight: FontWeight.w500,
+              color: AppColors.foreground,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            unit.priceDisplay,
+            style: AppTypography.h3.copyWith(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecificationsSection(OohUnit unit) {
+    final specs = unit.specifications ?? {};
+    if (specs.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Specifications',
+          style: AppTypography.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppColors.foreground,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.muted.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              if (specs['dimensions'] != null) _buildSpecRow('Dimensions', specs['dimensions'].toString()),
+              if (specs['resolution'] != null) _buildSpecRow('Resolution', specs['resolution'].toString()),
+              if (specs['illumination'] != null) _buildSpecRow('Illumination', specs['illumination'].toString()),
+              if (specs['format'] != null) _buildSpecRow('Format', specs['format'].toString()),
+              if (specs['venueType'] != null) _buildSpecRow('Venue', specs['venueType'].toString()),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpecRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+          ),
+          Text(
+            value,
+            style: AppTypography.bodySmall.copyWith(
+              fontWeight: FontWeight.w500,
+              color: AppColors.foreground,
+            ),
+          ),
         ],
       ),
     );
@@ -451,11 +603,14 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
       children: [
         Row(
           children: [
-            Text(
-              l10n.addToProposal,
-              style: AppTypography.h5.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.foreground,
+            Expanded(
+              child: Text(
+                l10n.addToProposal,
+                style: AppTypography.h5.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.foreground,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),
@@ -603,7 +758,7 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
               ),
               const SizedBox(width: 12),
               Text(
-                l10n.houseOfOoh,
+                l10n.appName,
                 style: AppTypography.bodyMedium.copyWith(
                   fontWeight: FontWeight.bold,
                   color: AppColors.foreground,
@@ -613,7 +768,7 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            '© 2026 House of OOH. All rights reserved.',
+            '© 2026 AutoHome. All rights reserved.',
             style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
           ),
         ],

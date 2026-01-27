@@ -9,7 +9,10 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'OOH Planner';
+  String get appTitle => 'AutoHome';
+
+  @override
+  String get appName => 'AutoHome';
 
   @override
   String get landingHeadline => 'Plan and manage OOH campaigns in one place';
@@ -117,9 +120,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
-  String get houseOfOoh => 'HOUSE of OOH';
-
-  @override
   String get billboard => 'Billboard';
 
   @override
@@ -187,21 +187,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get heroKeywordElectronic => 'Electronic';
 
   @override
-  String get countryKorea => 'Korea';
-
-  @override
-  String get countryUSA => 'USA';
-
-  @override
-  String get countryUK => 'UK';
-
-  @override
-  String get countryGermany => 'Germany';
-
-  @override
-  String get countryFrance => 'France';
-
-  @override
   String get newHere => 'New here?';
 
   @override
@@ -248,7 +233,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get howToUseMediaProductsDescription =>
-      'At HOO, you can quickly and easily create a proposal that includes products from the media you want.';
+      'At AutoHome, you can quickly and easily create a proposal that includes products from the media you want.';
 
   @override
   String get viewDetails => 'View Details';
@@ -264,4 +249,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get addProposal => 'Add proposal';
+
+  @override
+  String get navSolutions => 'Solutions';
+
+  @override
+  String get navProducts => 'Products';
+
+  @override
+  String get navResources => 'Resources';
+
+  @override
+  String get navCompany => 'Company';
+
+  @override
+  String get navLocations => 'Locations';
+
+  @override
+  String get getStarted => 'Get started';
+
+  @override
+  String get menu => 'Menu';
+
+  @override
+  String get home => 'Home';
+
+  @override
+  String get findMedia => 'Find media';
+
+  @override
+  String get noAvailableBillboards => 'No available billboards at the moment';
+
+  @override
+  String get exploreBelgrade => 'Explore Belgrade';
 }

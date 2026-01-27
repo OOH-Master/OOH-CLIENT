@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_constants.dart';
+
 import '../../../../core/responsive/responsive.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_constants.dart';
+import '../../../../core/theme/app_typography.dart';
 
 class AdvancedAnalyticsSection extends StatelessWidget {
   const AdvancedAnalyticsSection({super.key});
@@ -166,7 +167,7 @@ class AdvancedAnalyticsSection extends StatelessWidget {
               .animate()
               .fadeIn(delay: Duration(milliseconds: 200 + entry.key * 100), duration: 600.ms)
               .slideX(begin: -0.2, end: 0);
-        }).toList(),
+        }),
         const SizedBox(height: 32),
         ElevatedButton(
           onPressed: () {},
