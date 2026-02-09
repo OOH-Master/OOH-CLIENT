@@ -30,8 +30,32 @@ class ApiConfig {
 
   /// Auth endpoints
   static const String authLogin = '/auth/login';
+  static const String authRegister = '/auth/register';
   static const String authMe = '/auth/me';
 
   /// Public inquiry endpoints
   static const String publicInquiries = '/public/inquiries';
+
+  /// Admin endpoints
+  static const String adminInquiries = '/admin/inquiries';
+  static const String adminConfig = '/admin/config';
+  static const String adminConfigCountries = '/admin/config/countries';
+  static const String adminConfigCities = '/admin/config/cities';
+  static const String adminConfigUnitTypes = '/admin/config/unit-types';
+  static const String adminConfigMediaFormats = '/admin/config/media-formats';
+  static const String adminConfigVenueTypes = '/admin/config/venue-types';
+
+  /// Inventory endpoints (authenticated)
+  static const String inventory = '/inventory';
+  static const String ownerInventory = '/inventory/my';
+
+  /// Brand endpoints
+  static const String brandInquiries = '/brand/inquiries';
+
+  /// Agency endpoints
+  static const String agencyInquiries = '/agency/inquiries';
+  static const String agencyBrands = '/agency/brands';
+
+  /// Campaign endpoints
+  static const String campaigns = '/campaigns';
 }

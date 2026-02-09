@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_constants.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/main_app_bar.dart';
 import '../blocs/auth_bloc.dart';
 
@@ -17,12 +18,12 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -31,7 +32,7 @@ class _LoginPageState extends State<LoginPage> {
     if (_formKey.currentState!.validate()) {
       context.read<AuthBloc>().add(
             LoginSubmitted(
-              _emailController.text,
+              _usernameController.text.trim(),
               _passwordController.text,
             ),
           );
@@ -126,26 +127,24 @@ class _LoginPageState extends State<LoginPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // Email Field
+                            // Username Field
                             TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
+                              controller: _usernameController,
+                              keyboardType: TextInputType.text,
                               style: AppTypography.bodyMedium.copyWith(
                                 color: AppColors.foreground,
                               ),
                               decoration: InputDecoration(
                                 labelText: l10n.emailLabel,
+                                hintText: 'korisnicko_ime',
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(AppRadius.md),
                                 ),
-                                prefixIcon: const Icon(Icons.email_outlined),
+                                prefixIcon: const Icon(Icons.person_outlined),
                               ),
                               validator: (value) {
-                                if (value == null || value.isEmpty) {
+                                if (value == null || value.trim().isEmpty) {
                                   return l10n.validatorEmailRequired;
-                                }
-                                if (!value.contains('@')) {
-                                  return l10n.validatorEmailInvalid;
                                 }
                                 return null;
                               },

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +8,13 @@ import 'package:latlong2/latlong.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
+import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/inventory_map.dart';
 
 class DiscoverPage extends StatefulWidget {
@@ -24,6 +28,8 @@ class DiscoverPage extends StatefulWidget {
 
 class _DiscoverPageState extends State<DiscoverPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
   OohUnit? _selectedUnit;
 
   AppLocalizations get l10n => AppLocalizations.of(context)!;
@@ -32,8 +38,17 @@ class _DiscoverPageState extends State<DiscoverPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiscoverBloc>().add(const LoadCities());
+      final bloc = context.read<DiscoverBloc>();
+      bloc.add(const LoadCities());
+      bloc.add(LoadDictionaries());
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchDebounce?.cancel();
+    super.dispose();
   }
 
   @override
@@ -110,12 +125,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 if (isDesktop) ...[
                   Expanded(child: _buildSearchField()),
                   const SizedBox(width: 12),
-                  _buildCategoryDropdown(),
-                  const SizedBox(width: 12),
-                  _buildFilterButton(),
+                  _buildFilterButton(state),
                 ],
                 if (!isDesktop) ...[
-                  _buildFilterButton(),
+                  _buildFilterButton(state),
                 ],
               ],
             );
@@ -286,14 +299,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                     )
                   else if (state.units.isEmpty)
                     SliverFillRemaining(
-                      child: Center(
-                        child: Text(
-                          l10n.noInventoryFound,
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.mutedForeground,
-                          ),
-                        ),
-                      ),
+                      child: _buildEmptyState(state),
                     )
                   else
                     SliverPadding(
@@ -615,13 +621,24 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   Widget _buildSearchField() {
     return TextField(
+      controller: _searchController,
       style: TextStyle(fontSize: 14, color: AppColors.foreground),
+      onChanged: _onSearchChanged,
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
         hintText: l10n.searchPlaceholder,
         hintStyle: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
         prefixIcon: Icon(Icons.search, color: AppColors.mutedForeground, size: 20),
+        suffixIcon: _searchController.text.isNotEmpty
+            ? IconButton(
+                icon: Icon(Icons.clear, size: 18, color: AppColors.mutedForeground),
+                onPressed: () {
+                  _searchController.clear();
+                  _onSearchChanged('');
+                },
+              )
+            : null,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: AppColors.border),
@@ -636,59 +653,67 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  Widget _buildCategoryDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: null,
-          dropdownColor: Colors.white,
-          hint: Text(
-            l10n.allCategories,
-            style: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
-          ),
-          isDense: true,
-          items: [
-            DropdownMenuItem(
-              value: 'billboard',
-              child: Text(l10n.billboard, style: TextStyle(fontSize: 14, color: AppColors.foreground)),
-            ),
-            DropdownMenuItem(
-              value: 'digital',
-              child: Text(l10n.digital, style: TextStyle(fontSize: 14, color: AppColors.foreground)),
-            ),
-            DropdownMenuItem(
-              value: 'transit',
-              child: Text(l10n.transit, style: TextStyle(fontSize: 14, color: AppColors.foreground)),
-            ),
-          ],
-          onChanged: (value) {
-            // Category filter handled by bloc
-          },
-        ),
-      ),
-    );
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      final state = context.read<DiscoverBloc>().state;
+      if (state is DiscoverLoaded) {
+        final keyword = value.trim();
+        final newFilters = state.activeFilters.copyWith(
+          keyword: keyword.isNotEmpty ? keyword : null,
+          clearKeyword: keyword.isEmpty,
+        );
+        context.read<DiscoverBloc>().add(ApplyFilters(newFilters));
+      }
+    });
+    setState(() {}); // Rebuild for clear icon visibility
   }
 
-  Widget _buildFilterButton() {
-    return OutlinedButton.icon(
-      onPressed: _showFilterDialog,
-      icon: const Icon(Icons.tune, size: 16),
-      label: Text(
-        l10n.filters,
-        style: TextStyle(fontSize: 14, color: AppColors.foreground),
-      ),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      ),
+  Widget _buildFilterButton(DiscoverLoaded state) {
+    final filterCount = state.activeFilterCount;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        OutlinedButton.icon(
+          onPressed: () => _showFilterDialog(state),
+          icon: const Icon(Icons.tune, size: 16),
+          label: Text(
+            l10n.filters,
+            style: TextStyle(fontSize: 14, color: AppColors.foreground),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+        ),
+        if (filterCount > 0)
+          Positioned(
+            top: -4,
+            right: -4,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              child: Text(
+                '$filterCount',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildEmptyState(DiscoverLoaded state) {
+    final hasActiveFilters = state.activeFilterCount > 0;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -696,13 +721,21 @@ class _DiscoverPageState extends State<DiscoverPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              state.selectedCity == null ? Icons.location_city : Icons.search_off,
+              state.selectedCity == null
+                  ? Icons.location_city
+                  : hasActiveFilters
+                      ? Icons.filter_list_off
+                      : Icons.search_off,
               size: 64,
               color: AppColors.mutedForeground,
             ),
             const SizedBox(height: 16),
             Text(
-              state.selectedCity == null ? l10n.selectCityToViewInventory : l10n.noInventoryFound,
+              state.selectedCity == null
+                  ? l10n.selectCityToViewInventory
+                  : hasActiveFilters
+                      ? l10n.noResultsWithFilters
+                      : l10n.noInventoryFound,
               style: AppTypography.bodyLarge.copyWith(
                 fontWeight: FontWeight.w600,
                 color: AppColors.foreground,
@@ -711,27 +744,45 @@ class _DiscoverPageState extends State<DiscoverPage> {
             ),
             if (state.selectedCity != null) ...[
               const SizedBox(height: 8),
-              Text(
-                '${state.selectedCity!.name} - ${l10n.noAvailableBillboards}',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.mutedForeground,
+              if (!hasActiveFilters)
+                Text(
+                  '${state.selectedCity!.name} - ${l10n.noAvailableBillboards}',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.mutedForeground,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
               const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () {
-                  // Try selecting Belgrade as it has inventory
-                  final belgrade = state.cities
-                      .where((c) => c.name.toLowerCase() == 'belgrade' || c.name.toLowerCase() == 'beograd')
-                      .firstOrNull;
-                  if (belgrade != null) {
-                    context.read<DiscoverBloc>().add(SelectCity(belgrade));
-                  }
-                },
-                icon: const Icon(Icons.explore),
-                label: Text(l10n.exploreBelgrade),
-              ),
+              if (hasActiveFilters)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    _searchController.clear();
+                    context.read<DiscoverBloc>().add(ResetFilters());
+                  },
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: Text(l10n.resetFilters),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.primaryForeground,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                    ),
+                  ),
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final belgrade = state.cities
+                        .where((c) => c.name.toLowerCase() == 'belgrade' || c.name.toLowerCase() == 'beograd')
+                        .firstOrNull;
+                    if (belgrade != null) {
+                      context.read<DiscoverBloc>().add(SelectCity(belgrade));
+                    }
+                  },
+                  icon: const Icon(Icons.explore),
+                  label: Text(l10n.exploreBelgrade),
+                ),
             ],
           ],
         ),
@@ -801,7 +852,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  void _showFilterDialog() {
+  void _showFilterDialog(DiscoverLoaded state) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -809,44 +860,24 @@ class _DiscoverPageState extends State<DiscoverPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.7,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (context, scrollController) {
-            return Container(
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        l10n.filters,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.foreground,
-                        ),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: AppColors.foreground),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    l10n.comingSoon,
-                    style: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
-                  ),
-                ],
-              ),
-            );
+      builder: (sheetContext) {
+        return FilterBottomSheet(
+          unitTypes: state.unitTypes,
+          mediaFormats: state.mediaFormats,
+          venueTypes: state.venueTypes,
+          currentFilters: state.activeFilters,
+          onApply: (filters) {
+            context.read<DiscoverBloc>().add(ApplyFilters(filters));
+            // Sync search field with keyword from filters
+            if (filters.keyword != null && filters.keyword != _searchController.text) {
+              _searchController.text = filters.keyword!;
+            } else if (filters.keyword == null && _searchController.text.isNotEmpty) {
+              _searchController.clear();
+            }
+          },
+          onReset: () {
+            _searchController.clear();
+            context.read<DiscoverBloc>().add(ResetFilters());
           },
         );
       },

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../l10n/l10n.dart';
+import '../l10n/locale_cubit.dart';
 import '../responsive/breakpoints.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
@@ -85,6 +87,24 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: false,
       actions: [
         if (actions != null) ...actions!,
+        BlocBuilder<LocaleCubit, Locale>(
+          builder: (context, locale) {
+            return TextButton(
+              onPressed: () => context.read<LocaleCubit>().toggle(),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(40, 36),
+              ),
+              child: Text(
+                locale.languageCode == 'sr' ? 'EN' : 'SR',
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.mutedForeground,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          },
+        ),
         if (showLoginButton) ...[
           OutlinedButton(
             onPressed: () => context.push('/auth/login'),

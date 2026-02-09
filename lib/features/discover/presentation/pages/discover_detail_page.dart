@@ -7,6 +7,8 @@ import '../../../../core/l10n/l10n.dart';
 import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/auth_guard_dialog.dart';
+import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
@@ -783,12 +785,22 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
   }
 
   void _handleStartInquiry() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      AuthGuardDialog.show(context);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.comingSoon)),
     );
   }
 
   void _handleAddProposal() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      AuthGuardDialog.show(context);
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.comingSoon)),
     );

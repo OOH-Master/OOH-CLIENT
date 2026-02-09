@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/responsive/responsive.dart';
 
 class CTASection extends StatelessWidget {
   const CTASection({super.key});
@@ -41,7 +43,7 @@ class CTASection extends StatelessWidget {
                 .fadeIn(delay: 100.ms, duration: 600.ms),
             const SizedBox(height: 32),
             ElevatedButton(
-              onPressed: () {},
+              onPressed: () => context.go('/auth/register'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: AppColors.primaryForeground,

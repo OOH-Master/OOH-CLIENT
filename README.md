@@ -14,9 +14,20 @@ flutter run -d chrome
 
 ```
 lib/
-├── app/          # App, DI, Router
-├── core/         # Theme, l10n, widgets
-└── features/     # Auth, Discover, Landing...
+├── app/          # App, DI (GetIt), Router (GoRouter)
+├── core/         # Theme, l10n, responsive, widgets, api config
+└── features/
+    ├── admin/              # Admin konfiguracija (šifarnici)
+    ├── agency/             # Agencija - upravljanje brendovima
+    ├── auth/               # JWT autentikacija
+    ├── campaign/           # Kampanje
+    ├── dashboard/          # Role-based dashboard
+    ├── discover/           # Javna pretraga inventara
+    ├── inquiry/            # Upiti
+    ├── inventory_management/ # Upravljanje inventarom
+    ├── landing/            # Landing stranica
+    ├── profile/            # Korisnički profil
+    └── shell/              # Responsive navigation (sidebar/bottom nav)
 ```
 
 ## Dokumentacija
@@ -24,8 +35,9 @@ lib/
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Detaljna arhitektura
 - [STYLING.md](docs/STYLING.md) - Design system
 - [WIDGETS.md](docs/WIDGETS.md) - Komponente
+- [SETUP.md](docs/SETUP.md) - Setup uputstvo
 
 ## Jezici
 
-- 🇷🇸 Srpski (default)
-- 🇺🇸 English
+- Srpski (default)
+- English

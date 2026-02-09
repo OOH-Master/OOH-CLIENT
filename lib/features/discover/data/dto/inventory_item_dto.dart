@@ -39,6 +39,7 @@ class InventoryItemDto {
   final double? cpm;
   final String? assetUrl;
   final String? assetUrlDescription;
+  final String? environment;
   final String? status;
 
   const InventoryItemDto({
@@ -79,6 +80,7 @@ class InventoryItemDto {
     this.cpm,
     this.assetUrl,
     this.assetUrlDescription,
+    this.environment,
     this.status,
   });
 
@@ -131,6 +133,7 @@ class InventoryItemDto {
       cpm: (json['cpm'] as num?)?.toDouble(),
       assetUrl: json['assetUrl'] as String?,
       assetUrlDescription: json['assetUrlDescription'] as String?,
+      environment: json['environment'] as String?,
       status: json['status'] as String?,
     );
   }
@@ -174,6 +177,7 @@ class InventoryItemDto {
       'cpm': cpm,
       'assetUrl': assetUrl,
       'assetUrlDescription': assetUrlDescription,
+      'environment': environment,
       'status': status,
     };
   }

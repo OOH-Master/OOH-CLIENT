@@ -100,19 +100,20 @@ flutter build ios --release    # iOS App Store
 lib/
 ├── main.dart                    # Entry point
 ├── app/
-│   ├── app.dart                 # MaterialApp konfiguracija
+│   ├── app.dart                 # MaterialApp + MultiRepositoryProvider + MultiBlocProvider
 │   ├── di.dart                  # Dependency Injection (GetIt)
 │   └── router.dart              # GoRouter navigacija
 ├── core/
 │   ├── config/
-│   │   └── api_client.dart      # Dio HTTP klijent
+│   │   ├── api_client.dart      # Dio HTTP klijent sa JWT interceptor-om
+│   │   └── api_config.dart      # API endpoint konstante
 │   ├── l10n/
 │   │   ├── l10n.dart            # Export AppLocalizations
 │   │   ├── app_en.arb           # Engleski prevodi
 │   │   └── app_sr.arb           # Srpski prevodi (DEFAULT)
 │   ├── responsive/
-│   │   ├── breakpoints.dart     # mobile < 768 < tablet < 1024 < desktop
-│   │   └── responsive_builder.dart
+│   │   ├── breakpoints.dart     # mobile < 600 < tablet < 900 < desktop < 1200
+│   │   └── responsive_builder.dart  # ResponsiveBuilder + context.isDesktop
 │   ├── theme/
 │   │   ├── app_colors.dart      # Boje (Primary: #6366F1)
 │   │   ├── app_typography.dart  # Space Grotesk font
@@ -123,12 +124,17 @@ lib/
 │       ├── app_button.dart      # PrimaryButton, SecondaryButton
 │       └── app_text_field.dart  # Stilizovana input polja
 └── features/
-    ├── auth/                    # Autentikacija
-    ├── discover/                # Pretraga inventara
+    ├── admin/                   # Admin konfiguracija (šifarnici)
+    ├── agency/                  # Agencija - upravljanje brendovima
+    ├── auth/                    # Autentikacija (JWT)
+    ├── campaign/                # Kampanje
+    ├── dashboard/               # Role-based dashboard
+    ├── discover/                # Javna pretraga inventara
+    ├── inquiry/                 # Upiti (brand/agency/admin)
+    ├── inventory_management/    # Upravljanje inventarom (media owner)
     ├── landing/                 # Landing stranica
-    ├── map/                     # Mapa (coming soon)
     ├── profile/                 # Korisnički profil
-    └── shell/                   # Navigation shell
+    └── shell/                   # Navigation shell (responsive sidebar/bottom nav)
 ```
 
 ---
@@ -158,30 +164,52 @@ Javna landing stranica sa sekcijama:
 ```
 auth/
 ├── data/
-│   ├── models/user_model.dart
-│   └── repositories/auth_repository.dart
+│   ├── datasources/
+│   │   ├── auth_remote_datasource.dart        # Interface
+│   │   ├── auth_remote_datasource_impl.dart   # JWT login/register/me
+│   │   ├── auth_local_datasource.dart         # SharedPreferences cache
+│   │   └── auth_token_storage.dart            # SharedPreferences JWT storage
+│   └── repositories/
+│       └── auth_repository_impl.dart
 ├── domain/
-│   └── entities/user.dart       # User sa UserRole enum
+│   ├── entities/
+│   │   ├── user.dart              # User entitet
+│   │   └── role.dart              # Role enum
+│   ├── repositories/
+│   │   └── auth_repository.dart   # Interface
+│   └── usecases/
+│       ├── login_usecase.dart
+│       ├── register_usecase.dart
+│       ├── get_current_user_usecase.dart
+│       └── logout_usecase.dart
 └── presentation/
-    ├── blocs/auth_bloc.dart     # AuthBloc state management
+    ├── blocs/auth_bloc.dart       # AuthBloc state management
     └── pages/
         ├── login_page.dart
         └── register_page.dart
 ```
 
+**JWT Autentikacija:**
+- Login/Register vraćaju JWT token
+- Token se čuva u `SharedPreferences` putem `AuthTokenStorage`
+- `ApiClient` (Dio) automatski dodaje `Authorization: Bearer <token>` header
+- `CheckAuthRequested` event pri pokretanju aplikacije poziva `/auth/me` za proveru sesije
+- Pri odjavi token se briše i korisnik se redirect-uje na login
+
 **AuthBloc Events:**
 - `LoginRequested(email, password)`
 - `RegisterRequested(name, email, password, role)`
+- `CheckAuthRequested()` — proverava postojeći token pri pokretanju
 - `LogoutRequested()`
 
 **AuthBloc States:**
 - `AuthInitial`
 - `AuthLoading`
-- `AuthAuthenticated(user)`
+- `AuthAuthenticated(user)` — sadrži `User` sa `role` poljem
 - `AuthUnauthenticated`
 - `AuthFailure(error)`
 
-**UserRole enum:** `advertiser`, `owner`, `agency`, `admin`
+**Role enum:** `brand`, `mediaOwner`, `agency`, `admin`
 
 ---
 
@@ -252,12 +280,183 @@ class OohUnit {
 
 ### 4. Shell (`/features/shell/`)
 
-**Putanja:** `/shell/*`
+Navigation shell za autentikovane korisnike. Koristi `StatefulShellRoute.indexedStack` sa 3 grane.
 
-Navigation shell za autentikovane korisnike sa:
-- Bottom navigation (Discover, Map, Profile)
-- Drawer menu
-- AppBar sa naslovom
+**Responsive ponašanje:**
+
+**Mobile (< 900px):**
+- `Scaffold` sa `bottomNavigationBar` (Dashboard, Discover, Profile)
+- `Drawer` sa role-specific linkovima (upiti, inventar, kampanje, admin config, brendovi)
+- Logout dugme u drawer-u
+
+**Desktop (>= 900px):**
+- Nema bottom navigation bar-a
+- Collapsible sidebar levo (260px expanded / 72px collapsed)
+- `AnimatedContainer` za smooth tranziciju (200ms)
+- User avatar + ime u header-u sidebar-a
+- Main nav items (Dashboard, Discover, Profile) sa ikonama
+- Role-specific linkovi ispod razdjelnika
+- Toggle dugme (chevron) za kolaps/ekspanziju
+- `Tooltip` na ikonama kada je sidebar sklopljen
+
+**State management:**
+```dart
+class ShellState {
+  final int index;           // Aktivna grana (0-2)
+  final bool sidebarExpanded; // Desktop sidebar stanje
+}
+class ShellCubit extends Cubit<ShellState> {
+  void setIndex(int index);
+  void toggleSidebar();
+}
+```
+
+---
+
+### 5. Dashboard (`/features/dashboard/`)
+
+**Putanja:** `/app/dashboard`
+
+Role-based dashboard koji prikazuje različit sadržaj u zavisnosti od korisničke uloge:
+
+| Rola | Prikaz |
+|------|--------|
+| `brand` | Moji upiti, Kampanje |
+| `agency` | Moji brendovi, Upiti, Kampanje |
+| `mediaOwner` | Moj inventar, Upiti |
+| `admin` | Svi upiti, Konfiguracija |
+
+Svaki dashboard ima CTA dugmad koja vode na odgovarajuće stranice (npr. "Pogledaj upite" → `/app/inquiries`).
+
+---
+
+### 6. Inquiry (`/features/inquiry/`)
+
+**Putanje:** `/app/inquiries`, `/app/inquiries/:id`
+
+**Fajlovi:**
+```
+inquiry/
+├── data/
+│   ├── api/inquiry_api_service.dart
+│   ├── dto/inquiry_dto.dart
+│   └── repository/inquiry_repository.dart
+└── presentation/
+    ├── blocs/inquiry_bloc.dart
+    └── pages/
+        ├── inquiry_list_page.dart
+        └── inquiry_detail_page.dart
+```
+
+**InquiryBloc Events/States:**
+- `LoadInquiries` → `InquiriesLoaded(inquiries)`
+- `LoadInquiryDetail(id)` → `InquiryDetailLoaded(inquiry)`
+- Error/Loading state-ovi
+
+**API:** Koristi role-based endpoint (`/brand/inquiries`, `/agency/inquiries`, ili `/admin/inquiries`) u zavisnosti od korisničke uloge.
+
+---
+
+### 7. Inventory Management (`/features/inventory_management/`)
+
+**Putanje:** `/app/my-inventory`, `/app/inventory/create`, `/app/inventory/:id/edit`
+
+**Fajlovi:**
+```
+inventory_management/
+├── data/
+│   ├── api/inventory_management_api_service.dart
+│   ├── dto/inventory_item_dto.dart
+│   └── repository/inventory_management_repository.dart
+└── presentation/
+    ├── blocs/inventory_management_bloc.dart
+    └── pages/
+        ├── my_inventory_page.dart      # Lista inventara vlasnika
+        └── inventory_form_page.dart    # Kreiranje/editovanje
+```
+
+**Dostupno za:** `mediaOwner`, `admin`
+
+---
+
+### 8. Campaign (`/features/campaign/`)
+
+**Putanje:** `/app/campaigns`, `/app/campaigns/create`
+
+**Fajlovi:**
+```
+campaign/
+├── data/
+│   ├── api/campaign_api_service.dart
+│   ├── dto/campaign_dto.dart          # CampaignDto + CampaignStatus enum
+│   └── repository/campaign_repository.dart
+└── presentation/
+    ├── blocs/campaign_bloc.dart
+    └── pages/
+        ├── campaign_list_page.dart     # Lista sa status badge-ovima
+        └── campaign_form_page.dart     # Forma za kreiranje
+```
+
+**CampaignStatus:** `draft`, `active`, `completed`, `cancelled`
+
+**CampaignBloc Events:**
+- `LoadCampaigns` → `CampaignsLoaded(campaigns)`
+- `CreateCampaign(name, description, startDate, endDate, budget, brandUsername?)`
+
+**Dostupno za:** `brand`, `agency`
+
+---
+
+### 9. Admin Config (`/features/admin/`)
+
+**Putanja:** `/app/admin/config`
+
+**Fajlovi:**
+```
+admin/
+├── data/
+│   ├── api/admin_config_api_service.dart
+│   └── repository/admin_config_repository.dart
+└── presentation/
+    ├── blocs/admin_config_bloc.dart
+    └── pages/admin_config_page.dart
+```
+
+Stranica sa 5 tabova za upravljanje šifarnicima:
+1. **Countries** (Države)
+2. **Cities** (Gradovi) — sa dropdown-om za izbor države
+3. **Unit Types** (Tipovi jedinica)
+4. **Media Formats** (Formati medija)
+5. **Venue Types** (Tipovi lokacija)
+
+Svaki tab prikazuje listu stavki + FAB za dodavanje novih.
+
+**Dostupno za:** `admin`
+
+---
+
+### 10. Agency Brands (`/features/agency/`)
+
+**Putanja:** `/app/agency/brands`
+
+**Fajlovi:**
+```
+agency/
+├── data/
+│   ├── api/agency_api_service.dart
+│   └── repository/agency_repository.dart
+└── presentation/
+    ├── blocs/agency_bloc.dart
+    └── pages/agency_brands_page.dart
+```
+
+Lista brendova agencije sa mogućnošću kreiranja novih. Svaki brend prikazuje CircleAvatar sa inicijalima, ime i #id.
+
+**AgencyBloc Events:**
+- `LoadBrands` → `BrandsLoaded(brands)`
+- `CreateBrand(name)` → `BrandCreateSuccess`
+
+**Dostupno za:** `agency`
 
 ---
 
@@ -267,23 +466,62 @@ Navigation shell za autentikovane korisnike sa:
 
 **GetIt registracije:**
 ```dart
-// Singletons
-sl.registerLazySingleton<Dio>(() => createDioClient());
-sl.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(sl()));
-sl.registerLazySingleton<OohRepository>(() => OohRepositoryImpl(sl()));
+// Core
+Logger, ApiClient, SharedPreferences
 
-// Factories (Blocs)
-sl.registerFactory(() => AuthBloc(sl()));
-sl.registerFactory(() => DiscoverBloc(sl()));
+// Auth Feature
+AuthTokenStorage
+AuthRemoteDataSource → AuthRemoteDataSourceImpl(ApiClient, AuthTokenStorage)
+AuthLocalDataSource → AuthLocalDataSourceImpl(SharedPreferences)
+AuthRepository → AuthRepositoryImpl(remote, local, tokenStorage, apiClient)
+LoginUseCase, RegisterUseCase, GetCurrentUserUseCase, LogoutUseCase
+
+// Discover Feature
+ConfigApiService(ApiClient), InventoryApiService(ApiClient)
+DiscoverRepository → DiscoverRepositoryImpl(configApi, inventoryApi)
+
+// Inquiry Feature
+InquiryApiService(ApiClient)
+InquiryRepository(InquiryApiService)
+
+// Inventory Management Feature
+InventoryManagementApiService(ApiClient)
+InventoryManagementRepository(InventoryManagementApiService)
+
+// Campaign Feature
+CampaignApiService(ApiClient)
+CampaignRepository(CampaignApiService)
+
+// Admin Config Feature
+AdminConfigApiService(ApiClient)
+AdminConfigRepository(AdminConfigApiService)
+
+// Agency Feature
+AgencyApiService(ApiClient)
+AgencyRepository(AgencyApiService)
+```
+
+**MultiRepositoryProvider** u `app.dart` pruža repozitorijume widget stablu:
+```dart
+MultiRepositoryProvider(
+  providers: [
+    RepositoryProvider.value(value: getIt<InquiryRepository>()),
+    RepositoryProvider.value(value: getIt<InventoryManagementRepository>()),
+    RepositoryProvider.value(value: getIt<CampaignRepository>()),
+    RepositoryProvider.value(value: getIt<AdminConfigRepository>()),
+    RepositoryProvider.value(value: getIt<AgencyRepository>()),
+  ],
+  child: MultiBlocProvider(...)
+)
 ```
 
 **Korišćenje:**
 ```dart
-// U widgetu
-BlocProvider(create: (_) => sl<AuthBloc>())
+// U widgetu (BLoC kreiranje)
+BlocProvider(create: (_) => InquiryBloc(context.read<InquiryRepository>()))
 
-// Direktno
-final repo = sl<OohRepository>();
+// Direktno (van widget stabla)
+final repo = getIt<CampaignRepository>();
 ```
 
 ---
@@ -292,21 +530,39 @@ final repo = sl<OohRepository>();
 
 **Lokacija:** `lib/app/router.dart`
 
-**Javne rute:**
+**Javne rute (bez autentikacije):**
 | Path | Page | Opis |
 |------|------|------|
 | `/` | LandingPage | Marketing landing |
-| `/discover` | DiscoverPage | Pretraga inventara |
+| `/discover` | DiscoverPage | Javna pretraga inventara |
 | `/discover/:id` | DiscoverDetailPage | Detalji jedinice |
 | `/auth/login` | LoginPage | Prijava |
 | `/auth/register` | RegisterPage | Registracija |
 
-**Zaštićene rute (StatefulShellRoute):**
-| Path | Page |
-|------|------|
-| `/shell/discover` | DiscoverPage |
-| `/shell/map` | MapPage |
-| `/shell/profile` | ProfilePage |
+**Shell rute (StatefulShellRoute.indexedStack — 3 grane):**
+| Branch | Path | Page |
+|--------|------|------|
+| 0 | `/app/dashboard` | DashboardPage |
+| 1 | `/app/discover` | DiscoverPage |
+| 2 | `/app/profile` | ProfilePage |
+
+**Role-specific rute (push over shell):**
+| Path | Page | Rola |
+|------|------|------|
+| `/app/inquiries` | InquiryListPage | brand, agency, admin |
+| `/app/inquiries/:id` | InquiryDetailPage | brand, agency, admin |
+| `/app/my-inventory` | MyInventoryPage | mediaOwner |
+| `/app/inventory/create` | InventoryFormPage | mediaOwner |
+| `/app/inventory/:id/edit` | InventoryFormPage | mediaOwner |
+| `/app/campaigns` | CampaignListPage | brand, agency |
+| `/app/campaigns/create` | CampaignFormPage | brand, agency |
+| `/app/admin/config` | AdminConfigPage | admin |
+| `/app/agency/brands` | AgencyBrandsPage | agency |
+
+**Redirect logika:**
+- Public rute (`/`, `/discover/*`, `/auth/*`) → slobodan pristup
+- `/app/*` rute → zahtevaju autentikaciju, redirect na `/auth/login` ako nije ulogovan
+- Ako je ulogovan i pristupa `/auth/*` ili `/` → redirect na `/app/dashboard`
 
 ---
 
@@ -381,18 +637,24 @@ xs: 4    sm: 8    md: 16    lg: 24    xl: 32    2xl: 48
 
 ## 📱 Responsive Design
 
-**Breakpoints:**
+**Breakpoints** (`lib/core/responsive/breakpoints.dart`):
 ```dart
-static const double mobile = 0;
-static const double tablet = 768;
-static const double desktop = 1024;
+static const double mobile = 600;       // 0-599px
+static const double tablet = 900;       // 600-899px
+static const double desktop = 1200;     // 900-1199px
+static const double largeDesktop = 1536; // 1200px+
 ```
 
 **Provera:**
 ```dart
-final isDesktop = MediaQuery.of(context).size.width >= Breakpoints.desktop;
+// Extension metode
+final isDesktop = context.isDesktop;     // >= 900px (tablet threshold)
+final isMobile = context.isMobile;       // < 600px
 
-// Ili sa ResponsiveBuilder
+// DeviceType enum
+DeviceType.fromWidth(width)  // mobile, tablet, desktop, largeDesktop
+
+// ResponsiveBuilder widget
 ResponsiveBuilder(
   builder: (context, deviceType) {
     if (deviceType == DeviceType.mobile) return MobileWidget();
@@ -401,25 +663,82 @@ ResponsiveBuilder(
 )
 ```
 
+**Ključna responsive ponašanja:**
+- **Shell navigacija:** Bottom nav (mobile) vs. Collapsible sidebar (desktop)
+- **Discover page:** DraggableSheet + mapa (mobile) vs. Grid + mapa side-by-side (desktop)
+- **Landing page:** Stacked layout (mobile) vs. Multi-column (desktop)
+
 ---
 
 ## 🔌 API Integracija
 
-**Base URL:** `http://localhost:8080/api` (development)
+**Base URL:** `http://localhost:8080/api/v1` (konfigurisano preko `ApiConfig`)
 
-**Endpoints:**
+**Konfiguracija:** `lib/core/config/api_config.dart` — sve endpoint konstante na jednom mestu.
+
+**Public Endpoints (bez autentikacije):**
 | Method | Path | Opis |
 |--------|------|------|
-| GET | `/public/config/cities` | Lista gradova |
-| GET | `/public/units?cityId=X` | Inventari po gradu |
+| GET | `/public/units` | Pretraga inventara (sa filterima) |
 | GET | `/public/units/:id` | Detalji jedinice |
-| POST | `/auth/login` | Prijava |
-| POST | `/auth/register` | Registracija |
+| GET | `/public/dictionaries/cities` | Lista gradova |
+| GET | `/public/dictionaries/countries` | Lista država |
+| GET | `/public/dictionaries/unit-types` | Tipovi jedinica |
+| GET | `/public/dictionaries/media-formats` | Formati medija |
+| GET | `/public/dictionaries/venue-types` | Tipovi lokacija |
+
+**Auth Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| POST | `/auth/login` | Prijava (vraća JWT) |
+| POST | `/auth/register` | Registracija (vraća JWT) |
+| GET | `/auth/me` | Trenutni korisnik |
+
+**Brand Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| GET | `/brand/inquiries` | Lista upita brenda |
+| GET | `/brand/inquiries/:id` | Detalj upita |
+
+**Agency Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| GET | `/agency/inquiries` | Lista upita agencije |
+| GET | `/agency/inquiries/:id` | Detalj upita |
+| GET | `/agency/brands` | Lista brendova |
+| POST | `/agency/brands` | Kreiranje brenda |
+
+**Campaign Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| GET | `/campaigns` | Lista kampanja |
+| GET | `/campaigns/:id` | Detalj kampanje |
+| POST | `/campaigns` | Kreiranje kampanje |
+
+**Inventory Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| GET | `/inventory/my` | Moj inventar (media owner) |
+| GET | `/inventory/:id` | Detalj inventara |
+| POST | `/inventory` | Kreiranje inventara |
+| PUT | `/inventory/:id` | Izmena inventara |
+| DELETE | `/inventory/:id` | Brisanje inventara |
+
+**Admin Endpoints:**
+| Method | Path | Opis |
+|--------|------|------|
+| GET | `/admin/inquiries` | Svi upiti |
+| GET | `/admin/inquiries/:id` | Detalj upita |
+| GET/POST | `/admin/config/countries` | Države |
+| GET/POST | `/admin/config/cities` | Gradovi |
+| GET/POST | `/admin/config/unit-types` | Tipovi jedinica |
+| GET/POST | `/admin/config/media-formats` | Formati medija |
+| GET/POST | `/admin/config/venue-types` | Tipovi lokacija |
 
 **Error handling:**
-- Dio interceptor loguje sve requestove
-- Repository vraća `Either<Failure, T>` ili baca exception
-- Bloc hvata i emituje `FailureState`
+- `ApiClient` (Dio) sa JWT interceptor-om za automatsko dodavanje tokena
+- Repository baca exception koje BLoC hvata i emituje `ErrorState`
+- 401 odgovor → redirect na login
 
 ---
 
@@ -457,20 +776,20 @@ dependencies:
 ## ✅ TODO / Naredni Koraci
 
 ### Prioritet 1 (Sledeći sprint)
-- [ ] Implementirati pravu autentikaciju sa JWT
 - [ ] Dodati "Add to Proposal" funkcionalnost
 - [ ] Booking flow (kalendar, datumi)
-- [ ] User dashboard sa mojim bookingima
+- [ ] Editovanje kampanja i detalj stranica
+- [ ] Editovanje/brisanje admin config stavki
 
 ### Prioritet 2
 - [ ] Offline mode (Hive/SQLite cache)
 - [ ] Push notifikacije
 - [ ] Dark tema
 - [ ] Više jezika (nemački, engleski UK)
+- [ ] Upload slika za inventar
 
 ### Prioritet 3
-- [ ] Admin panel u aplikaciji
-- [ ] Analytics/statistika
+- [ ] Analytics/statistika dashboards
 - [ ] Export u PDF/Excel
 - [ ] Social sharing
 
@@ -480,6 +799,7 @@ dependencies:
 - [ ] Integration testovi
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Error tracking (Sentry/Crashlytics)
+- [ ] Zameniti `withOpacity` sa `withValues` (deprecation)
 
 ---
 

@@ -331,33 +331,36 @@ Material(
 ### Breakpoints
 
 ```dart
-class AppBreakpoints {
-  static const double mobile = 640;    // 0-639px
-  static const double tablet = 1024;   // 640-1023px
-  static const double desktop = 1280;  // 1024-1279px
-  static const double wide = 1536;     // 1280px+
+class Breakpoints {
+  static const double mobile = 600;       // 0-599px
+  static const double tablet = 900;       // 600-899px
+  static const double desktop = 1200;     // 900-1199px
+  static const double largeDesktop = 1536; // 1200px+
 }
 ```
 
 ### Responsive Layout Example
 
 ```dart
-class ResponsiveLayout extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < AppBreakpoints.mobile) {
-          return MobileLayout();
-        } else if (constraints.maxWidth < AppBreakpoints.tablet) {
-          return TabletLayout();
-        } else {
-          return DesktopLayout();
-        }
-      },
-    );
-  }
+// Extension metode (iz responsive_builder.dart)
+if (context.isDesktop) {
+  // >= 900px (tablet threshold)
+  return DesktopLayout();
+} else {
+  return MobileLayout();
 }
+
+// ResponsiveBuilder widget
+ResponsiveBuilder(
+  builder: (context, deviceType) {
+    switch (deviceType) {
+      case DeviceType.mobile: return MobileLayout();
+      case DeviceType.tablet: return TabletLayout();
+      case DeviceType.desktop: return DesktopLayout();
+      case DeviceType.largeDesktop: return WideLayout();
+    }
+  },
+)
 ```
 
 ### Responsive Spacing
@@ -366,7 +369,7 @@ class ResponsiveLayout extends StatelessWidget {
 // Adaptive padding based on screen size
 Padding(
   padding: EdgeInsets.symmetric(
-    horizontal: MediaQuery.of(context).size.width < AppBreakpoints.mobile
+    horizontal: context.isMobile
         ? AppSpacing.md
         : AppSpacing.xl,
   ),
@@ -387,9 +390,9 @@ GridView.builder(
 
 int _getCrossAxisCount(BuildContext context) {
   final width = MediaQuery.of(context).size.width;
-  if (width < AppBreakpoints.mobile) return 1;
-  if (width < AppBreakpoints.tablet) return 2;
-  if (width < AppBreakpoints.desktop) return 3;
+  if (width < Breakpoints.mobile) return 1;    // < 600
+  if (width < Breakpoints.tablet) return 2;    // < 900
+  if (width < Breakpoints.desktop) return 3;   // < 1200
   return 4;
 }
 ```
