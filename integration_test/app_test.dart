@@ -8,9 +8,6 @@ import 'package:ooh_mobile/features/discover/presentation/pages/discover_page.da
 
 /// Integration (E2E) testovi za OOH Mobile aplikaciju.
 ///
-/// VIZUELNI testovi — svaka akcija (tap, unos teksta, navigacija)
-/// se desava na ekranu uredjaja/simulatora u realnom vremenu.
-///
 /// Preduslovi:
 ///   - Backend pokrenut na localhost:8080
 ///   - Baza sadrzi DataLoader bootstrap podatke
@@ -26,21 +23,15 @@ void main() {
   });
 
   setUp(() async {
-    // Obrisi sacuvani token pre svakog testa
-    // — sprecava auto-redirect na dashboard ako je korisnik
-    //   bio prethodno ulogovan na uredjaju
+    // Brise JWT token — sprecava auto-redirect ako je korisnik prethodno ulogovan
     await getIt<AuthTokenStorage>().deleteToken();
   });
-
-  // ─── Pomocne funkcije ──────────────────────────────────────────────
 
   /// Pumpa [total] milisekundi u koracima od 100ms.
   ///
   /// LandingPage ima beskonacne animacije (flutter_animate repeat,
   /// rekurzivni Future.delayed za kljucne reci u hero sekciji),
-  /// pa pumpAndSettle() nikad ne zavrsi. Umesto toga eksplicitno
-  /// pumpamo frame-ove sa kratkim intervalom — svaki frame renderuje
-  /// sledecu slicicu na ekranu uredjaja.
+  /// pa pumpAndSettle() nikad ne zavrsi.
   Future<void> pumpFrames(WidgetTester tester, Duration total) async {
     const frame = Duration(milliseconds: 100);
     final count = total.inMilliseconds ~/ frame.inMilliseconds;
@@ -65,12 +56,8 @@ void main() {
     return false;
   }
 
-  // ─── Helper: Login ─────────────────────────────────────────────────
-
   /// Pumpa OohApp, otvara hamburger meni, tapuje "Prijavi se",
   /// unosi kredencijale i loguje se.
-  ///
-  /// Svaka akcija je prava UI interakcija vidljiva na simulatoru.
   Future<void> performLogin(WidgetTester tester) async {
     await tester.pumpWidget(const OohApp());
 
@@ -78,7 +65,6 @@ void main() {
     await pumpFrames(tester, const Duration(seconds: 3));
     expect(find.text('AutoHome'), findsWidgets);
 
-    // Mobilni layout: hamburger meni → bottom sheet
     await tester.tap(find.byIcon(Icons.menu));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 500));
@@ -111,20 +97,13 @@ void main() {
         reason: 'DiscoverPage treba da se pojavi nakon uspesnog login-a');
   }
 
-  // ─── Test: Login → Discover ───────────────────────────────────────
-
   group('E2E: Login → Discover tok', () {
     testWidgets(
         'korisnik se prijavljuje, vidi gradove i inventar na Discover stranici',
         (tester) async {
-      // ── 1. Login ──────────────────────────────────────────────
       await performLogin(tester);
-
-      // Verifikuj da smo na Discover stranici
       expect(find.byType(DiscoverPage), findsOneWidget);
 
-      // ── 2. Discover: gradovi i inventar ───────────────────────
-      // Sacekaj ucitavanje gradova iz API-ja
       // DiscoverPage u initState poziva LoadCities() i LoadDictionaries()
       final citiesLoaded = await pumpUntil(
         tester,
@@ -134,17 +113,10 @@ void main() {
       expect(citiesLoaded, isTrue,
           reason: 'Grad "Beograd, Srbija" treba da se pojavi u dropdown-u');
 
-      // Pumpaj jos koji frame da se inventar ucita
       await pumpFrames(tester, const Duration(seconds: 2));
 
-      // Verifikuj da je grad ucitan
       expect(find.text('Beograd, Srbija'), findsOneWidget);
-
-      // Verifikuj da je inventar ucitan — nema vise loading indikatora
-      expect(
-        find.byType(CircularProgressIndicator),
-        findsNothing,
-      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
   });
 }
