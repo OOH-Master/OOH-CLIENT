@@ -794,9 +794,9 @@ dependencies:
 - [ ] Social sharing
 
 ### Tehnički dug
-- [ ] Unit testovi za Bloc-ove
-- [ ] Widget testovi za ključne komponente
-- [ ] Integration testovi
+- [x] Unit testovi za Bloc-ove *(auth_bloc_test — 6 testova, discover_bloc_test — 16 testova)*
+- [x] Widget testovi za ključne komponente *(login_page_test — 7 testova)*
+- [x] Integration testovi *(integration_test/app_test — 1 E2E test: Login → Discover tok)*
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Error tracking (Sentry/Crashlytics)
 - [ ] Zameniti `withOpacity` sa `withValues` (deprecation)

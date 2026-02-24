@@ -274,3 +274,83 @@ lib/
     ├── profile/     # Korisnicki profil
     └── shell/       # Responsive navigacija
 ```
+
+---
+
+## 7. Testiranje
+
+Projekat ima tri nivoa testiranja rasporedjena na backend i frontend.
+
+### 7.1 Backend Testovi (JUnit 5 + Mockito + AssertJ)
+
+**17 unit testova** u 3 test klase, bez pokretanja Spring konteksta (cisti Mockito mock-ovi).
+
+| Test klasa | Broj testova | Pokriveni servisi |
+|-----------|-------------|-------------------|
+| `AuthenticationServiceTest` | 4 | Registracija, prijava, JWT generisanje |
+| `InventoryServiceTest` | 6 | CRUD operacije za inventar |
+| `InventoryFilterServiceTest` | 7 | JPA Specification filtriranje (grad, cena, keyword, status) |
+
+**Kljucne tehnike:**
+- `@ExtendWith(MockitoExtension.class)` — Mockito bez Spring-a
+- `ArgumentCaptor<Specification<T>>` — hvatanje dinamickih JPA upita
+- Arrange-Act-Assert pattern za sve testove
+
+**Pokretanje:**
+```bash
+cd ooh-backend && ./gradlew test
+```
+
+### 7.2 Frontend Unit i Widget Testovi (bloc_test + mockito + flutter_test)
+
+**29 testova** u 3 test fajla:
+
+| Test fajl | Tip | Broj testova | Opis |
+|-----------|-----|-------------|------|
+| `auth_bloc_test.dart` | BLoC | 6 | Login, register, logout, provera sesije |
+| `discover_bloc_test.dart` | BLoC | 16 | Gradovi, inventar, filteri, resetovanje |
+| `login_page_test.dart` | Widget | 7 | UI rendering, validacija forme, BLoC interakcija |
+
+**Kljucne tehnike:**
+- `@GenerateNiceMocks` + `build_runner` za generisanje mock klasa
+- `blocTest<Bloc, State>()` za deklarativno testiranje state tranzicija
+- `provideDummy<Result<T>>()` za Mockito kompatibilnost sa sealed klasama
+- `GoRouter` test setup za widget testove koji koriste navigaciju
+- `Completer<T>` pattern za simulaciju async loading stanja
+
+**Pokretanje:**
+```bash
+cd ooh_mobile && flutter test test/features/
+```
+
+### 7.3 Integration (E2E) Testovi (integration_test)
+
+**1 E2E test** koji pokrece stvarnu aplikaciju sa stvarnim backend-om:
+
+| Test | Opis |
+|------|------|
+| Login → Discover tok | Pokrece app → navigira na login → unosi kredencijale → verifikuje Discover stranicu → ucitavanje gradova (Beograd) → prikaz inventara |
+
+**Razlika od unit testova:** E2E testovi ne koriste mock-ove — rade sa pravim backend API-jem, pravom bazom i pravim network pozivima. Koriste `IntegrationTestWidgetsFlutterBinding` iz Flutter SDK-a.
+
+**Preduslovi:** Backend pokrenut na localhost:8080, korisnik `brand`/`brand123` u bazi.
+
+**Pokretanje:**
+```bash
+cd ooh_mobile && flutter test integration_test/ -d <device_id>
+```
+
+### 7.4 Sumarni pregled testiranja
+
+| Metrika | Backend | Frontend | E2E | Ukupno |
+|---------|---------|----------|-----|--------|
+| Broj testova | 17 | 29 | 1 | **47** |
+| Test fajlova | 3 | 3 | 1 | **7** |
+| Framework | JUnit 5 + Mockito | bloc_test + flutter_test | integration_test | — |
+| Tip | Unit | Unit + Widget | Integration | — |
+| Backend potreban | Ne | Ne | Da | — |
+| Vreme izvrsavanja | ~2-3s | ~4s | ~15-30s | — |
+
+**Detaljnija dokumentacija:**
+- Backend: `ooh-backend/docs/sr/11_TESTIRANJE.md`
+- Frontend: `ooh_mobile/docs/TESTING.md`

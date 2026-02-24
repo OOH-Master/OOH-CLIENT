@@ -600,11 +600,13 @@ class _DiscoverPageState extends State<DiscoverPage> {
             ),
           ),
           isDense: true,
+          isExpanded: true,
           items: state.cities.map((city) {
             return DropdownMenuItem(
               value: city,
               child: Text(
                 '${city.name}, ${city.country}',
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 14, color: AppColors.foreground),
               ),
             );
