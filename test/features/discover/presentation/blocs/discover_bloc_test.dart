@@ -88,8 +88,6 @@ void main() {
 
   DiscoverBloc buildBloc() => DiscoverBloc(repository: mockRepository);
 
-  // ─── LoadCities ─────────────────────────────────────────────────────
-
   group('LoadCities', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'emituje [DiscoverLoading, DiscoverLoaded] sa Beogradom kao default gradom',
@@ -146,8 +144,6 @@ void main() {
     );
   });
 
-  // ─── LoadInventoryUnits ─────────────────────────────────────────────
-
   group('LoadInventoryUnits', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'emituje ucitane jedinice kada postoji DiscoverLoaded stanje',
@@ -195,8 +191,6 @@ void main() {
     );
   });
 
-  // ─── SelectCity ─────────────────────────────────────────────────────
-
   group('SelectCity', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'azurira selectedCity i pokrece LoadInventoryUnits',
@@ -242,8 +236,6 @@ void main() {
     );
   });
 
-  // ─── ApplyFilters ───────────────────────────────────────────────────
-
   group('ApplyFilters', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'merge-uje filtere sa aktivnim gradom i pokrece ucitavanje',
@@ -272,8 +264,6 @@ void main() {
     );
   });
 
-  // ─── ResetFilters ───────────────────────────────────────────────────
-
   group('ResetFilters', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'resetuje filtere na prazne i pokrece ucitavanje',
@@ -300,8 +290,6 @@ void main() {
       ],
     );
   });
-
-  // ─── LoadDictionaries ───────────────────────────────────────────────
 
   group('LoadDictionaries', () {
     blocTest<DiscoverBloc, DiscoverState>(

@@ -107,8 +107,6 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  // ─── Rendering Tests ──────────────────────────────────────────────────
-
   group('LoginPage rendering', () {
     testWidgets('prikazuje polja za username i password', (tester) async {
       await pumpLoginPage(tester);

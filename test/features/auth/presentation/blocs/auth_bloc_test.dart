@@ -54,8 +54,6 @@ void main() {
         logoutUseCase: mockLogoutUseCase,
       );
 
-  // ─── LoginSubmitted ───────────────────────────────────────────────
-
   group('LoginSubmitted', () {
     blocTest<AuthBloc, AuthState>(
       'emituje [AuthLoading, AuthAuthenticated] na uspesan login',
@@ -94,8 +92,6 @@ void main() {
     );
   });
 
-  // ─── RegisterSubmitted ────────────────────────────────────────────
-
   group('RegisterSubmitted', () {
     blocTest<AuthBloc, AuthState>(
       'emituje [AuthLoading, AuthAuthenticated] na uspesnu registraciju',
@@ -117,8 +113,6 @@ void main() {
     );
   });
 
-  // ─── LogoutRequested ──────────────────────────────────────────────
-
   group('LogoutRequested', () {
     blocTest<AuthBloc, AuthState>(
       'emituje [AuthLoading, AuthUnauthenticated] na logout',
@@ -133,8 +127,6 @@ void main() {
       ],
     );
   });
-
-  // ─── AuthStarted ─────────────────────────────────────────────────
 
   group('AuthStarted', () {
     blocTest<AuthBloc, AuthState>(
