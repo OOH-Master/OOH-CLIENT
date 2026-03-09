@@ -40,7 +40,7 @@ test/
 │   └── discover/
 │       └── presentation/
 │           └── blocs/
-│               ├── discover_bloc_test.dart       # 16 BLoC testova
+│               ├── discover_bloc_test.dart       # 28 BLoC testova
 │               └── discover_bloc_test.mocks.dart # Generisan
 └── widget_test.dart                              # Smoke test
 
@@ -74,10 +74,12 @@ BLoC pattern je jedini sloj izmedju UI-ja i API poziva. Svaka korisnicka akcija 
 - LogoutRequested → AuthUnauthenticated
 - AuthStarted: sa tokenom → AuthAuthenticated, bez tokena → AuthUnauthenticated
 
-**`discover_bloc_test.dart`** — 16 testova:
+**`discover_bloc_test.dart`** — 28 testova:
 - LoadCities: default grad (Beograd), prazna lista, greska
+- LoadCountries: ucitavanje drzava, default drzava (Srbija), prazna lista, greska
 - LoadInventoryUnits: ucitavanje sa filtrima, greska
 - SelectCity: promena grada pokece novo ucitavanje, null grad prazni listu
+- SelectCountry: promena drzave filtrira gradove, null drzava prikazuje sve gradove ("Sve drzave")
 - ApplyFilters: merge filtera sa aktivnim gradom
 - ResetFilters: vracanje na pocetne filtere
 - LoadDictionaries: ucitavanje tipova, formata, venue tipova
@@ -89,6 +91,7 @@ Mockito ne ume automatski da kreira dummy vrednosti za sealed klase (`Result<T>`
 ```dart
 setUpAll(() {
   provideDummy<Result<List<City>>>(const Success([]));
+  provideDummy<Result<List<Country>>>(const Success([]));
   provideDummy<Result<List<OohUnit>>>(const Success([]));
 });
 ```
@@ -709,8 +712,8 @@ void main() {
 | Metrika | Vrednost |
 |---------|----------|
 | Ukupan broj test fajlova | 4 (3 unit/widget + 1 E2E) |
-| Ukupan broj testova | 30 (29 unit/widget + 1 E2E) |
-| BLoC testova | 22 |
+| Ukupan broj testova | 42 (41 unit/widget + 1 E2E) |
+| BLoC testova | 34 |
 | Widget testova | 7 |
 | E2E testova | 1 |
 | Pokriveni feature-i | Auth (login/register/logout), Discover (filtriranje/pretraga) |

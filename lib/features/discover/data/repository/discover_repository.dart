@@ -1,6 +1,7 @@
 import '../../../../core/utils/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/city.dart';
+import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../api/api.dart';
 import '../dto/dto.dart';
@@ -8,6 +9,7 @@ import '../mapper/discover_mapper.dart';
 
 /// Repository interface for discover feature
 abstract class DiscoverRepository {
+  Future<Result<List<Country>>> getCountries();
   Future<Result<List<City>>> getCities({int? countryId});
   Future<Result<List<OohUnit>>> getUnits({InventoryFilterParams? filters});
   Future<Result<OohUnit>> getUnitById(int id);
@@ -29,6 +31,17 @@ class DiscoverRepositoryImpl implements DiscoverRepository {
     required InventoryApiService inventoryApi,
   })  : _configApi = configApi,
         _inventoryApi = inventoryApi;
+
+  @override
+  Future<Result<List<Country>>> getCountries() async {
+    try {
+      final dtos = await _configApi.getCountries();
+      final countries = DiscoverMapper.countriesFromDtoList(dtos);
+      return Success(countries);
+    } catch (e) {
+      return Error(ServerFailure(e.toString()));
+    }
+  }
 
   @override
   Future<Result<List<City>>> getCities({int? countryId}) async {

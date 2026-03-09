@@ -1016,6 +1016,36 @@ abstract class AppLocalizations {
   /// **'Inquiry submitted successfully'**
   String get inquiryCreated;
 
+  /// No description provided for @newInquiry.
+  ///
+  /// In en, this message translates to:
+  /// **'New Inquiry'**
+  String get newInquiry;
+
+  /// No description provided for @submitInquiry.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Inquiry'**
+  String get submitInquiry;
+
+  /// No description provided for @contactInformation.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Information'**
+  String get contactInformation;
+
+  /// No description provided for @campaignDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Campaign Details'**
+  String get campaignDetails;
+
+  /// No description provided for @selectedUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected Units'**
+  String get selectedUnits;
+
   /// No description provided for @notesUpdated.
   ///
   /// In en, this message translates to:
@@ -1357,6 +1387,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select Country'**
   String get selectCountry;
+
+  /// No description provided for @allCountries.
+  ///
+  /// In en, this message translates to:
+  /// **'All Countries'**
+  String get allCountries;
+
+  /// No description provided for @allCities.
+  ///
+  /// In en, this message translates to:
+  /// **'All Cities'**
+  String get allCities;
 
   /// No description provided for @configCreated.
   ///

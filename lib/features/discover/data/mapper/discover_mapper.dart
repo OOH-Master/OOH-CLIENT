@@ -1,4 +1,5 @@
 import '../../domain/entities/city.dart';
+import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../dto/dto.dart';
 
@@ -6,12 +7,27 @@ import '../dto/dto.dart';
 class DiscoverMapper {
   DiscoverMapper._();
 
+  /// Convert CountryDto to Country domain entity
+  static Country countryFromDto(CountryDto dto) {
+    return Country(
+      id: dto.id,
+      name: dto.name,
+      code: dto.code,
+    );
+  }
+
+  /// Convert list of CountryDto to list of Country
+  static List<Country> countriesFromDtoList(List<CountryDto> dtos) {
+    return dtos.map(countryFromDto).toList();
+  }
+
   /// Convert CityDto to City domain entity
   static City cityFromDto(CityDto dto, {int inventoryCount = 0}) {
     return City(
       id: dto.id,
       name: dto.name,
       country: dto.countryName ?? '',
+      countryId: dto.countryId,
       latitude: dto.latitude ?? 0.0,
       longitude: dto.longitude ?? 0.0,
       inventoryCount: inventoryCount,

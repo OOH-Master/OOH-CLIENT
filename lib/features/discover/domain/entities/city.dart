@@ -2,6 +2,7 @@ class City {
   final int id;
   final String name;
   final String country;
+  final int? countryId;
   final double latitude;
   final double longitude;
   final int inventoryCount;
@@ -10,6 +11,7 @@ class City {
     required this.id,
     required this.name,
     required this.country,
+    this.countryId,
     required this.latitude,
     required this.longitude,
     required this.inventoryCount,
@@ -20,6 +22,7 @@ class City {
       id: json['id'] as int,
       name: json['name'] as String,
       country: json['country'] as String,
+      countryId: json['countryId'] as int?,
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
       inventoryCount: json['inventoryCount'] as int? ?? 0,
@@ -31,6 +34,7 @@ class City {
       'id': id,
       'name': name,
       'country': country,
+      'countryId': countryId,
       'latitude': latitude,
       'longitude': longitude,
       'inventoryCount': inventoryCount,

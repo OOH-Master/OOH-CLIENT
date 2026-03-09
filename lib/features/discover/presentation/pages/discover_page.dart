@@ -12,6 +12,7 @@ import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/city.dart';
+import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
 import '../widgets/filter_bottom_sheet.dart';
@@ -39,7 +40,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final bloc = context.read<DiscoverBloc>();
-      bloc.add(const LoadCities());
+      bloc.add(LoadCountries());
       bloc.add(LoadDictionaries());
     });
   }
@@ -118,6 +119,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
           if (state is DiscoverLoaded) {
             return Row(
               children: [
+                Expanded(
+                  child: _buildCountryDropdown(state),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildCityDropdown(state, isDesktop),
                 ),
@@ -581,6 +586,55 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   // ==================== SHARED COMPONENTS ====================
+  Widget _buildCountryDropdown(DiscoverLoaded state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<Country?>(
+          value: state.selectedCountry,
+          dropdownColor: Colors.white,
+          hint: Text(
+            l10n.selectCountry,
+            style: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
+          ),
+          isDense: true,
+          isExpanded: true,
+          items: [
+            DropdownMenuItem<Country?>(
+              value: null,
+              child: Text(
+                l10n.allCountries,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            ...state.countries.map((country) {
+              return DropdownMenuItem<Country?>(
+                value: country,
+                child: Text(
+                  country.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: AppColors.foreground),
+                ),
+              );
+            }),
+          ],
+          onChanged: (country) {
+            context.read<DiscoverBloc>().add(SelectCountry(country));
+          },
+        ),
+      ),
+    );
+  }
+
   Widget _buildCityDropdown(DiscoverLoaded state, bool isDesktop) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -589,7 +643,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<City>(
+        child: DropdownButton<City?>(
           value: state.selectedCity,
           dropdownColor: Colors.white,
           hint: Text(
@@ -601,20 +655,32 @@ class _DiscoverPageState extends State<DiscoverPage> {
           ),
           isDense: true,
           isExpanded: true,
-          items: state.cities.map((city) {
-            return DropdownMenuItem(
-              value: city,
+          items: [
+            DropdownMenuItem<City?>(
+              value: null,
               child: Text(
-                '${city.name}, ${city.country}',
+                l10n.allCities,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 14, color: AppColors.foreground),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            );
-          }).toList(),
+            ),
+            ...state.cities.map((city) {
+              return DropdownMenuItem<City?>(
+                value: city,
+                child: Text(
+                  '${city.name}, ${city.country}',
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: AppColors.foreground),
+                ),
+              );
+            }),
+          ],
           onChanged: (city) {
-            if (city != null) {
-              context.read<DiscoverBloc>().add(SelectCity(city));
-            }
+            context.read<DiscoverBloc>().add(SelectCity(city));
           },
         ),
       ),
@@ -802,14 +868,28 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   Widget _buildMapSection(DiscoverLoaded state) {
-    final center = state.selectedCity != null
-        ? LatLng(state.selectedCity!.latitude, state.selectedCity!.longitude)
-        : const LatLng(44.8176, 20.4633);
+    // Determine map center and zoom based on selection
+    final LatLng center;
+    final double zoom;
+
+    if (state.selectedCity != null) {
+      // City selected — zoom to city
+      center = LatLng(state.selectedCity!.latitude, state.selectedCity!.longitude);
+      zoom = 12.0;
+    } else if (state.selectedCountry != null && state.cities.isNotEmpty) {
+      // Country selected but no city — center on first city of that country
+      center = LatLng(state.cities.first.latitude, state.cities.first.longitude);
+      zoom = 7.0;
+    } else {
+      // "All countries" — show Balkans overview
+      center = const LatLng(44.0, 18.5);
+      zoom = 6.0;
+    }
 
     return InventoryMap(
       units: state.units,
       center: center,
-      zoom: state.selectedCity != null ? 12.0 : 6.0,
+      zoom: zoom,
       selectedUnit: _selectedUnit,
       onUnitTap: (unit) {
         setState(() {

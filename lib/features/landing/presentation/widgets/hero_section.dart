@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../discover/domain/entities/city.dart';
+import '../../../discover/domain/entities/country.dart';
 import '../../../discover/presentation/blocs/discover_bloc.dart';
 
 class HeroSection extends StatefulWidget {
@@ -42,16 +43,15 @@ class _HeroSectionState extends State<HeroSection> {
   ];
 
   int _currentKeywordIndex = 0;
-  City? _selectedCity;
   String? _selectedPillKey;
 
   @override
   void initState() {
     super.initState();
     _startKeywordAnimation();
-    // Load cities when hero section loads
+    // Load countries when hero section loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DiscoverBloc>().add(const LoadCities());
+      context.read<DiscoverBloc>().add(LoadCountries());
     });
   }
 
@@ -67,11 +67,7 @@ class _HeroSectionState extends State<HeroSection> {
   }
 
   void _handleSearch() {
-    if (_selectedCity != null) {
-      context.go('/discover?cityId=${_selectedCity!.id}');
-    } else {
-      context.go('/discover');
-    }
+    context.go('/discover');
   }
 
   void _handleSeeMap() {
@@ -221,29 +217,19 @@ class _HeroSectionState extends State<HeroSection> {
   Widget _buildSearchForm(bool isMobile, AppLocalizations l10n) {
     return BlocBuilder<DiscoverBloc, DiscoverState>(
       builder: (context, state) {
+        List<Country> countries = [];
         List<City> cities = [];
+        Country? selectedCountry;
         City? selectedCity;
 
         if (state is DiscoverLoaded) {
+          countries = state.countries;
           cities = state.cities;
-
-          // Validate that _selectedCity exists in current cities list
-          if (_selectedCity != null && cities.isNotEmpty) {
-            final exists = cities.any((c) => c.id == _selectedCity!.id);
-            if (exists) {
-              selectedCity = cities.firstWhere((c) => c.id == _selectedCity!.id);
-            }
-          }
-
-          // Set default city if not set
-          if (selectedCity == null && cities.isNotEmpty) {
-            selectedCity = cities.firstWhere(
-              (c) => c.name.toLowerCase().contains('belgrade') || c.name.toLowerCase().contains('beograd'),
-              orElse: () => cities.first,
-            );
-            _selectedCity = selectedCity;
-          }
+          selectedCountry = state.selectedCountry;
+          selectedCity = state.selectedCity;
         }
+
+        final bool isLoading = state is DiscoverLoading || countries.isEmpty;
 
         return Container(
           constraints: const BoxConstraints(maxWidth: 768),
@@ -257,17 +243,17 @@ class _HeroSectionState extends State<HeroSection> {
           ),
           child: Row(
             children: [
-              // City dropdown
+              // Country dropdown
               Container(
-                width: 180,
+                width: isMobile ? 110 : 140,
                 height: 48,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: AppColors.muted,
                   borderRadius: BorderRadius.circular(AppRadius.full),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: cities.isEmpty
+                child: isLoading
                     ? Center(
                         child: SizedBox(
                           width: 20,
@@ -276,28 +262,100 @@ class _HeroSectionState extends State<HeroSection> {
                         ),
                       )
                     : DropdownButtonHideUnderline(
-                        child: DropdownButton<City>(
-                          value: selectedCity,
+                        child: DropdownButton<Country?>(
+                          value: selectedCountry,
                           dropdownColor: Colors.white,
                           isExpanded: true,
+                          isDense: true,
                           style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
                           icon: Icon(Icons.arrow_drop_down, color: AppColors.foreground, size: 20),
-                          items: cities.map((city) {
-                            return DropdownMenuItem(
-                              value: city,
+                          items: [
+                            DropdownMenuItem<Country?>(
+                              value: null,
                               child: Text(
-                                '${city.name}, ${city.country}',
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: AppColors.foreground,
+                                l10n.allCountries,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedCity = value;
-                            });
+                            ),
+                            ...countries.map((country) {
+                              return DropdownMenuItem<Country?>(
+                                value: country,
+                                child: Text(
+                                  country.name,
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.foreground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (country) {
+                            context.read<DiscoverBloc>().add(SelectCountry(country));
+                          },
+                        ),
+                      ),
+              ),
+
+              SizedBox(width: AppSpacing.xs),
+
+              // City dropdown
+              Container(
+                width: isMobile ? 110 : 140,
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: AppColors.muted,
+                  borderRadius: BorderRadius.circular(AppRadius.full),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: isLoading
+                    ? Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : DropdownButtonHideUnderline(
+                        child: DropdownButton<City?>(
+                          value: selectedCity,
+                          dropdownColor: Colors.white,
+                          isExpanded: true,
+                          isDense: true,
+                          style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
+                          icon: Icon(Icons.arrow_drop_down, color: AppColors.foreground, size: 20),
+                          items: [
+                            DropdownMenuItem<City?>(
+                              value: null,
+                              child: Text(
+                                l10n.allCities,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            ...cities.map((city) {
+                              return DropdownMenuItem<City?>(
+                                value: city,
+                                child: Text(
+                                  '${city.name}, ${city.country}',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.foreground,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (city) {
+                            context.read<DiscoverBloc>().add(SelectCity(city));
                           },
                         ),
                       ),

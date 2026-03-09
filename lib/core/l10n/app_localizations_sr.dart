@@ -431,31 +431,31 @@ class AppLocalizationsSr extends AppLocalizations {
   String get inquiryDetail => 'Inquiry Detail';
 
   @override
-  String get contactName => 'Contact Name';
+  String get contactName => 'Ime kontakta';
 
   @override
-  String get contactEmail => 'Contact Email';
+  String get contactEmail => 'Email kontakta';
 
   @override
-  String get contactPhone => 'Contact Phone';
+  String get contactPhone => 'Telefon kontakta';
 
   @override
-  String get campaignBrief => 'Campaign Brief';
+  String get campaignBrief => 'Opis kampanje';
 
   @override
-  String get startDate => 'Start Date';
+  String get startDate => 'Datum početka';
 
   @override
-  String get endDate => 'End Date';
+  String get endDate => 'Datum završetka';
 
   @override
-  String get budget => 'Budget';
+  String get budget => 'Budžet';
 
   @override
   String get status => 'Status';
 
   @override
-  String get items => 'Items';
+  String get items => 'Stavke';
 
   @override
   String get adminNotes => 'Admin Notes';
@@ -476,7 +476,22 @@ class AppLocalizationsSr extends AppLocalizations {
   String get noInquiries => 'No inquiries yet';
 
   @override
-  String get inquiryCreated => 'Inquiry submitted successfully';
+  String get inquiryCreated => 'Upit uspešno poslat!';
+
+  @override
+  String get newInquiry => 'Novi upit';
+
+  @override
+  String get submitInquiry => 'Pošalji upit';
+
+  @override
+  String get contactInformation => 'Kontakt informacije';
+
+  @override
+  String get campaignDetails => 'Detalji kampanje';
+
+  @override
+  String get selectedUnits => 'Odabrane jedinice';
 
   @override
   String get notesUpdated => 'Notes updated';
@@ -647,7 +662,13 @@ class AppLocalizationsSr extends AppLocalizations {
   String get enterName => 'Enter name';
 
   @override
-  String get selectCountry => 'Select Country';
+  String get selectCountry => 'Izaberi državu';
+
+  @override
+  String get allCountries => 'Sve države';
+
+  @override
+  String get allCities => 'Svi gradovi';
 
   @override
   String get configCreated => 'Item created successfully';

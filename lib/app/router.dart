@@ -11,6 +11,7 @@ import '../features/campaign/presentation/pages/campaign_list_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/discover/presentation/pages/discover_detail_page.dart';
 import '../features/discover/presentation/pages/discover_page.dart';
+import '../features/inquiry/presentation/pages/inquiry_create_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_detail_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_list_page.dart';
 import '../features/inventory_management/presentation/pages/inventory_form_page.dart';
@@ -97,6 +98,16 @@ class AppRouter {
       GoRoute(
         path: '/app/inquiries',
         builder: (context, state) => const InquiryListPage(),
+      ),
+      GoRoute(
+        path: '/app/inquiries/create',
+        builder: (context, state) {
+          final unitIdsParam = state.uri.queryParameters['unitIds'] ?? '';
+          final unitIds = unitIdsParam.isNotEmpty
+              ? unitIdsParam.split(',').where((id) => id.isNotEmpty).toList()
+              : <String>[];
+          return InquiryCreatePage(unitIds: unitIds);
+        },
       ),
       GoRoute(
         path: '/app/inquiries/:id',

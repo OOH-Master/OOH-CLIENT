@@ -87,28 +87,36 @@
 ### 2.3 Feature Moduli
 
 #### Landing Page (`/`)
-- Hero sekcija sa animiranim ključnim rečima i pretragom
+- Hero sekcija sa animiranim ključnim rečima, pretragom i Country/City dropdown-ovima (koristi BLoC state direktno umesto lokalnog stanja)
 - CategoriesSection, NewlyAddedSection, AdvancedAnalyticsSection
 - TestimonialsSection, NewsInsightsSection, CTASection, Footer
 - Responsive: stacked (mobile) vs. multi-column (desktop)
 
 #### Discover (`/discover`, `/app/discover`)
-- Javna pretraga inventara sa filterima (grad, tip, format, cena)
+- Javna pretraga inventara sa filterima (drzava, grad, tip, format, cena)
+- Country/City kaskadno filtriranje (default: Srbija/Beograd, opcije "Sve drzave"/"Svi gradovi")
 - Desktop: 3-kolonski grid + mapa (flutter_map + OpenStreetMap)
 - Mobile: DraggableScrollableSheet sa mapom u pozadini
+- Animirani zoom mape pri promeni grada/drzave (TickerProviderStateMixin + AnimationController)
 - Detalj stranica: `/discover/:id`
 
 #### Dashboard (`/app/dashboard`)
-- Role-based prikaz sa CTA dugmadima:
-  - Brand: Upiti, Kampanje
-  - Agency: Brendovi, Upiti, Kampanje
-  - Media Owner: Inventar, Dodaj inventar
-  - Admin: Upiti, Konfiguracija
+- Role-based prikaz sa **real-time statistikom** sa API-ja:
+  - Brand: Broj upita (InquiryRepository), Broj kampanja (CampaignRepository)
+  - Agency: Broj brendova (AgencyRepository), Upiti, Kampanje
+  - Media Owner: Ukupan inventar + Aktivni (status=AVAILABLE) (InventoryManagementRepository)
+  - Admin: Ukupno upita (InquiryRepository)
+- `FutureBuilder` sa `catchError` fallback za graceful handling API grešaka
+- CTA dugmad koja vode na odgovarajuće stranice
 
-#### Inquiry (`/app/inquiries`)
+#### Inquiry (`/app/inquiries`, `/app/inquiries/create`)
 - Lista upita sa role-based endpoint-om (brand/agency/admin)
+- **Kreiranje upita:** `/app/inquiries/create?unitIds=1,2,3`
+  - Forma sa kontakt info, detalji kampanje, date picker-i, budžet
+  - Prima `unitIds` query parametar za prethodno izabrane inventare
+  - Poziva `POST /api/v1/public/inquiries` sa `CreateInquiryRequestDto`
 - Detalj upita: `/app/inquiries/:id`
-- BLoC: `LoadInquiries`, `LoadInquiryDetail`
+- BLoC: `LoadInquiries`, `LoadInquiryDetail`, `CreateInquiry`
 
 #### Inventory Management (`/app/my-inventory`)
 - Lista inventara vlasnika medija
@@ -169,6 +177,7 @@ Svi servisi i repozitorijumi su registrovani u `di.dart` kao lazy singleton-i:
 | Shell | `/app/discover` | Discover | Ulogovani |
 | Shell | `/app/profile` | Profil | Ulogovani |
 | Role | `/app/inquiries` | Lista upita | brand, agency, admin |
+| Role | `/app/inquiries/create` | Kreiranje upita | brand, agency |
 | Role | `/app/inquiries/:id` | Detalj upita | brand, agency, admin |
 | Role | `/app/my-inventory` | Moj inventar | mediaOwner |
 | Role | `/app/inventory/create` | Novi inventar | mediaOwner |
@@ -303,12 +312,12 @@ cd ooh-backend && ./gradlew test
 
 ### 7.2 Frontend Unit i Widget Testovi (bloc_test + mockito + flutter_test)
 
-**29 testova** u 3 test fajla:
+**41 testova** u 3 test fajla:
 
 | Test fajl | Tip | Broj testova | Opis |
 |-----------|-----|-------------|------|
 | `auth_bloc_test.dart` | BLoC | 6 | Login, register, logout, provera sesije |
-| `discover_bloc_test.dart` | BLoC | 16 | Gradovi, inventar, filteri, resetovanje |
+| `discover_bloc_test.dart` | BLoC | 28 | Drzave, gradovi, inventar, filteri, resetovanje, kaskadno filtriranje |
 | `login_page_test.dart` | Widget | 7 | UI rendering, validacija forme, BLoC interakcija |
 
 **Kljucne tehnike:**
@@ -344,7 +353,7 @@ cd ooh_mobile && flutter test integration_test/ -d <device_id>
 
 | Metrika | Backend | Frontend | E2E | Ukupno |
 |---------|---------|----------|-----|--------|
-| Broj testova | 17 | 29 | 1 | **47** |
+| Broj testova | 17 | 41 | 1 | **59** |
 | Test fajlova | 3 | 3 | 1 | **7** |
 | Framework | JUnit 5 + Mockito | bloc_test + flutter_test | integration_test | — |
 | Tip | Unit | Unit + Widget | Integration | — |

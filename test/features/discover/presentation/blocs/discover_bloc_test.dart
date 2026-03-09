@@ -8,6 +8,7 @@ import 'package:ooh_mobile/features/discover/data/api/inventory_api_service.dart
 import 'package:ooh_mobile/features/discover/data/dto/dictionary_ref_dto.dart';
 import 'package:ooh_mobile/features/discover/data/repository/discover_repository.dart';
 import 'package:ooh_mobile/features/discover/domain/entities/city.dart';
+import 'package:ooh_mobile/features/discover/domain/entities/country.dart';
 import 'package:ooh_mobile/features/discover/domain/entities/ooh_unit.dart';
 import 'package:ooh_mobile/features/discover/presentation/blocs/discover_bloc.dart';
 
@@ -19,6 +20,7 @@ void main() {
 
   setUpAll(() {
     // Mockito zahteva dummy vrednosti za sealed Result<T> tipove
+    provideDummy<Result<List<Country>>>(const Success([]));
     provideDummy<Result<List<City>>>(const Success([]));
     provideDummy<Result<List<OohUnit>>>(const Success([]));
     provideDummy<Result<List<DictionaryRefDto>>>(const Success([]));
@@ -36,11 +38,18 @@ void main() {
     )));
   });
 
+  final testCountries = [
+    const Country(id: 1, name: 'Srbija', code: 'RS'),
+    const Country(id: 2, name: 'Hrvatska', code: 'HR'),
+    const Country(id: 3, name: 'Bosna i Hercegovina', code: 'BA'),
+  ];
+
   final testCities = [
     City(
       id: 1,
       name: 'Beograd',
       country: 'Srbija',
+      countryId: 1,
       latitude: 44.8,
       longitude: 20.5,
       inventoryCount: 10,
@@ -49,9 +58,22 @@ void main() {
       id: 2,
       name: 'Novi Sad',
       country: 'Srbija',
+      countryId: 1,
       latitude: 45.3,
       longitude: 19.8,
       inventoryCount: 5,
+    ),
+  ];
+
+  final testCroatianCities = [
+    City(
+      id: 3,
+      name: 'Zagreb',
+      country: 'Hrvatska',
+      countryId: 2,
+      latitude: 45.8,
+      longitude: 15.9,
+      inventoryCount: 8,
     ),
   ];
 
@@ -88,6 +110,126 @@ void main() {
 
   DiscoverBloc buildBloc() => DiscoverBloc(repository: mockRepository);
 
+  group('LoadCountries', () {
+    blocTest<DiscoverBloc, DiscoverState>(
+      'emituje [DiscoverLoading, DiscoverLoaded] sa Srbijom kao default drzavom',
+      build: () {
+        when(mockRepository.getCountries())
+            .thenAnswer((_) async => Success(testCountries));
+        when(mockRepository.getCities(countryId: 1))
+            .thenAnswer((_) async => Success(testCities));
+        when(mockRepository.getUnits(filters: anyNamed('filters')))
+            .thenAnswer((_) async => Success(testUnits));
+        return buildBloc();
+      },
+      act: (bloc) => bloc.add(LoadCountries()),
+      wait: const Duration(milliseconds: 500),
+      expect: () => [
+        isA<DiscoverLoading>(),
+        isA<DiscoverLoaded>()
+            .having((s) => s.countries.length, 'countries.length', 3)
+            .having((s) => s.selectedCountry?.code, 'selectedCountry.code', 'RS'),
+        isA<DiscoverLoaded>()
+            .having((s) => s.cities.length, 'cities.length', 2)
+            .having((s) => s.selectedCity?.name, 'selectedCity', 'Beograd'),
+        isA<DiscoverLoaded>()
+            .having((s) => s.isLoadingUnits, 'isLoadingUnits', true),
+        isA<DiscoverLoaded>()
+            .having((s) => s.units.length, 'units.length', 2),
+      ],
+    );
+
+    blocTest<DiscoverBloc, DiscoverState>(
+      'emituje DiscoverFailure na gresku pri ucitavanju drzava',
+      build: () {
+        when(mockRepository.getCountries())
+            .thenAnswer((_) async => const Error(ServerFailure('Network error')));
+        return buildBloc();
+      },
+      act: (bloc) => bloc.add(LoadCountries()),
+      expect: () => [
+        isA<DiscoverLoading>(),
+        isA<DiscoverFailure>()
+            .having((s) => s.message, 'message', contains('Network error')),
+      ],
+    );
+  });
+
+  group('SelectCountry', () {
+    blocTest<DiscoverBloc, DiscoverState>(
+      'selektuje novu drzavu i pokrece ucitavanje gradova za tu drzavu',
+      build: () {
+        when(mockRepository.getCities(countryId: 2))
+            .thenAnswer((_) async => Success(testCroatianCities));
+        when(mockRepository.getUnits(filters: anyNamed('filters')))
+            .thenAnswer((_) async => const Success([]));
+        return buildBloc();
+      },
+      seed: () => DiscoverLoaded(
+        countries: testCountries,
+        selectedCountry: testCountries[0],
+        cities: testCities,
+        units: testUnits,
+        selectedCity: testCities[0],
+      ),
+      act: (bloc) => bloc.add(SelectCountry(testCountries[1])),
+      wait: const Duration(milliseconds: 500),
+      expect: () => [
+        // Emits with new country, cleared city and units
+        isA<DiscoverLoaded>()
+            .having((s) => s.selectedCountry?.name, 'selectedCountry', 'Hrvatska')
+            .having((s) => s.selectedCity, 'selectedCity', isNull)
+            .having((s) => s.cities.length, 'cities.length', 0),
+        // Cities loaded for Croatia
+        isA<DiscoverLoaded>()
+            .having((s) => s.cities.length, 'cities.length', 1)
+            .having((s) => s.selectedCity?.name, 'selectedCity', 'Zagreb'),
+        // Units loading
+        isA<DiscoverLoaded>()
+            .having((s) => s.isLoadingUnits, 'isLoadingUnits', true),
+        // Units loaded
+        isA<DiscoverLoaded>()
+            .having((s) => s.isLoadingUnits, 'isLoadingUnits', false),
+      ],
+    );
+
+    blocTest<DiscoverBloc, DiscoverState>(
+      'selektuje null drzavu ("Sve drzave") — ucitava sve gradove',
+      build: () {
+        when(mockRepository.getCities(countryId: null))
+            .thenAnswer((_) async => Success([...testCities, ...testCroatianCities]));
+        when(mockRepository.getUnits(filters: anyNamed('filters')))
+            .thenAnswer((_) async => Success(testUnits));
+        return buildBloc();
+      },
+      seed: () => DiscoverLoaded(
+        countries: testCountries,
+        selectedCountry: testCountries[0],
+        cities: testCities,
+        units: testUnits,
+        selectedCity: testCities[0],
+      ),
+      act: (bloc) => bloc.add(const SelectCountry(null)),
+      wait: const Duration(milliseconds: 500),
+      expect: () => [
+        // Emits with cleared country and city
+        isA<DiscoverLoaded>()
+            .having((s) => s.selectedCountry, 'selectedCountry', isNull)
+            .having((s) => s.selectedCity, 'selectedCity', isNull),
+        // Cities loaded (all)
+        isA<DiscoverLoaded>()
+            .having((s) => s.cities.length, 'cities.length', 3)
+            .having((s) => s.selectedCity?.name, 'selectedCity', 'Beograd'),
+        // Units loading triggered
+        isA<DiscoverLoaded>()
+            .having((s) => s.isLoadingUnits, 'isLoadingUnits', true),
+        // Units loaded
+        isA<DiscoverLoaded>()
+            .having((s) => s.units.length, 'units.length', 2),
+      ],
+    );
+  });
+
   group('LoadCities', () {
     blocTest<DiscoverBloc, DiscoverState>(
       'emituje [DiscoverLoading, DiscoverLoaded] sa Beogradom kao default gradom',
@@ -113,18 +255,26 @@ void main() {
     );
 
     blocTest<DiscoverBloc, DiscoverState>(
-      'emituje [DiscoverLoading, DiscoverLoaded] sa praznom listom gradova',
+      'emituje [DiscoverLoading, DiscoverLoaded] sa praznom listom gradova i ucitava sve jedinice',
       build: () {
         when(mockRepository.getCities(countryId: null))
             .thenAnswer((_) async => const Success([]));
+        when(mockRepository.getUnits(filters: anyNamed('filters')))
+            .thenAnswer((_) async => Success(testUnits));
         return buildBloc();
       },
       act: (bloc) => bloc.add(const LoadCities()),
+      wait: const Duration(milliseconds: 300),
       expect: () => [
         isA<DiscoverLoading>(),
         isA<DiscoverLoaded>()
             .having((s) => s.cities.length, 'cities.length', 0)
             .having((s) => s.units.length, 'units.length', 0),
+        // When countryId is null and no cities, it loads all units
+        isA<DiscoverLoaded>()
+            .having((s) => s.isLoadingUnits, 'isLoadingUnits', true),
+        isA<DiscoverLoaded>()
+            .having((s) => s.units.length, 'units.length', 2),
       ],
     );
 
@@ -216,21 +366,28 @@ void main() {
     );
 
     blocTest<DiscoverBloc, DiscoverState>(
-      'postavlja prazne units kada je city null',
-      build: () => buildBloc(),
+      'postavlja selectedCity na null i ucitava sve jedinice za drzavu',
+      build: () {
+        when(mockRepository.getUnits(filters: anyNamed('filters')))
+            .thenAnswer((_) async => Success(testUnits));
+        return buildBloc();
+      },
       seed: () => DiscoverLoaded(
+        countries: testCountries,
+        selectedCountry: testCountries[0],
         cities: testCities,
         units: testUnits,
         selectedCity: testCities[0],
       ),
       act: (bloc) => bloc.add(const SelectCity(null)),
+      wait: const Duration(milliseconds: 300),
       expect: () => [
         isA<DiscoverLoaded>()
             .having((s) => s.selectedCity, 'selectedCity', isNull)
             .having((s) => s.isLoadingUnits, 'isLoadingUnits', true),
         isA<DiscoverLoaded>()
             .having((s) => s.selectedCity, 'selectedCity', isNull)
-            .having((s) => s.units.length, 'units.length', 0)
+            .having((s) => s.units.length, 'units.length', 2)
             .having((s) => s.isLoadingUnits, 'isLoadingUnits', false),
       ],
     );

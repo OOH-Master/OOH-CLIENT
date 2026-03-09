@@ -33,6 +33,11 @@ class UpdateQuotedPrice extends InquiryEvent {
   UpdateQuotedPrice(this.inquiryId, this.itemId, this.price, this.role);
 }
 
+class CreateInquiry extends InquiryEvent {
+  final Map<String, dynamic> data;
+  CreateInquiry(this.data);
+}
+
 // States
 abstract class InquiryState {}
 
@@ -60,6 +65,13 @@ class InquiryError extends InquiryState {
   InquiryError(this.message);
 }
 
+class InquirySubmitting extends InquiryState {}
+
+class InquirySubmitSuccess extends InquiryState {
+  final String message;
+  InquirySubmitSuccess(this.message);
+}
+
 // Bloc
 class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
   final InquiryRepository _repository;
@@ -69,6 +81,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     on<LoadInquiryDetail>(_onLoadInquiryDetail);
     on<UpdateAdminNotes>(_onUpdateAdminNotes);
     on<UpdateQuotedPrice>(_onUpdateQuotedPrice);
+    on<CreateInquiry>(_onCreateInquiry);
   }
 
   Future<void> _onLoadInquiries(
@@ -124,6 +137,19 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
       emit(InquiryActionSuccess('Price updated'));
       // Reload detail
       add(LoadInquiryDetail(event.inquiryId, event.role));
+    } catch (e) {
+      emit(InquiryError(e.toString()));
+    }
+  }
+
+  Future<void> _onCreateInquiry(
+    CreateInquiry event,
+    Emitter<InquiryState> emit,
+  ) async {
+    emit(InquirySubmitting());
+    try {
+      await _repository.createInquiry(event.data);
+      emit(InquirySubmitSuccess('Inquiry submitted successfully'));
     } catch (e) {
       emit(InquiryError(e.toString()));
     }

@@ -478,6 +478,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get inquiryCreated => 'Inquiry submitted successfully';
 
   @override
+  String get newInquiry => 'New Inquiry';
+
+  @override
+  String get submitInquiry => 'Submit Inquiry';
+
+  @override
+  String get contactInformation => 'Contact Information';
+
+  @override
+  String get campaignDetails => 'Campaign Details';
+
+  @override
+  String get selectedUnits => 'Selected Units';
+
+  @override
   String get notesUpdated => 'Notes updated';
 
   @override
@@ -647,6 +662,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get selectCountry => 'Select Country';
+
+  @override
+  String get allCountries => 'All Countries';
+
+  @override
+  String get allCities => 'All Cities';
 
   @override
   String get configCreated => 'Item created successfully';

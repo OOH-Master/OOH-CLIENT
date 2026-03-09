@@ -790,9 +790,7 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
       AuthGuardDialog.show(context);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.comingSoon)),
-    );
+    context.push('/app/inquiries/create?unitIds=${widget.unitId}');
   }
 
   void _handleAddProposal() {

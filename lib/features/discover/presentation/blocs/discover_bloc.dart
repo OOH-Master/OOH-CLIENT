@@ -6,6 +6,7 @@ import '../../data/api/inventory_api_service.dart';
 import '../../data/dto/dto.dart';
 import '../../data/repository/discover_repository.dart';
 import '../../domain/entities/city.dart';
+import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 
 // Events
@@ -13,6 +14,16 @@ abstract class DiscoverEvent extends Equatable {
   const DiscoverEvent();
   @override
   List<Object?> get props => [];
+}
+
+class LoadCountries extends DiscoverEvent {}
+
+class SelectCountry extends DiscoverEvent {
+  final Country? country;
+  const SelectCountry(this.country);
+
+  @override
+  List<Object?> get props => [country];
 }
 
 class LoadCities extends DiscoverEvent {
@@ -24,6 +35,7 @@ class LoadCities extends DiscoverEvent {
 }
 
 class LoadInventoryUnits extends DiscoverEvent {
+  final int? countryId;
   final int? cityId;
   final int? unitTypeId;
   final int? mediaFormatId;
@@ -35,6 +47,7 @@ class LoadInventoryUnits extends DiscoverEvent {
   final String? keyword;
 
   const LoadInventoryUnits({
+    this.countryId,
     this.cityId,
     this.unitTypeId,
     this.mediaFormatId,
@@ -48,6 +61,7 @@ class LoadInventoryUnits extends DiscoverEvent {
 
   @override
   List<Object?> get props => [
+        countryId,
         cityId,
         unitTypeId,
         mediaFormatId,
@@ -95,6 +109,8 @@ class DiscoverInitial extends DiscoverState {}
 class DiscoverLoading extends DiscoverState {}
 
 class DiscoverLoaded extends DiscoverState {
+  final List<Country> countries;
+  final Country? selectedCountry;
   final List<City> cities;
   final List<OohUnit> units;
   final City? selectedCity;
@@ -109,6 +125,8 @@ class DiscoverLoaded extends DiscoverState {
   final InventoryFilterParams activeFilters;
 
   const DiscoverLoaded({
+    this.countries = const [],
+    this.selectedCountry,
     required this.cities,
     required this.units,
     this.selectedCity,
@@ -123,6 +141,8 @@ class DiscoverLoaded extends DiscoverState {
 
   @override
   List<Object?> get props => [
+        countries,
+        selectedCountry,
         cities,
         units,
         selectedCity,
@@ -134,6 +154,9 @@ class DiscoverLoaded extends DiscoverState {
       ];
 
   DiscoverLoaded copyWith({
+    List<Country>? countries,
+    Country? selectedCountry,
+    bool clearSelectedCountry = false,
     List<City>? cities,
     List<OohUnit>? units,
     City? selectedCity,
@@ -145,6 +168,8 @@ class DiscoverLoaded extends DiscoverState {
     InventoryFilterParams? activeFilters,
   }) {
     return DiscoverLoaded(
+      countries: countries ?? this.countries,
+      selectedCountry: clearSelectedCountry ? null : (selectedCountry ?? this.selectedCountry),
       cities: cities ?? this.cities,
       units: units ?? this.units,
       selectedCity: clearSelectedCity ? null : (selectedCity ?? this.selectedCity),
@@ -173,6 +198,8 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
   DiscoverBloc({required DiscoverRepository repository})
       : _repository = repository,
         super(DiscoverInitial()) {
+    on<LoadCountries>(_onLoadCountries);
+    on<SelectCountry>(_onSelectCountry);
     on<LoadCities>(_onLoadCities);
     on<LoadInventoryUnits>(_onLoadInventoryUnits);
     on<SelectCity>(_onSelectCity);
@@ -182,39 +209,122 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     on<RefreshRequested>(_onRefreshRequested);
   }
 
+  Future<void> _onLoadCountries(
+    LoadCountries event,
+    Emitter<DiscoverState> emit,
+  ) async {
+    emit(DiscoverLoading());
+
+    final result = await _repository.getCountries();
+
+    switch (result) {
+      case Success(data: final countries):
+        // Default to Serbia
+        Country? defaultCountry;
+        try {
+          defaultCountry = countries.firstWhere(
+            (c) => c.code?.toUpperCase() == 'RS' ||
+                c.name.toLowerCase().contains('serb'),
+          );
+        } catch (_) {
+          if (countries.isNotEmpty) defaultCountry = countries.first;
+        }
+
+        emit(DiscoverLoaded(
+          countries: countries,
+          selectedCountry: defaultCountry,
+          cities: const [],
+          units: const [],
+        ));
+
+        // Load cities for default country
+        add(LoadCities(countryId: defaultCountry?.id));
+
+      case Error(failure: final failure):
+        emit(DiscoverFailure('Failed to load countries: ${failure.message}'));
+    }
+  }
+
+  Future<void> _onSelectCountry(
+    SelectCountry event,
+    Emitter<DiscoverState> emit,
+  ) async {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+
+    emit(currentState.copyWith(
+      selectedCountry: event.country,
+      clearSelectedCountry: event.country == null,
+      clearSelectedCity: true,
+      cities: const [],
+      units: const [],
+      isLoadingUnits: true,
+      activeFilters: const InventoryFilterParams(),
+    ));
+
+    // Load cities for the selected country (null = all countries)
+    add(LoadCities(countryId: event.country?.id));
+  }
+
   Future<void> _onLoadCities(
     LoadCities event,
     Emitter<DiscoverState> emit,
   ) async {
-    emit(DiscoverLoading());
+    final currentState = state;
+
+    if (currentState is! DiscoverLoaded) {
+      emit(DiscoverLoading());
+    }
 
     final result = await _repository.getCities(countryId: event.countryId);
 
     switch (result) {
       case Success(data: final cities):
+        final prevState = state is DiscoverLoaded ? state as DiscoverLoaded : null;
+
         if (cities.isEmpty) {
-          emit(const DiscoverLoaded(cities: [], units: []));
+          emit(DiscoverLoaded(
+            countries: prevState?.countries ?? const [],
+            selectedCountry: prevState?.selectedCountry,
+            cities: const [],
+            units: const [],
+            unitTypes: prevState?.unitTypes ?? const [],
+            mediaFormats: prevState?.mediaFormats ?? const [],
+            venueTypes: prevState?.venueTypes ?? const [],
+          ));
+          // When "all countries" with no city selected, load all units
+          if (event.countryId == null) {
+            add(const LoadInventoryUnits());
+          }
           return;
         }
 
-        // Find Belgrade as default city (or first available)
+        // Find Belgrade or first city as default
         City? defaultCity;
         try {
           defaultCity = cities.firstWhere(
-            (city) => city.name.toLowerCase() == 'belgrade' || city.name.toLowerCase() == 'beograd',
+            (city) => city.name.toLowerCase() == 'belgrade' ||
+                city.name.toLowerCase() == 'beograd',
           );
         } catch (_) {
           defaultCity = cities.first;
         }
 
         emit(DiscoverLoaded(
+          countries: prevState?.countries ?? const [],
+          selectedCountry: prevState?.selectedCountry,
           cities: cities,
-          units: [],
+          units: const [],
           selectedCity: defaultCity,
+          unitTypes: prevState?.unitTypes ?? const [],
+          mediaFormats: prevState?.mediaFormats ?? const [],
+          venueTypes: prevState?.venueTypes ?? const [],
         ));
 
         // Load units for default city
-        add(LoadInventoryUnits(cityId: defaultCity.id));
+        if (defaultCity != null) {
+          add(LoadInventoryUnits(cityId: defaultCity.id));
+        }
 
       case Error(failure: final failure):
         emit(DiscoverFailure('Failed to load cities: ${failure.message}'));
@@ -234,6 +344,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     }
 
     final filters = InventoryFilterParams(
+      countryId: event.countryId,
       cityId: event.cityId,
       unitTypeId: event.unitTypeId,
       mediaFormatId: event.mediaFormatId,
@@ -255,7 +366,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
             isLoadingUnits: false,
           ));
         } else {
-          emit(DiscoverLoaded(cities: [], units: units));
+          emit(DiscoverLoaded(cities: const [], units: units));
         }
       case Error(failure: final failure):
         emit(DiscoverFailure('Failed to load inventory: ${failure.message}'));
@@ -279,12 +390,8 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     if (event.city != null) {
       add(LoadInventoryUnits(cityId: event.city!.id));
     } else {
-      emit(currentState.copyWith(
-        units: [],
-        isLoadingUnits: false,
-        clearSelectedCity: true,
-        activeFilters: const InventoryFilterParams(),
-      ));
+      // "All cities" — load all units for the selected country (or all units)
+      add(LoadInventoryUnits(countryId: currentState.selectedCountry?.id));
     }
   }
 
@@ -331,6 +438,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
 
     final mergedFilters = event.filters.copyWith(
       cityId: currentState.selectedCity?.id,
+      countryId: currentState.selectedCountry?.id,
     );
 
     emit(currentState.copyWith(
@@ -339,6 +447,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     ));
 
     add(LoadInventoryUnits(
+      countryId: currentState.selectedCountry?.id,
       cityId: currentState.selectedCity?.id,
       unitTypeId: mergedFilters.unitTypeId,
       mediaFormatId: mergedFilters.mediaFormatId,
@@ -363,7 +472,10 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
       isLoadingUnits: true,
     ));
 
-    add(LoadInventoryUnits(cityId: currentState.selectedCity?.id));
+    add(LoadInventoryUnits(
+      countryId: currentState.selectedCountry?.id,
+      cityId: currentState.selectedCity?.id,
+    ));
   }
 
   Future<void> _onRefreshRequested(
@@ -374,7 +486,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     if (currentState is DiscoverLoaded && currentState.selectedCity != null) {
       add(LoadInventoryUnits(cityId: currentState.selectedCity!.id));
     } else {
-      add(const LoadCities());
+      add(LoadCountries());
     }
   }
 }

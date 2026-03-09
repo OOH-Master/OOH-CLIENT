@@ -146,7 +146,7 @@ lib/
 **Putanja:** `/`
 
 Javna landing stranica sa sekcijama:
-- `HeroSection` - Animirana hero sa pretragom
+- `HeroSection` - Animirana hero sa pretragom i Country/City dropdown-ovima (koristi BLoC state direktno)
 - `CategoriesSection` - Tipovi medija
 - `NewlyAddedSection` - Novi inventari
 - `CTASection` - Call-to-action
@@ -217,7 +217,7 @@ auth/
 
 **Putanje:** `/discover`, `/discover/:id`
 
-**Ovo je GLAVNI modul aplikacije.**
+**Ovo je GLAVNI modul aplikacije.** Podrzava Country/City kaskadno filtriranje inventara (default: Srbija/Beograd).
 
 **Fajlovi:**
 ```
@@ -228,6 +228,7 @@ discover/
 ├── domain/
 │   └── entities/
 │       ├── city.dart            # City(id, name, country, lat, lng)
+│       ├── country.dart         # Country(id, name)
 │       └── ooh_unit.dart        # OohUnit sa priceDisplay getter
 └── presentation/
     ├── blocs/discover_bloc.dart
@@ -261,11 +262,20 @@ class OohUnit {
 
 **DiscoverBloc Events:**
 - `LoadCities()`
+- `LoadCountries()`
 - `SelectCity(city)`
+- `SelectCountry(country)`
 - `LoadInventoryUnits(cityId)`
 
 **DiscoverBloc States:**
-- `DiscoverLoaded(cities, selectedCity, units, isLoadingUnits)`
+- `DiscoverLoaded(cities, selectedCity, countries, selectedCountry, units, isLoadingUnits)`
+
+**Country/City kaskadno filtriranje:**
+- Korisnik bira drzavu → gradovi se filtriraju prema odabranoj drzavi
+- Default: Srbija / Beograd
+- "Sve drzave" (`null`) prikazuje gradove svih drzava
+- "Svi gradovi" (`null`) prikazuje inventar svih gradova
+- Kaskadni dropdown-ovi su prisutni i na Landing (HeroSection) i na Discover stranici
 
 **Desktop Layout:**
 - Leva strana: 3-kolonski grid (720px)
@@ -319,20 +329,23 @@ class ShellCubit extends Cubit<ShellState> {
 
 Role-based dashboard koji prikazuje različit sadržaj u zavisnosti od korisničke uloge:
 
-| Rola | Prikaz |
-|------|--------|
-| `brand` | Moji upiti, Kampanje |
-| `agency` | Moji brendovi, Upiti, Kampanje |
-| `mediaOwner` | Moj inventar, Upiti |
-| `admin` | Svi upiti, Konfiguracija |
+| Rola | Prikaz | Statistika (API) |
+|------|--------|------------------|
+| `brand` | Moji upiti, Kampanje | `InquiryRepository.getInquiries(brand)`, `CampaignRepository.getCampaigns()` |
+| `agency` | Moji brendovi, Upiti, Kampanje | `AgencyRepository.getBrands()`, `InquiryRepository.getInquiries(agency)`, `CampaignRepository.getCampaigns()` |
+| `mediaOwner` | Moj inventar, Aktivni | `InventoryManagementRepository.getMyInventory()` — ukupno + filtrira AVAILABLE |
+| `admin` | Svi upiti, Inventar | `InquiryRepository.getInquiries(admin)` |
 
-Svaki dashboard ima CTA dugmad koja vode na odgovarajuće stranice (npr. "Pogledaj upite" → `/app/inquiries`).
+Svaki dashboard ima:
+- **Stat kartice** sa realnim brojevima sa API-ja (koristi `FutureBuilder` sa `catchError` fallback)
+- **Quick Actions** CTA dugmad koja vode na odgovarajuće stranice (npr. "Pogledaj upite" → `/app/inquiries`)
+- **Recent sections** za prikaz nedavnih aktivnosti
 
 ---
 
 ### 6. Inquiry (`/features/inquiry/`)
 
-**Putanje:** `/app/inquiries`, `/app/inquiries/:id`
+**Putanje:** `/app/inquiries`, `/app/inquiries/create`, `/app/inquiries/:id`
 
 **Fajlovi:**
 ```
@@ -345,15 +358,23 @@ inquiry/
     ├── blocs/inquiry_bloc.dart
     └── pages/
         ├── inquiry_list_page.dart
+        ├── inquiry_create_page.dart     ← NOVO
         └── inquiry_detail_page.dart
 ```
 
 **InquiryBloc Events/States:**
 - `LoadInquiries` → `InquiriesLoaded(inquiries)`
 - `LoadInquiryDetail(id)` → `InquiryDetailLoaded(inquiry)`
+- `CreateInquiry(data)` → `InquirySubmitting` → `InquirySubmitSuccess(message)`
 - Error/Loading state-ovi
 
-**API:** Koristi role-based endpoint (`/brand/inquiries`, `/agency/inquiries`, ili `/admin/inquiries`) u zavisnosti od korisničke uloge.
+**InquiryCreatePage:** Forma za kreiranje upita sa sekcijama:
+- **Kontakt informacije** — ime, email (obavezno), telefon
+- **Detalji kampanje** — opis, datum početka/kraja, budžet
+- **Odabrane jedinice** — prikazuje broj prethodno izabranih inventara
+- Šalje `POST /api/v1/public/inquiries` sa `CreateInquiryRequestDto`
+
+**API:** Koristi role-based endpoint (`/brand/inquiries`, `/agency/inquiries`, ili `/admin/inquiries`) u zavisnosti od korisničke uloge. Kreiranje koristi javni endpoint `/public/inquiries`.
 
 ---
 
@@ -550,6 +571,7 @@ final repo = getIt<CampaignRepository>();
 | Path | Page | Rola |
 |------|------|------|
 | `/app/inquiries` | InquiryListPage | brand, agency, admin |
+| `/app/inquiries/create` | InquiryCreatePage | brand, agency (unitIds query param) |
 | `/app/inquiries/:id` | InquiryDetailPage | brand, agency, admin |
 | `/app/my-inventory` | MyInventoryPage | mediaOwner |
 | `/app/inventory/create` | InventoryFormPage | mediaOwner |
@@ -607,6 +629,7 @@ Text(l10n.results(57))  // "57 rezultata"
 - Highlight selektovanog markera
 - Tap na marker → selektuje karticu
 - Default centar: Beograd (44.8176, 20.4633)
+- Animirani zoom pri promeni grada/drzave (TickerProviderStateMixin + AnimationController)
 
 ---
 
@@ -781,6 +804,12 @@ dependencies:
 - [ ] Editovanje kampanja i detalj stranica
 - [ ] Editovanje/brisanje admin config stavki
 
+### Realizovano
+- [x] Inquiry creation form (kreiranje upita sa Discover stranice)
+- [x] Dashboard statistika (realni podaci sa API-ja za sve uloge)
+- [x] Country/City kaskadno filtriranje na Discover stranici
+- [x] Animirana mapa sa fly-to efektom
+
 ### Prioritet 2
 - [ ] Offline mode (Hive/SQLite cache)
 - [ ] Push notifikacije
@@ -789,12 +818,12 @@ dependencies:
 - [ ] Upload slika za inventar
 
 ### Prioritet 3
-- [ ] Analytics/statistika dashboards
+- [x] Analytics/statistika dashboards
 - [ ] Export u PDF/Excel
 - [ ] Social sharing
 
 ### Tehnički dug
-- [x] Unit testovi za Bloc-ove *(auth_bloc_test — 6 testova, discover_bloc_test — 16 testova)*
+- [x] Unit testovi za Bloc-ove *(auth_bloc_test — 6 testova, discover_bloc_test — 28 testova)*
 - [x] Widget testovi za ključne komponente *(login_page_test — 7 testova)*
 - [x] Integration testovi *(integration_test/app_test — 1 E2E test: Login → Discover tok)*
 - [ ] CI/CD pipeline (GitHub Actions)

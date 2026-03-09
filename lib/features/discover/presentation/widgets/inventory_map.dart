@@ -29,20 +29,63 @@ class InventoryMap extends StatefulWidget {
   State<InventoryMap> createState() => _InventoryMapState();
 }
 
-class _InventoryMapState extends State<InventoryMap> {
+class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMixin {
   final MapController _mapController = MapController();
 
   @override
   void didUpdateWidget(InventoryMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Center map when selected unit changes
-    if (widget.selectedUnit != null && 
+    if (widget.selectedUnit != null &&
         widget.selectedUnit?.id != oldWidget.selectedUnit?.id) {
-      _mapController.move(
+      _animatedMapMove(
         LatLng(widget.selectedUnit!.latitude, widget.selectedUnit!.longitude),
         15.0,
       );
     }
+    // Animate when center or zoom changes (city/country selection)
+    else if (widget.center != oldWidget.center || widget.zoom != oldWidget.zoom) {
+      _animatedMapMove(widget.center, widget.zoom);
+    }
+  }
+
+  void _animatedMapMove(LatLng destLocation, double destZoom) {
+    final latTween = Tween<double>(
+      begin: _mapController.camera.center.latitude,
+      end: destLocation.latitude,
+    );
+    final lngTween = Tween<double>(
+      begin: _mapController.camera.center.longitude,
+      end: destLocation.longitude,
+    );
+    final zoomTween = Tween<double>(
+      begin: _mapController.camera.zoom,
+      end: destZoom,
+    );
+
+    final controller = AnimationController(
+      duration: const Duration(milliseconds: 500),
+      vsync: this,
+    );
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOut,
+    );
+
+    controller.addListener(() {
+      _mapController.move(
+        LatLng(latTween.evaluate(animation), lngTween.evaluate(animation)),
+        zoomTween.evaluate(animation),
+      );
+    });
+
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        controller.dispose();
+      }
+    });
+
+    controller.forward();
   }
 
   @override

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../inventory_management/data/repository/inventory_management_repository.dart';
 import 'base_dashboard.dart';
 import 'quick_action_card.dart';
 import 'stat_card.dart';
@@ -14,30 +16,38 @@ class MediaOwnerDashboard extends BaseDashboard {
   @override
   Widget buildStatCards(BuildContext context, bool isDesktop) {
     final loc = l10n(context);
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        SizedBox(
-          width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-          child: StatCard(
-            icon: Icons.inventory_2_outlined,
-            label: loc.myInventory,
-            value: '—',
-            iconColor: AppColors.primary,
-            onTap: () => context.push('/app/my-inventory'),
-          ),
-        ),
-        SizedBox(
-          width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-          child: StatCard(
-            icon: Icons.check_circle_outline,
-            label: loc.activeItems,
-            value: '—',
-            iconColor: AppColors.success,
-          ),
-        ),
-      ],
+    return FutureBuilder<List<dynamic>>(
+      future: context.read<InventoryManagementRepository>().getMyInventory().catchError((_) => []),
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? [];
+        final totalCount = items.length.toString();
+        final activeCount = items.where((item) => item.status == 'AVAILABLE').length.toString();
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            SizedBox(
+              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
+              child: StatCard(
+                icon: Icons.inventory_2_outlined,
+                label: loc.myInventory,
+                value: snapshot.hasData ? totalCount : '—',
+                iconColor: AppColors.primary,
+                onTap: () => context.push('/app/my-inventory'),
+              ),
+            ),
+            SizedBox(
+              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
+              child: StatCard(
+                icon: Icons.check_circle_outline,
+                label: loc.activeItems,
+                value: snapshot.hasData ? activeCount : '—',
+                iconColor: AppColors.success,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

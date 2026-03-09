@@ -8,13 +8,15 @@ import 'dart:async' as _i3;
 import 'package:mockito/mockito.dart' as _i1;
 import 'package:mockito/src/dummies.dart' as _i6;
 import 'package:ooh_mobile/core/utils/result.dart' as _i4;
-import 'package:ooh_mobile/features/discover/data/api/api.dart' as _i8;
-import 'package:ooh_mobile/features/discover/data/dto/dto.dart' as _i9;
+import 'package:ooh_mobile/features/discover/data/api/api.dart' as _i9;
+import 'package:ooh_mobile/features/discover/data/dto/dto.dart' as _i10;
 import 'package:ooh_mobile/features/discover/data/repository/discover_repository.dart'
     as _i2;
-import 'package:ooh_mobile/features/discover/domain/entities/city.dart' as _i5;
+import 'package:ooh_mobile/features/discover/domain/entities/city.dart' as _i7;
+import 'package:ooh_mobile/features/discover/domain/entities/country.dart'
+    as _i5;
 import 'package:ooh_mobile/features/discover/domain/entities/ooh_unit.dart'
-    as _i7;
+    as _i8;
 
 // ignore_for_file: type=lint
 // ignore_for_file: avoid_redundant_argument_values
@@ -37,15 +39,41 @@ import 'package:ooh_mobile/features/discover/domain/entities/ooh_unit.dart'
 class MockDiscoverRepository extends _i1.Mock
     implements _i2.DiscoverRepository {
   @override
-  _i3.Future<_i4.Result<List<_i5.City>>> getCities({int? countryId}) =>
+  _i3.Future<_i4.Result<List<_i5.Country>>> getCountries() =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #getCountries,
+          [],
+        ),
+        returnValue: _i3.Future<_i4.Result<List<_i5.Country>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i5.Country>>>(
+          this,
+          Invocation.method(
+            #getCountries,
+            [],
+          ),
+        )),
+        returnValueForMissingStub:
+            _i3.Future<_i4.Result<List<_i5.Country>>>.value(
+                _i6.dummyValue<_i4.Result<List<_i5.Country>>>(
+          this,
+          Invocation.method(
+            #getCountries,
+            [],
+          ),
+        )),
+      ) as _i3.Future<_i4.Result<List<_i5.Country>>>);
+
+  @override
+  _i3.Future<_i4.Result<List<_i7.City>>> getCities({int? countryId}) =>
       (super.noSuchMethod(
         Invocation.method(
           #getCities,
           [],
           {#countryId: countryId},
         ),
-        returnValue: _i3.Future<_i4.Result<List<_i5.City>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i5.City>>>(
+        returnValue: _i3.Future<_i4.Result<List<_i7.City>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i7.City>>>(
           this,
           Invocation.method(
             #getCities,
@@ -53,8 +81,8 @@ class MockDiscoverRepository extends _i1.Mock
             {#countryId: countryId},
           ),
         )),
-        returnValueForMissingStub: _i3.Future<_i4.Result<List<_i5.City>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i5.City>>>(
+        returnValueForMissingStub: _i3.Future<_i4.Result<List<_i7.City>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i7.City>>>(
           this,
           Invocation.method(
             #getCities,
@@ -62,19 +90,19 @@ class MockDiscoverRepository extends _i1.Mock
             {#countryId: countryId},
           ),
         )),
-      ) as _i3.Future<_i4.Result<List<_i5.City>>>);
+      ) as _i3.Future<_i4.Result<List<_i7.City>>>);
 
   @override
-  _i3.Future<_i4.Result<List<_i7.OohUnit>>> getUnits(
-          {_i8.InventoryFilterParams? filters}) =>
+  _i3.Future<_i4.Result<List<_i8.OohUnit>>> getUnits(
+          {_i9.InventoryFilterParams? filters}) =>
       (super.noSuchMethod(
         Invocation.method(
           #getUnits,
           [],
           {#filters: filters},
         ),
-        returnValue: _i3.Future<_i4.Result<List<_i7.OohUnit>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i7.OohUnit>>>(
+        returnValue: _i3.Future<_i4.Result<List<_i8.OohUnit>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i8.OohUnit>>>(
           this,
           Invocation.method(
             #getUnits,
@@ -83,8 +111,8 @@ class MockDiscoverRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<_i4.Result<List<_i7.OohUnit>>>.value(
-                _i6.dummyValue<_i4.Result<List<_i7.OohUnit>>>(
+            _i3.Future<_i4.Result<List<_i8.OohUnit>>>.value(
+                _i6.dummyValue<_i4.Result<List<_i8.OohUnit>>>(
           this,
           Invocation.method(
             #getUnits,
@@ -92,42 +120,42 @@ class MockDiscoverRepository extends _i1.Mock
             {#filters: filters},
           ),
         )),
-      ) as _i3.Future<_i4.Result<List<_i7.OohUnit>>>);
+      ) as _i3.Future<_i4.Result<List<_i8.OohUnit>>>);
 
   @override
-  _i3.Future<_i4.Result<_i7.OohUnit>> getUnitById(int? id) =>
+  _i3.Future<_i4.Result<_i8.OohUnit>> getUnitById(int? id) =>
       (super.noSuchMethod(
         Invocation.method(
           #getUnitById,
           [id],
         ),
-        returnValue: _i3.Future<_i4.Result<_i7.OohUnit>>.value(
-            _i6.dummyValue<_i4.Result<_i7.OohUnit>>(
+        returnValue: _i3.Future<_i4.Result<_i8.OohUnit>>.value(
+            _i6.dummyValue<_i4.Result<_i8.OohUnit>>(
           this,
           Invocation.method(
             #getUnitById,
             [id],
           ),
         )),
-        returnValueForMissingStub: _i3.Future<_i4.Result<_i7.OohUnit>>.value(
-            _i6.dummyValue<_i4.Result<_i7.OohUnit>>(
+        returnValueForMissingStub: _i3.Future<_i4.Result<_i8.OohUnit>>.value(
+            _i6.dummyValue<_i4.Result<_i8.OohUnit>>(
           this,
           Invocation.method(
             #getUnitById,
             [id],
           ),
         )),
-      ) as _i3.Future<_i4.Result<_i7.OohUnit>>);
+      ) as _i3.Future<_i4.Result<_i8.OohUnit>>);
 
   @override
-  _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>> getUnitTypes() =>
+  _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>> getUnitTypes() =>
       (super.noSuchMethod(
         Invocation.method(
           #getUnitTypes,
           [],
         ),
-        returnValue: _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+        returnValue: _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getUnitTypes,
@@ -135,25 +163,25 @@ class MockDiscoverRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-                _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+            _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+                _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getUnitTypes,
             [],
           ),
         )),
-      ) as _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>);
+      ) as _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>);
 
   @override
-  _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>> getMediaFormats() =>
+  _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>> getMediaFormats() =>
       (super.noSuchMethod(
         Invocation.method(
           #getMediaFormats,
           [],
         ),
-        returnValue: _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+        returnValue: _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getMediaFormats,
@@ -161,25 +189,25 @@ class MockDiscoverRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-                _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+            _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+                _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getMediaFormats,
             [],
           ),
         )),
-      ) as _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>);
+      ) as _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>);
 
   @override
-  _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>> getVenueTypes() =>
+  _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>> getVenueTypes() =>
       (super.noSuchMethod(
         Invocation.method(
           #getVenueTypes,
           [],
         ),
-        returnValue: _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-            _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+        returnValue: _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+            _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getVenueTypes,
@@ -187,13 +215,13 @@ class MockDiscoverRepository extends _i1.Mock
           ),
         )),
         returnValueForMissingStub:
-            _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>.value(
-                _i6.dummyValue<_i4.Result<List<_i9.DictionaryRefDto>>>(
+            _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>.value(
+                _i6.dummyValue<_i4.Result<List<_i10.DictionaryRefDto>>>(
           this,
           Invocation.method(
             #getVenueTypes,
             [],
           ),
         )),
-      ) as _i3.Future<_i4.Result<List<_i9.DictionaryRefDto>>>);
+      ) as _i3.Future<_i4.Result<List<_i10.DictionaryRefDto>>>);
 }

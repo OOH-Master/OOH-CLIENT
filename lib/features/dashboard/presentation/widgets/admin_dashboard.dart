@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../inquiry/data/repository/inquiry_repository.dart';
+import '../../../auth/domain/entities/role.dart';
 import 'base_dashboard.dart';
 import 'quick_action_card.dart';
 import 'stat_card.dart';
@@ -14,30 +17,36 @@ class AdminDashboard extends BaseDashboard {
   @override
   Widget buildStatCards(BuildContext context, bool isDesktop) {
     final loc = l10n(context);
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
-      children: [
-        SizedBox(
-          width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-          child: StatCard(
-            icon: Icons.mail_outline,
-            label: loc.totalInquiries,
-            value: '—',
-            iconColor: AppColors.info,
-            onTap: () => context.push('/app/inquiries'),
-          ),
-        ),
-        SizedBox(
-          width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-          child: StatCard(
-            icon: Icons.inventory_2_outlined,
-            label: loc.activeInventory,
-            value: '—',
-            iconColor: AppColors.success,
-          ),
-        ),
-      ],
+    return FutureBuilder<int>(
+      future: context.read<InquiryRepository>().getInquiries(Role.admin).then((list) => list.length).catchError((_) => 0),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.toString() ?? '—';
+        return Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.sm,
+          children: [
+            SizedBox(
+              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
+              child: StatCard(
+                icon: Icons.mail_outline,
+                label: loc.totalInquiries,
+                value: count,
+                iconColor: AppColors.info,
+                onTap: () => context.push('/app/inquiries'),
+              ),
+            ),
+            SizedBox(
+              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
+              child: StatCard(
+                icon: Icons.inventory_2_outlined,
+                label: loc.activeInventory,
+                value: '—',
+                iconColor: AppColors.success,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

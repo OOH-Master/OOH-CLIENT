@@ -40,4 +40,8 @@ class InquiryRepository {
     final response = await _apiService.downloadPdf(id);
     return response.data;
   }
+
+  Future<void> createInquiry(Map<String, dynamic> data) async {
+    await _apiService.createInquiry(data);
+  }
 }
