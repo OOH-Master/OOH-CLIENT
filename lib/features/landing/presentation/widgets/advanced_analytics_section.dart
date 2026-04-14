@@ -71,13 +71,13 @@ class AdvancedAnalyticsSection extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            AppColors.primary.withOpacity(0.2),
-            AppColors.accent.withOpacity(0.1),
+            AppColors.primary.withValues(alpha: 0.2),
+            AppColors.accent.withValues(alpha: 0.1),
           ],
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 30,
             offset: const Offset(0, 10),
           ),

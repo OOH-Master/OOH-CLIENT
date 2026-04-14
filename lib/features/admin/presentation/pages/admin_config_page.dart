@@ -160,7 +160,11 @@ class _AdminConfigViewState extends State<_AdminConfigView>
               separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.xs),
               itemBuilder: (context, index) {
                 final item = state.items[index];
-                return _ConfigItemTile(item: item);
+                return _ConfigItemTile(
+                  item: item,
+                  onEdit: () => _showEditDialog(state.type, item),
+                  onDelete: () => _showDeleteConfirmation(state.type, item),
+                );
               },
             );
           }
@@ -168,6 +172,78 @@ class _AdminConfigViewState extends State<_AdminConfigView>
           return const SizedBox.shrink();
         },
       ),
+    );
+  }
+
+  void _showEditDialog(String type, DictionaryRefDto item) {
+    final nameController = TextEditingController(text: item.name);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.editInventory),
+          content: TextField(
+            controller: nameController,
+            decoration: InputDecoration(
+              labelText: l10n.enterName,
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final name = nameController.text.trim();
+                if (name.isEmpty) return;
+                context.read<AdminConfigBloc>().add(
+                  UpdateConfigItem(type, item.id, name),
+                );
+                Navigator.pop(dialogContext);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.primaryForeground,
+              ),
+              child: Text(l10n.save),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(String type, DictionaryRefDto item) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(l10n.delete),
+          content: Text('${l10n.deleteConfirmation}\n\n"${item.name}"'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(l10n.cancel),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                context.read<AdminConfigBloc>().add(
+                  DeleteConfigItem(type, item.id),
+                );
+                Navigator.pop(dialogContext);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.destructive,
+                foregroundColor: AppColors.destructiveForeground,
+              ),
+              child: Text(l10n.delete),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -201,7 +277,7 @@ class _AdminConfigViewState extends State<_AdminConfigView>
                       builder: (context, snapshot) {
                         final countries = snapshot.data ?? [];
                         return DropdownButtonFormField<int>(
-                          value: selectedCountryId,
+                          initialValue: selectedCountryId,
                           decoration: InputDecoration(
                             labelText: l10n.selectCountry,
                             border: const OutlineInputBorder(),
@@ -255,7 +331,9 @@ class _AdminConfigViewState extends State<_AdminConfigView>
 
 class _ConfigItemTile extends StatelessWidget {
   final DictionaryRefDto item;
-  const _ConfigItemTile({required this.item});
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  const _ConfigItemTile({required this.item, this.onEdit, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -286,6 +364,21 @@ class _ConfigItemTile extends StatelessWidget {
             style: AppTypography.caption.copyWith(
               color: AppColors.mutedForeground,
             ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          IconButton(
+            icon: Icon(Icons.edit_outlined, size: 18, color: AppColors.primary),
+            onPressed: onEdit,
+            tooltip: 'Izmeni',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline, size: 18, color: AppColors.destructive),
+            onPressed: onDelete,
+            tooltip: 'Obrisi',
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),

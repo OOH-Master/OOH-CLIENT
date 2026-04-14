@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/responsive/breakpoints.dart';
@@ -12,6 +14,8 @@ import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
+import '../widgets/breadcrumb.dart';
+import '../widgets/image_gallery.dart';
 
 class DiscoverDetailPage extends StatefulWidget {
   final String unitId;
@@ -22,11 +26,23 @@ class DiscoverDetailPage extends StatefulWidget {
   State<DiscoverDetailPage> createState() => _DiscoverDetailPageState();
 }
 
-class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
-  bool _isDescriptionExpanded = false;
-  int _currentImageIndex = 0;
+class _DiscoverDetailPageState extends State<DiscoverDetailPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
   AppLocalizations get l10n => AppLocalizations.of(context)!;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,8 +52,10 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
     return BlocBuilder<DiscoverBloc, DiscoverState>(
       builder: (context, state) {
         OohUnit? unit;
+        String? cityName;
         if (state is DiscoverLoaded) {
           unit = state.units.where((u) => u.id == widget.unitId).firstOrNull;
+          cityName = state.selectedCity?.name;
         }
 
         if (unit == null) {
@@ -52,36 +70,13 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
           appBar: const AppHeader(),
           body: Column(
             children: [
-              // Back navigation bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border(bottom: BorderSide(color: AppColors.border)),
-                ),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: () => context.pop(),
-                      tooltip: 'Back',
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        unit.name,
-                        style: AppTypography.bodyMedium.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // Breadcrumb bar
+              _buildBreadcrumbBar(unit, cityName),
               // Main content
               Expanded(
-                child: isDesktop ? _buildDesktopLayout(unit) : _buildMobileLayout(unit),
+                child: isDesktop
+                    ? _buildDesktopLayout(unit)
+                    : _buildMobileLayout(unit),
               ),
             ],
           ),
@@ -91,10 +86,57 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
     );
   }
 
+  Widget _buildBreadcrumbBar(OohUnit unit, String? cityName) {
+    final isLoggedIn = context.read<AuthBloc>().state is AuthAuthenticated;
+    final discoverPath = isLoggedIn ? '/app/discover' : '/discover';
+    final homePath = isLoggedIn ? '/app/dashboard' : '/';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, size: 20),
+            onPressed: () => context.pop(),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Nazad',
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Breadcrumb(
+              items: [
+                BreadcrumbItem(
+                  label: 'Pocetna',
+                  onTap: () => context.go(homePath),
+                ),
+                BreadcrumbItem(
+                  label: 'Istrazivanje',
+                  onTap: () => context.go(discoverPath),
+                ),
+                if (cityName != null)
+                  BreadcrumbItem(
+                    label: cityName,
+                    onTap: () => context.go(discoverPath),
+                  ),
+                BreadcrumbItem(label: unit.name),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDesktopLayout(OohUnit unit) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Left side: image gallery + tabs
         Expanded(
           flex: 6,
           child: SingleChildScrollView(
@@ -102,22 +144,21 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildImageGallery(unit, isDesktop: true),
-                const SizedBox(height: 32),
-                _buildProposalSection(unit),
-                const SizedBox(height: 48),
-                _buildFooter(),
+                _buildImageSection(unit, isDesktop: true),
+                const SizedBox(height: 24),
+                _buildTabSection(unit),
               ],
             ),
           ),
         ),
+        // Right panel: pricing + actions
         Container(
           width: 420,
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border(left: BorderSide(color: AppColors.border)),
           ),
-          child: _buildDetailsPanel(unit),
+          child: _buildDesktopSidePanel(unit),
         ),
       ],
     );
@@ -128,226 +169,350 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildImageGallery(unit, isDesktop: false),
+          // Image gallery
           Padding(
             padding: const EdgeInsets.all(16),
+            child: _buildImageSection(unit, isDesktop: false),
+          ),
+          // Title + price card
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildTitleSection(unit),
-                const SizedBox(height: 16),
-                _buildDescriptionSection(unit),
-                const SizedBox(height: 16),
-                _buildUpdatedDate(unit),
+                const SizedBox(height: 12),
+                _buildPriceCard(unit),
                 const SizedBox(height: 24),
-                _buildProposalSection(unit),
-                const SizedBox(height: 32),
-                _buildFooter(),
-                const SizedBox(height: 100),
               ],
             ),
           ),
+          // Tabbed content
+          _buildTabSection(unit),
+          const SizedBox(height: 100), // Space for bottom bar
         ],
       ),
     );
   }
 
-  Widget _buildImageGallery(OohUnit unit, {required bool isDesktop}) {
-    final images = unit.images.isNotEmpty ? unit.images : [unit.imageUrl ?? ''];
-    final hasValidImages = images.any((img) => img.isNotEmpty);
+  Widget _buildImageSection(OohUnit unit, {required bool isDesktop}) {
+    final images = unit.images.isNotEmpty
+        ? unit.images
+        : (unit.imageUrl != null ? [unit.imageUrl!] : <String>[]);
 
+    return ImageGallery(
+      images: images,
+      placeholderLabel: unit.type.name.toUpperCase(),
+      aspectRatio: isDesktop ? 2.2 : 16 / 9,
+      showThumbnails: isDesktop,
+    );
+  }
+
+  Widget _buildTabSection(OohUnit unit) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AspectRatio(
-          aspectRatio: isDesktop ? 2.2 : 16 / 9,
-          child: Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(isDesktop ? 12 : 0),
-                child: Container(
-                  color: AppColors.muted,
-                  child: hasValidImages && images[_currentImageIndex].isNotEmpty
-                      ? Image.network(
-                          images[_currentImageIndex],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (_, __, ___) => _buildImagePlaceholder(unit),
-                        )
-                      : _buildImagePlaceholder(unit),
-                ),
-              ),
-              if (unit.isAvailable)
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.foreground,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'NEW',
-                      style: AppTypography.labelSmall.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              if (isDesktop)
-                Positioned(
-                  bottom: 16,
-                  right: 16,
-                  child: _buildViewLargerButton(),
-                ),
-              if (images.length > 1)
-                Positioned(
-                  bottom: 16,
-                  right: isDesktop ? 180 : 16,
-                  child: _buildImageDots(images.length),
-                ),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: AppColors.border),
+            ),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.mutedForeground,
+            indicatorColor: AppColors.primary,
+            labelStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
+            unselectedLabelStyle: AppTypography.bodySmall,
+            tabs: const [
+              Tab(text: 'Pregled'),
+              Tab(text: 'Lokacija'),
+              Tab(text: 'Specifikacije'),
+              Tab(text: 'Cena'),
             ],
           ),
         ),
-        if (isDesktop && images.length > 1) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 56,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: images.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, index) {
-                final isSelected = index == _currentImageIndex;
-                return GestureDetector(
-                  onTap: () => setState(() => _currentImageIndex = index),
-                  child: Container(
-                    width: 72,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.border,
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(7),
-                      child: images[index].isNotEmpty
-                          ? Image.network(images[index], fit: BoxFit.cover)
-                          : Container(color: AppColors.muted),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+        // Tab content - using IndexedStack-like approach for non-scrollable tabs
+        AnimatedBuilder(
+          animation: _tabController,
+          builder: (context, _) {
+            return _buildTabContent(unit, _tabController.index);
+          },
+        ),
       ],
     );
   }
 
-  Widget _buildViewLargerButton() {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
-      child: InkWell(
-        onTap: _openImageViewer,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.search, size: 16, color: AppColors.foreground),
-              const SizedBox(width: 6),
-              Text(
-                l10n.viewLargerPhoto,
-                style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Widget _buildTabContent(OohUnit unit, int index) {
+    switch (index) {
+      case 0:
+        return _buildOverviewTab(unit);
+      case 1:
+        return _buildLocationTab(unit);
+      case 2:
+        return _buildSpecificationsTab(unit);
+      case 3:
+        return _buildPricingTab(unit);
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
-  Widget _buildImageDots(int count) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(count, (index) {
-        final isSelected = index == _currentImageIndex;
-        return GestureDetector(
-          onTap: () => setState(() => _currentImageIndex = index),
-          child: Container(
-            width: isSelected ? 24 : 8,
-            height: 8,
-            margin: const EdgeInsets.symmetric(horizontal: 2),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : Colors.white.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  Widget _buildImagePlaceholder(OohUnit unit) {
-    return Container(
-      color: AppColors.muted,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.image, size: 64, color: AppColors.mutedForeground),
-          const SizedBox(height: 8),
-          Text(
-            unit.type.name.toUpperCase(),
-            style: AppTypography.labelMedium.copyWith(color: AppColors.mutedForeground),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsPanel(OohUnit unit) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
+  // ==================== TAB: Pregled (Overview) ====================
+  Widget _buildOverviewTab(OohUnit unit) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTitleSection(unit),
+          _buildInfoRow('Naziv', unit.name),
+          _buildInfoRow('Tip', unit.type.name.toUpperCase()),
+          if (unit.specifications?['format'] != null)
+            _buildInfoRow('Format', unit.specifications!['format'].toString()),
+          _buildInfoRow('Okruzenje',
+              unit.specifications?['environment']?.toString() ?? '-'),
+          _buildInfoRow('Osvetljenje',
+              unit.specifications?['illumination']?.toString() ?? '-'),
           const SizedBox(height: 16),
-          _buildLocationInfo(unit),
-          const SizedBox(height: 20),
-          _buildPriceCard(unit),
-          const SizedBox(height: 20),
-          _buildSpecificationsSection(unit),
-          const SizedBox(height: 20),
-          _buildDescriptionSection(unit),
-          const SizedBox(height: 20),
-          _buildUpdatedDate(unit),
-          const Divider(height: 40),
-          _buildDesktopActions(unit),
+          Text(
+            'Opis',
+            style: AppTypography.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.foreground,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            unit.description ?? _generateDefaultDescription(unit),
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.mutedForeground,
+              height: 1.6,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildLocationInfo(OohUnit unit) {
-    return Row(
-      children: [
-        Icon(Icons.location_on, size: 16, color: AppColors.mutedForeground),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            unit.address.isNotEmpty ? unit.address : unit.cityName,
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.mutedForeground,
+  // ==================== TAB: Lokacija (Location) ====================
+  Widget _buildLocationTab(OohUnit unit) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildInfoRow('Adresa', unit.address),
+          _buildInfoRow('Grad', unit.cityName),
+          const SizedBox(height: 16),
+          // Mini map
+          Container(
+            height: 250,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: LatLng(unit.latitude, unit.longitude),
+                initialZoom: 15.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.none,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.ooh.mobile',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: LatLng(unit.latitude, unit.longitude),
+                      width: 40,
+                      height: 40,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 3),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Koordinate: ${unit.latitude.toStringAsFixed(5)}, ${unit.longitude.toStringAsFixed(5)}',
+            style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TAB: Specifikacije ====================
+  Widget _buildSpecificationsTab(OohUnit unit) {
+    final specs = unit.specifications ?? {};
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (specs['dimensions'] != null)
+            _buildInfoRow('Dimenzije', specs['dimensions'].toString()),
+          if (specs['resolution'] != null || specs['pixelWidth'] != null)
+            _buildInfoRow(
+              'Rezolucija',
+              specs['resolution']?.toString() ??
+                  '${specs['pixelWidth'] ?? '-'}x${specs['pixelHeight'] ?? '-'}',
+            ),
+          if (specs['faces'] != null)
+            _buildInfoRow('Broj strana', specs['faces'].toString()),
+          if (specs['facingDirection'] != null)
+            _buildInfoRow('Smer', specs['facingDirection'].toString()),
+          if (specs['illumination'] != null)
+            _buildInfoRow('Osvetljenje', specs['illumination'].toString()),
+          if (specs['format'] != null)
+            _buildInfoRow('Format', specs['format'].toString()),
+          if (specs['venueType'] != null)
+            _buildInfoRow('Tip lokacije', specs['venueType'].toString()),
+          if (specs.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    Icon(Icons.info_outline, size: 48, color: AppColors.mutedForeground),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Specifikacije nisu dostupne',
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TAB: Cena (Pricing) ====================
+  Widget _buildPricingTab(OohUnit unit) {
+    final formatter = NumberFormat('#,###', 'en_US');
+    final specs = unit.specifications ?? {};
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPriceCard(unit),
+          const SizedBox(height: 16),
+          if (specs['productionCost'] != null)
+            _buildInfoRow(
+              'Troskovi produkcije',
+              '${unit.currency} ${formatter.format((specs['productionCost'] as num).round())}',
+            ),
+          if (specs['cpm'] != null)
+            _buildInfoRow(
+              'CPM',
+              '${unit.currency} ${(specs['cpm'] as num).toStringAsFixed(2)}',
+            ),
+          if (specs['impressions'] != null)
+            _buildInfoRow(
+              'Impresije',
+              formatter.format(specs['impressions'] as int),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== SHARED WIDGETS ====================
+
+  Widget _buildTitleSection(OohUnit unit) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Type badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            unit.type.name.toUpperCase(),
+            style: AppTypography.labelSmall.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          unit.name,
+          style: AppTypography.h3.copyWith(
+            fontWeight: FontWeight.bold,
+            color: AppColors.foreground,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(Icons.location_on, size: 16, color: AppColors.mutedForeground),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                '${unit.address}, ${unit.cityName}',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Availability badge
+        Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: unit.isAvailable ? AppColors.success : AppColors.destructive,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              unit.isAvailable ? 'Dostupno' : 'Zauzeto',
+              style: AppTypography.bodySmall.copyWith(
+                color: unit.isAvailable ? AppColors.success : AppColors.destructive,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -389,118 +554,51 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
     );
   }
 
-  Widget _buildSpecificationsSection(OohUnit unit) {
-    final specs = unit.specifications ?? {};
-    if (specs.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Specifications',
-          style: AppTypography.bodyMedium.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.foreground,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.muted.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: [
-              if (specs['dimensions'] != null) _buildSpecRow('Dimensions', specs['dimensions'].toString()),
-              if (specs['resolution'] != null) _buildSpecRow('Resolution', specs['resolution'].toString()),
-              if (specs['illumination'] != null) _buildSpecRow('Illumination', specs['illumination'].toString()),
-              if (specs['format'] != null) _buildSpecRow('Format', specs['format'].toString()),
-              if (specs['venueType'] != null) _buildSpecRow('Venue', specs['venueType'].toString()),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSpecRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildDesktopSidePanel(OohUnit unit) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-          ),
-          Text(
-            value,
-            style: AppTypography.bodySmall.copyWith(
-              fontWeight: FontWeight.w500,
-              color: AppColors.foreground,
-            ),
-          ),
+          _buildTitleSection(unit),
+          const SizedBox(height: 20),
+          _buildPriceCard(unit),
+          const SizedBox(height: 20),
+          // Updated date
+          _buildUpdatedDate(unit),
+          const Divider(height: 40),
+          // Actions
+          _buildDesktopActions(unit),
         ],
       ),
     );
   }
 
-  Widget _buildTitleSection(OohUnit unit) {
-    return Text(
-      unit.name,
-      style: AppTypography.h3.copyWith(
-        fontWeight: FontWeight.bold,
-        color: AppColors.foreground,
-      ),
-    );
-  }
-
-  Widget _buildDescriptionSection(OohUnit unit) {
-    final description = unit.description ?? _generateDefaultDescription(unit);
-    final isLong = description.length > 200;
-    final displayText = _isDescriptionExpanded || !isLong
-        ? description
-        : '${description.substring(0, 200)}...';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          displayText,
-          style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.mutedForeground,
-            height: 1.6,
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+            ),
           ),
-        ),
-        if (isLong) ...[
-          const SizedBox(height: 8),
-          GestureDetector(
-            onTap: () => setState(() => _isDescriptionExpanded = !_isDescriptionExpanded),
-            child: Row(
-              children: [
-                Text(
-                  _isDescriptionExpanded ? l10n.seeLess : l10n.seeMore,
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-                ),
-                Icon(
-                  _isDescriptionExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                  size: 16,
-                  color: AppColors.mutedForeground,
-                ),
-              ],
+          Expanded(
+            child: Text(
+              value,
+              style: AppTypography.bodySmall.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.foreground,
+              ),
             ),
           ),
         ],
-      ],
+      ),
     );
-  }
-
-  String _generateDefaultDescription(OohUnit unit) {
-    return 'The ${unit.name} is a ${unit.type.name} advertising space located '
-        'near a key downtown intersection on ${unit.address}. '
-        'Located at ${unit.cityName}, it naturally commands visibility from '
-        'major traffic routes and pedestrian areas.';
   }
 
   Widget _buildUpdatedDate(OohUnit unit) {
@@ -526,32 +624,56 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
   }
 
   Widget _buildDesktopActions(OohUnit unit) {
-    return Row(
+    return Column(
       children: [
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: IconButton(
-            onPressed: _handleShare,
-            icon: Icon(Icons.share_outlined, color: AppColors.foreground),
-            tooltip: l10n.share,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
+        SizedBox(
+          width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _handleStartInquiry,
-            icon: const Icon(Icons.chat_bubble_outline),
-            label: Text(l10n.startMediaInquiry),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+            onPressed: () => _handleAddToInquiry(unit),
+            icon: const Icon(Icons.add_shopping_cart, size: 18),
+            label: const Text('Dodaj u upit'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              side: BorderSide(color: AppColors.primary),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _handleStartInquiry,
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text('Posalji upit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _handleShare,
+                icon: Icon(Icons.share_outlined, size: 16, color: AppColors.foreground),
+                label: Text(
+                  l10n.share,
+                  style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  side: BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -567,22 +689,27 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
       child: SafeArea(
         child: Row(
           children: [
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.border),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: IconButton(
-                onPressed: _handleShare,
-                icon: Icon(Icons.share_outlined, color: AppColors.foreground),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _handleAddToInquiry(unit),
+                icon: Icon(Icons.add_shopping_cart, size: 16, color: AppColors.primary),
+                label: Text(
+                  'Dodaj u upit',
+                  style: AppTypography.bodySmall.copyWith(color: AppColors.primary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _handleStartInquiry,
-                icon: const Icon(Icons.chat_bubble_outline),
-                label: Text(l10n.startMediaInquiry),
+                icon: const Icon(Icons.send, size: 16),
+                label: const Text('Posalji upit'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -594,132 +721,6 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildProposalSection(OohUnit unit) {
-    final formatter = NumberFormat('#,###', 'en_US');
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                l10n.addToProposal,
-                style: AppTypography.h5.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.foreground,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text('📋', style: TextStyle(fontSize: 20)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text('🎨', style: TextStyle(fontSize: 18)),
-                  const SizedBox(width: 8),
-                  Text(
-                    l10n.howToUseMediaProducts,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                l10n.howToUseMediaProductsDescription,
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.mutedForeground,
-                  height: 1.5,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.individual,
-                style: AppTypography.labelSmall.copyWith(color: AppColors.mutedForeground),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                unit.name,
-                style: AppTypography.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.foreground,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    l10n.advertisingPeriod,
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-                  ),
-                  Text(
-                    _getCycleDisplayLocalized(unit.cycleType),
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.foreground,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(height: 32),
-              Text(
-                '${formatter.format(unit.price.round())} ${unit.currency}',
-                style: AppTypography.h4.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.foreground,
-                ),
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: _handleAddProposal,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: BorderSide(color: AppColors.primary),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: Text(l10n.addProposal),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -738,44 +739,11 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
     }
   }
 
-  Widget _buildFooter() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24),
-      decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: const Icon(Icons.apartment, color: Colors.white, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                l10n.appName,
-                style: AppTypography.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.foreground,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '© 2026 AutoHome. All rights reserved.',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-          ),
-        ],
-      ),
-    );
+  String _generateDefaultDescription(OohUnit unit) {
+    return '${unit.name} je ${unit.type.name} oglasni prostor koji se nalazi '
+        'na adresi ${unit.address}. '
+        'Lociran u ${unit.cityName}, pruza odlicnu vidljivost '
+        'sa glavnih saobracajnih ruta i pesackih zona.';
   }
 
   void _handleShare() {
@@ -793,20 +761,21 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage> {
     context.push('/app/inquiries/create?unitIds=${widget.unitId}');
   }
 
-  void _handleAddProposal() {
+  void _handleAddToInquiry(OohUnit unit) {
     final authState = context.read<AuthBloc>().state;
     if (authState is! AuthAuthenticated) {
       AuthGuardDialog.show(context);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.comingSoon)),
-    );
-  }
-
-  void _openImageViewer() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.comingSoon)),
-    );
+    final unitIdInt = int.tryParse(unit.id);
+    if (unitIdInt != null) {
+      context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${unit.name} dodat u upit'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

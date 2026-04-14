@@ -9,6 +9,13 @@ class User extends Equatable {
   final Role role;
   final String? companyName;
   final String? contactPerson;
+  final String? firstName;
+  final String? lastName;
+  final String? phone;
+  final String? country;
+  final String? city;
+  final String? website;
+  final bool emailVerified;
 
   const User({
     required this.id,
@@ -17,10 +24,20 @@ class User extends Equatable {
     required this.role,
     this.companyName,
     this.contactPerson,
+    this.firstName,
+    this.lastName,
+    this.phone,
+    this.country,
+    this.city,
+    this.website,
+    this.emailVerified = false,
   });
 
   @override
-  List<Object?> get props => [id, email, name, role, companyName, contactPerson];
+  List<Object?> get props => [
+        id, email, name, role, companyName, contactPerson,
+        firstName, lastName, phone, country, city, website, emailVerified,
+      ];
 
   Map<String, dynamic> toJson() {
     return {
@@ -30,6 +47,13 @@ class User extends Equatable {
       'role': role.name,
       'companyName': companyName,
       'contactPerson': contactPerson,
+      'firstName': firstName,
+      'lastName': lastName,
+      'phone': phone,
+      'country': country,
+      'city': city,
+      'website': website,
+      'emailVerified': emailVerified,
     };
   }
 
@@ -41,6 +65,13 @@ class User extends Equatable {
       role: _parseRole(json['role']),
       companyName: json['companyName'] as String?,
       contactPerson: json['contactPerson'] as String?,
+      firstName: json['firstName'] as String?,
+      lastName: json['lastName'] as String?,
+      phone: json['phone'] as String?,
+      country: json['country'] as String?,
+      city: json['city'] as String?,
+      website: json['website'] as String?,
+      emailVerified: json['emailVerified'] as bool? ?? false,
     );
   }
 

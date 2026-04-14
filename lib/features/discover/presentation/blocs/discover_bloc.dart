@@ -9,6 +9,12 @@ import '../../domain/entities/city.dart';
 import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 
+// View mode enum
+enum ViewMode { grid, list, mapOnly }
+
+// Sort option enum
+enum SortOption { priceAsc, priceDesc, newest }
+
 // Events
 abstract class DiscoverEvent extends Equatable {
   const DiscoverEvent();
@@ -97,6 +103,34 @@ class ResetFilters extends DiscoverEvent {}
 
 class RefreshRequested extends DiscoverEvent {}
 
+class ChangeViewMode extends DiscoverEvent {
+  final ViewMode viewMode;
+  const ChangeViewMode(this.viewMode);
+
+  @override
+  List<Object?> get props => [viewMode];
+}
+
+class ChangeSort extends DiscoverEvent {
+  final SortOption sortOption;
+  const ChangeSort(this.sortOption);
+
+  @override
+  List<Object?> get props => [sortOption];
+}
+
+class LoadMore extends DiscoverEvent {}
+
+class ToggleUnitSelection extends DiscoverEvent {
+  final int unitId;
+  const ToggleUnitSelection(this.unitId);
+
+  @override
+  List<Object?> get props => [unitId];
+}
+
+class ClearSelection extends DiscoverEvent {}
+
 // States
 abstract class DiscoverState extends Equatable {
   const DiscoverState();
@@ -124,6 +158,18 @@ class DiscoverLoaded extends DiscoverState {
   // Active filters
   final InventoryFilterParams activeFilters;
 
+  // View & sort
+  final ViewMode viewMode;
+  final SortOption sortOption;
+
+  // Pagination
+  final int currentPage;
+  final bool hasMore;
+  final int pageSize;
+
+  // Multi-select for inquiry
+  final List<int> selectedUnitsForInquiry;
+
   const DiscoverLoaded({
     this.countries = const [],
     this.selectedCountry,
@@ -135,6 +181,12 @@ class DiscoverLoaded extends DiscoverState {
     this.mediaFormats = const [],
     this.venueTypes = const [],
     this.activeFilters = const InventoryFilterParams(),
+    this.viewMode = ViewMode.grid,
+    this.sortOption = SortOption.newest,
+    this.currentPage = 1,
+    this.hasMore = false,
+    this.pageSize = 20,
+    this.selectedUnitsForInquiry = const [],
   });
 
   int get activeFilterCount => activeFilters.activeFilterCount;
@@ -151,6 +203,11 @@ class DiscoverLoaded extends DiscoverState {
         mediaFormats,
         venueTypes,
         activeFilters,
+        viewMode,
+        sortOption,
+        currentPage,
+        hasMore,
+        selectedUnitsForInquiry,
       ];
 
   DiscoverLoaded copyWith({
@@ -166,6 +223,11 @@ class DiscoverLoaded extends DiscoverState {
     List<DictionaryRefDto>? mediaFormats,
     List<DictionaryRefDto>? venueTypes,
     InventoryFilterParams? activeFilters,
+    ViewMode? viewMode,
+    SortOption? sortOption,
+    int? currentPage,
+    bool? hasMore,
+    List<int>? selectedUnitsForInquiry,
   }) {
     return DiscoverLoaded(
       countries: countries ?? this.countries,
@@ -178,6 +240,11 @@ class DiscoverLoaded extends DiscoverState {
       mediaFormats: mediaFormats ?? this.mediaFormats,
       venueTypes: venueTypes ?? this.venueTypes,
       activeFilters: activeFilters ?? this.activeFilters,
+      viewMode: viewMode ?? this.viewMode,
+      sortOption: sortOption ?? this.sortOption,
+      currentPage: currentPage ?? this.currentPage,
+      hasMore: hasMore ?? this.hasMore,
+      selectedUnitsForInquiry: selectedUnitsForInquiry ?? this.selectedUnitsForInquiry,
     );
   }
 }
@@ -207,6 +274,11 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     on<ApplyFilters>(_onApplyFilters);
     on<ResetFilters>(_onResetFilters);
     on<RefreshRequested>(_onRefreshRequested);
+    on<ChangeViewMode>(_onChangeViewMode);
+    on<ChangeSort>(_onChangeSort);
+    on<LoadMore>(_onLoadMore);
+    on<ToggleUnitSelection>(_onToggleUnitSelection);
+    on<ClearSelection>(_onClearSelection);
   }
 
   Future<void> _onLoadCountries(
@@ -260,6 +332,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
       units: const [],
       isLoadingUnits: true,
       activeFilters: const InventoryFilterParams(),
+      selectedUnitsForInquiry: const [],
     ));
 
     // Load cities for the selected country (null = all countries)
@@ -291,6 +364,8 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
             unitTypes: prevState?.unitTypes ?? const [],
             mediaFormats: prevState?.mediaFormats ?? const [],
             venueTypes: prevState?.venueTypes ?? const [],
+            viewMode: prevState?.viewMode ?? ViewMode.grid,
+            sortOption: prevState?.sortOption ?? SortOption.newest,
           ));
           // When "all countries" with no city selected, load all units
           if (event.countryId == null) {
@@ -319,12 +394,12 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
           unitTypes: prevState?.unitTypes ?? const [],
           mediaFormats: prevState?.mediaFormats ?? const [],
           venueTypes: prevState?.venueTypes ?? const [],
+          viewMode: prevState?.viewMode ?? ViewMode.grid,
+          sortOption: prevState?.sortOption ?? SortOption.newest,
         ));
 
         // Load units for default city
-        if (defaultCity != null) {
-          add(LoadInventoryUnits(cityId: defaultCity.id));
-        }
+        add(LoadInventoryUnits(cityId: defaultCity.id));
 
       case Error(failure: final failure):
         emit(DiscoverFailure('Failed to load cities: ${failure.message}'));
@@ -360,13 +435,17 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
 
     switch (result) {
       case Success(data: final units):
+        final loadedState = state is DiscoverLoaded ? state as DiscoverLoaded : null;
+        final sortedUnits = _sortUnits(units, loadedState?.sortOption ?? SortOption.newest);
         if (currentState is DiscoverLoaded) {
           emit(currentState.copyWith(
-            units: units,
+            units: sortedUnits,
             isLoadingUnits: false,
+            currentPage: 1,
+            hasMore: units.length >= 20,
           ));
         } else {
-          emit(DiscoverLoaded(cities: const [], units: units));
+          emit(DiscoverLoaded(cities: const [], units: sortedUnits));
         }
       case Error(failure: final failure):
         emit(DiscoverFailure('Failed to load inventory: ${failure.message}'));
@@ -385,6 +464,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
       isLoadingUnits: true,
       clearSelectedCity: event.city == null,
       activeFilters: const InventoryFilterParams(),
+      selectedUnitsForInquiry: const [],
     ));
 
     if (event.city != null) {
@@ -488,5 +568,80 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     } else {
       add(LoadCountries());
     }
+  }
+
+  void _onChangeViewMode(
+    ChangeViewMode event,
+    Emitter<DiscoverState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+    emit(currentState.copyWith(viewMode: event.viewMode));
+  }
+
+  void _onChangeSort(
+    ChangeSort event,
+    Emitter<DiscoverState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+    final sortedUnits = _sortUnits(currentState.units, event.sortOption);
+    emit(currentState.copyWith(
+      sortOption: event.sortOption,
+      units: sortedUnits,
+    ));
+  }
+
+  void _onLoadMore(
+    LoadMore event,
+    Emitter<DiscoverState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+    if (!currentState.hasMore || currentState.isLoadingUnits) return;
+    // In a real scenario, this would load the next page from the API.
+    // For now, we just increment the page counter.
+    emit(currentState.copyWith(
+      currentPage: currentState.currentPage + 1,
+    ));
+  }
+
+  void _onToggleUnitSelection(
+    ToggleUnitSelection event,
+    Emitter<DiscoverState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+
+    final selected = List<int>.from(currentState.selectedUnitsForInquiry);
+    if (selected.contains(event.unitId)) {
+      selected.remove(event.unitId);
+    } else {
+      selected.add(event.unitId);
+    }
+    emit(currentState.copyWith(selectedUnitsForInquiry: selected));
+  }
+
+  void _onClearSelection(
+    ClearSelection event,
+    Emitter<DiscoverState> emit,
+  ) {
+    final currentState = state;
+    if (currentState is! DiscoverLoaded) return;
+    emit(currentState.copyWith(selectedUnitsForInquiry: const []));
+  }
+
+  List<OohUnit> _sortUnits(List<OohUnit> units, SortOption sortOption) {
+    final sorted = List<OohUnit>.from(units);
+    switch (sortOption) {
+      case SortOption.priceAsc:
+        sorted.sort((a, b) => a.price.compareTo(b.price));
+      case SortOption.priceDesc:
+        sorted.sort((a, b) => b.price.compareTo(a.price));
+      case SortOption.newest:
+        // Keep original order (newest first from API)
+        break;
+    }
+    return sorted;
   }
 }

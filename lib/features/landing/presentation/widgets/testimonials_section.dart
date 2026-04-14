@@ -157,7 +157,7 @@ class _TestimonialCardState extends State<_TestimonialCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         transform: Matrix4.identity()
-          ..translate(0.0, _isHovered ? -8.0 : 0.0),
+          ..translateByDouble(0.0, _isHovered ? -8.0 : 0.0, 0.0, 1.0),
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -166,7 +166,7 @@ class _TestimonialCardState extends State<_TestimonialCard> {
             border: Border.all(color: AppColors.border),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(_isHovered ? 0.15 : 0.05),
+                color: Colors.black.withValues(alpha: _isHovered ? 0.15 : 0.05),
                 blurRadius: _isHovered ? 20 : 10,
                 offset: Offset(0, _isHovered ? 10 : 4),
               ),

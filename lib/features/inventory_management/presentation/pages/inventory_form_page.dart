@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -8,6 +10,8 @@ import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/repository/inventory_management_repository.dart';
 import '../blocs/inventory_management_bloc.dart';
+import '../widgets/image_upload_widget.dart';
+import '../widgets/map_location_picker.dart';
 
 class InventoryFormPage extends StatelessWidget {
   final String? inventoryId;
@@ -46,6 +50,9 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
   String? _cycleType = 'ONE_MONTH';
   String? _environment;
   String? _illumination;
+  double? _lat;
+  double? _lng;
+  bool _showPreview = false;
 
   AppLocalizations get l10n => AppLocalizations.of(context)!;
 
@@ -68,6 +75,24 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
         foregroundColor: AppColors.foreground,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              if (_formKey.currentState!.validate()) {
+                setState(() => _showPreview = !_showPreview);
+              }
+            },
+            icon: Icon(
+              _showPreview ? Icons.edit : Icons.preview,
+              size: 18,
+              color: AppColors.primary,
+            ),
+            label: Text(
+              _showPreview ? 'Izmeni' : 'Pregled',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.primary),
+            ),
+          ),
+        ],
       ),
       body: BlocConsumer<InventoryManagementBloc, InventoryManagementState>(
         listener: (context, state) {
@@ -88,6 +113,10 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
         },
         builder: (context, state) {
           final isLoading = state is InventoryManagementLoading;
+
+          if (_showPreview) {
+            return _buildPreviewView(isLoading);
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(AppSpacing.md),
@@ -161,6 +190,32 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
                     items: ['ONE_DAY', 'ONE_WEEK', 'TWO_WEEK', 'FOUR_WEEK', 'ONE_MONTH'],
                     onChanged: (v) => setState(() => _cycleType = v),
                   ),
+                  // Map location picker
+                  const SizedBox(height: AppSpacing.lg),
+                  MapLocationPicker(
+                    initialLat: _lat,
+                    initialLng: _lng,
+                    onLocationSelected: (LatLng location) {
+                      setState(() {
+                        _lat = location.latitude;
+                        _lng = location.longitude;
+                      });
+                    },
+                  ),
+                  // Image Upload (only when editing)
+                  if (widget.isEditing) ...[
+                    const SizedBox(height: AppSpacing.lg),
+                    ImageUploadWidget(
+                      existingImages: const [],
+                      onImagesAdded: (List<XFile> files) {
+                        // TODO: implement image upload API call
+                      },
+                      onImageRemoved: (int index) {
+                        // TODO: implement image removal API call
+                      },
+                    ),
+                  ],
+
                   const SizedBox(height: AppSpacing.lg),
                   SizedBox(
                     width: double.infinity,
@@ -191,6 +246,109 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildPreviewView(bool isLoading) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Preview header
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.preview, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Pregled pre cuvanja',
+                  style: AppTypography.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          _buildPreviewRow('Naziv', _siteNameController.text),
+          if (_descriptionController.text.isNotEmpty)
+            _buildPreviewRow('Opis', _descriptionController.text),
+          _buildPreviewRow('Adresa', _addressController.text),
+          if (_environment != null)
+            _buildPreviewRow('Okruzenje', _environment!.replaceAll('_', ' ')),
+          if (_illumination != null)
+            _buildPreviewRow('Osvetljenje', _illumination!.replaceAll('_', ' ')),
+          _buildPreviewRow(
+            'Cena',
+            '${_currency ?? 'EUR'} ${_priceController.text}/${_cycleType?.replaceAll('_', ' ') ?? 'ONE MONTH'}',
+          ),
+          if (_lat != null && _lng != null)
+            _buildPreviewRow(
+              'Koordinate',
+              '${_lat!.toStringAsFixed(5)}, ${_lng!.toStringAsFixed(5)}',
+            ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isLoading ? null : _handleSubmit,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: AppColors.primaryForeground,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+              ),
+              child: isLoading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(l10n.save),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPreviewRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTypography.bodySmall.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.foreground,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -260,7 +418,7 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
     required ValueChanged<String?> onChanged,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(
@@ -293,6 +451,8 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
     }
     if (_environment != null) data['environment'] = _environment;
     if (_illumination != null) data['illumination'] = _illumination;
+    if (_lat != null) data['lat'] = _lat;
+    if (_lng != null) data['lng'] = _lng;
 
     final bloc = context.read<InventoryManagementBloc>();
     if (widget.isEditing) {

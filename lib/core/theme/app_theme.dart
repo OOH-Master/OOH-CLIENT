@@ -173,7 +173,7 @@ class AppTheme {
         textColor: AppColors.foreground,
         iconColor: AppColors.foreground,
         tileColor: Colors.transparent,
-        selectedTileColor: AppColors.accent.withOpacity(0.1),
+        selectedTileColor: AppColors.accent.withValues(alpha: 0.1),
         selectedColor: AppColors.primary,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,

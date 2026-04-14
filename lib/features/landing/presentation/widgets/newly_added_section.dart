@@ -140,7 +140,7 @@ class _MediaListingCardState extends State<_MediaListingCard> {
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -160,8 +160,8 @@ class _MediaListingCardState extends State<_MediaListingCard> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        AppColors.primary.withOpacity(0.7),
-                        AppColors.accent.withOpacity(0.5),
+                        AppColors.primary.withValues(alpha: 0.7),
+                        AppColors.accent.withValues(alpha: 0.5),
                       ],
                     ),
                   ),
@@ -169,7 +169,7 @@ class _MediaListingCardState extends State<_MediaListingCard> {
                     child: Icon(
                       Icons.location_city,
                       size: 64,
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withValues(alpha: 0.5),
                     ),
                   ),
                 ),

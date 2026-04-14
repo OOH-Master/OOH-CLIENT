@@ -14,7 +14,7 @@ import 'package:ooh_mobile/features/discover/presentation/pages/discover_page.da
 ///   - Korisnik: brand / brand123
 ///
 /// Pokretanje:
-///   flutter test integration_test/app_test.dart -d <device_id>
+///   flutter test integration_test/app_test.dart -d `device_id`
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 

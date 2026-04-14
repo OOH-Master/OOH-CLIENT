@@ -142,7 +142,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
                       border: Border.all(color: Colors.white, width: 2),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: Colors.black.withValues(alpha: 0.2),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -163,19 +163,19 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
             ),
           ],
         ),
-        // Popup card for selected unit
+        // Enhanced popup card for selected unit
         if (widget.selectedUnit != null)
           Positioned(
             bottom: 24,
             left: 16,
             right: 16,
-            child: _buildPopupCard(widget.selectedUnit!),
+            child: _buildEnhancedPopupCard(widget.selectedUnit!),
           ),
       ],
     );
   }
 
-  Widget _buildPopupCard(OohUnit unit) {
+  Widget _buildEnhancedPopupCard(OohUnit unit) {
     return GestureDetector(
       onTap: () => widget.onUnitDetailTap?.call(unit),
       child: Container(
@@ -184,7 +184,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
+              color: Colors.black.withValues(alpha: 0.15),
               blurRadius: 20,
               offset: const Offset(0, 4),
             ),
@@ -192,20 +192,42 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
         ),
         child: Row(
           children: [
-            // Image
+            // Image thumbnail
             ClipRRect(
               borderRadius: const BorderRadius.horizontal(left: Radius.circular(16)),
               child: Container(
                 width: 120,
-                height: 100,
+                height: 110,
                 color: AppColors.muted,
-                child: unit.imageUrl != null
-                    ? Image.network(
-                        unit.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                      )
-                    : _buildImagePlaceholder(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    unit.imageUrl != null
+                        ? Image.network(
+                            unit.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+                          )
+                        : _buildImagePlaceholder(),
+                    // Type badge overlay
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: _getTypeColor(unit.type).withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          _getMarkerIcon(unit),
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Info
@@ -222,16 +244,30 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: unit.isAvailable
-                                ? AppColors.success.withOpacity(0.1)
-                                : AppColors.warning.withOpacity(0.1),
+                                ? AppColors.success.withValues(alpha: 0.1)
+                                : AppColors.destructive.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: Text(
-                            unit.isAvailable ? 'Available' : 'Booked',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: unit.isAvailable ? AppColors.success : AppColors.warning,
-                              fontSize: 10,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 6,
+                                height: 6,
+                                decoration: BoxDecoration(
+                                  color: unit.isAvailable ? AppColors.success : AppColors.destructive,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                unit.isAvailable ? 'Dostupno' : 'Zauzeto',
+                                style: AppTypography.labelSmall.copyWith(
+                                  color: unit.isAvailable ? AppColors.success : AppColors.destructive,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         const Spacer(),
@@ -255,7 +291,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
                         const SizedBox(width: 2),
                         Expanded(
                           child: Text(
-                            unit.cityName,
+                            '${unit.cityName}, ${unit.address}',
                             style: AppTypography.labelSmall.copyWith(color: AppColors.mutedForeground),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -284,7 +320,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'Details',
+                            'Detalji',
                             style: AppTypography.labelSmall.copyWith(color: Colors.white),
                           ),
                         ),
@@ -311,12 +347,12 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
 
   Widget _buildMarker(OohUnit unit) {
     final isSelected = widget.selectedUnit?.id == unit.id;
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : _getMarkerColor(unit),
+          color: isSelected ? AppColors.primary : _getTypeColor(unit.type),
           shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white,
@@ -324,7 +360,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withValues(alpha: 0.3),
               blurRadius: isSelected ? 8 : 4,
               offset: const Offset(0, 2),
             ),
@@ -341,14 +377,21 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
     );
   }
 
-  Color _getMarkerColor(OohUnit unit) {
-    switch (unit.status) {
-      case OohStatus.available:
-        return AppColors.success;
-      case OohStatus.booked:
-        return AppColors.warning;
-      case OohStatus.maintenance:
-        return AppColors.mutedForeground;
+  /// Different colors based on media type
+  Color _getTypeColor(OohType type) {
+    switch (type) {
+      case OohType.billboard:
+        return const Color(0xFF3B82F6); // Blue
+      case OohType.digital:
+        return const Color(0xFF8B5CF6); // Purple
+      case OohType.subway:
+        return const Color(0xFFF59E0B); // Amber
+      case OohType.airport:
+        return const Color(0xFF10B981); // Green
+      case OohType.bus:
+        return const Color(0xFFEF4444); // Red
+      case OohType.other:
+        return const Color(0xFF6B7280); // Gray
     }
   }
 

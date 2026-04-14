@@ -38,6 +38,8 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   late TextEditingController _minPriceController;
   late TextEditingController _maxPriceController;
   late TextEditingController _keywordController;
+  RangeValues _priceRange = const RangeValues(0, 10000);
+  bool _usePriceSlider = true;
 
   AppLocalizations get l10n => AppLocalizations.of(context)!;
 
@@ -74,6 +76,11 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     _keywordController = TextEditingController(
       text: widget.currentFilters.keyword ?? '',
     );
+
+    // Initialize price range from current filters
+    final minP = widget.currentFilters.minPrice ?? 0;
+    final maxP = widget.currentFilters.maxPrice ?? 10000;
+    _priceRange = RangeValues(minP.clamp(0, 10000), maxP.clamp(0, 10000));
   }
 
   @override
@@ -119,8 +126,17 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
   }
 
   void _handleApply() {
-    final minPrice = double.tryParse(_minPriceController.text);
-    final maxPrice = double.tryParse(_maxPriceController.text);
+    double? minPrice;
+    double? maxPrice;
+
+    if (_usePriceSlider) {
+      if (_priceRange.start > 0) minPrice = _priceRange.start;
+      if (_priceRange.end < 10000) maxPrice = _priceRange.end;
+    } else {
+      minPrice = double.tryParse(_minPriceController.text);
+      maxPrice = double.tryParse(_maxPriceController.text);
+    }
+
     final keyword = _keywordController.text.trim();
 
     final filters = InventoryFilterParams(
@@ -148,6 +164,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
       _minPriceController.clear();
       _maxPriceController.clear();
       _keywordController.clear();
+      _priceRange = const RangeValues(0, 10000);
     });
   }
 
@@ -158,7 +175,11 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     if (_venueTypeId != null) count++;
     if (_environment != null) count++;
     if (_illumination != null) count++;
-    if (_minPriceController.text.isNotEmpty || _maxPriceController.text.isNotEmpty) count++;
+    if (_usePriceSlider) {
+      if (_priceRange.start > 0 || _priceRange.end < 10000) count++;
+    } else {
+      if (_minPriceController.text.isNotEmpty || _maxPriceController.text.isNotEmpty) count++;
+    }
     if (_keywordController.text.trim().isNotEmpty) count++;
     return count;
   }
@@ -184,50 +205,50 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                   controller: scrollController,
                   padding: const EdgeInsets.all(20),
                   children: [
-                    // Keyword search
-                    _buildSectionLabel(l10n.filterKeyword),
+                    // --- Section: Pretraga ---
+                    _buildSectionHeader(Icons.search, l10n.filterKeyword),
                     const SizedBox(height: 8),
                     _buildKeywordField(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // Unit type dropdown
+                    // --- Section: Tip inventara ---
                     if (widget.unitTypes.isNotEmpty) ...[
-                      _buildSectionLabel(l10n.filterUnitType),
+                      _buildSectionHeader(Icons.category, l10n.filterUnitType),
                       const SizedBox(height: 8),
                       _buildDropdown<int>(
                         value: _unitTypeId,
                         items: widget.unitTypes,
                         onChanged: (v) => setState(() => _unitTypeId = v),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                     ],
 
-                    // Media format dropdown
+                    // --- Section: Media format ---
                     if (widget.mediaFormats.isNotEmpty) ...[
-                      _buildSectionLabel(l10n.filterMediaFormat),
+                      _buildSectionHeader(Icons.tv, l10n.filterMediaFormat),
                       const SizedBox(height: 8),
                       _buildDropdown<int>(
                         value: _mediaFormatId,
                         items: widget.mediaFormats,
                         onChanged: (v) => setState(() => _mediaFormatId = v),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                     ],
 
-                    // Venue type dropdown
+                    // --- Section: Tip lokacije ---
                     if (widget.venueTypes.isNotEmpty) ...[
-                      _buildSectionLabel(l10n.filterVenueType),
+                      _buildSectionHeader(Icons.place, l10n.filterVenueType),
                       const SizedBox(height: 8),
                       _buildDropdown<int>(
                         value: _venueTypeId,
                         items: widget.venueTypes,
                         onChanged: (v) => setState(() => _venueTypeId = v),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
                     ],
 
-                    // Environment chips
-                    _buildSectionLabel(l10n.filterEnvironment),
+                    // --- Section: Okruzenje ---
+                    _buildSectionHeader(Icons.nature_people, l10n.filterEnvironment),
                     const SizedBox(height: 8),
                     _buildChipGroup(
                       options: _environmentOptions,
@@ -237,10 +258,10 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                         _environment = _environment == v ? null : v;
                       }),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // Illumination chips
-                    _buildSectionLabel(l10n.illuminated),
+                    // --- Section: Osvetljenje ---
+                    _buildSectionHeader(Icons.lightbulb_outline, l10n.illuminated),
                     const SizedBox(height: 8),
                     _buildChipGroup(
                       options: _illuminationOptions,
@@ -250,10 +271,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
                         _illumination = _illumination == v ? null : v;
                       }),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    // Price range
-                    _buildSectionLabel(l10n.filterPriceRange),
+                    // --- Section: Raspon cena ---
+                    _buildSectionHeader(Icons.euro, l10n.filterPriceRange),
+                    const SizedBox(height: 8),
+                    _buildPriceRangeSlider(),
                     const SizedBox(height: 8),
                     _buildPriceRange(),
                     const SizedBox(height: 32),
@@ -307,13 +330,19 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     );
   }
 
-  Widget _buildSectionLabel(String text) {
-    return Text(
-      text,
-      style: AppTypography.bodyMedium.copyWith(
-        fontWeight: FontWeight.w600,
-        color: AppColors.foreground,
-      ),
+  Widget _buildSectionHeader(IconData icon, String text) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: AppColors.primary),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: AppTypography.bodyMedium.copyWith(
+            fontWeight: FontWeight.w600,
+            color: AppColors.foreground,
+          ),
+        ),
+      ],
     );
   }
 
@@ -395,7 +424,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
           label: Text(labelBuilder(option)),
           selected: isSelected,
           onSelected: (_) => onSelected(option),
-          selectedColor: AppColors.primary.withOpacity(0.15),
+          selectedColor: AppColors.primary.withValues(alpha: 0.15),
           backgroundColor: AppColors.muted,
           labelStyle: AppTypography.bodySmall.copyWith(
             color: isSelected ? AppColors.primary : AppColors.foreground,
@@ -412,6 +441,46 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     );
   }
 
+  Widget _buildPriceRangeSlider() {
+    return Column(
+      children: [
+        RangeSlider(
+          values: _priceRange,
+          min: 0,
+          max: 10000,
+          divisions: 100,
+          activeColor: AppColors.primary,
+          inactiveColor: AppColors.border,
+          labels: RangeLabels(
+            '\u20AC${_priceRange.start.round()}',
+            '\u20AC${_priceRange.end.round()}',
+          ),
+          onChanged: (values) {
+            setState(() {
+              _priceRange = values;
+              _minPriceController.text = values.start.round().toString();
+              _maxPriceController.text = values.end.round().toString();
+              _usePriceSlider = true;
+            });
+          },
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '\u20AC${_priceRange.start.round()}',
+              style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
+            ),
+            Text(
+              '\u20AC${_priceRange.end.round()}',
+              style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildPriceRange() {
     return Row(
       children: [
@@ -420,6 +489,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             controller: _minPriceController,
             keyboardType: TextInputType.number,
             style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
+            onChanged: (_) => setState(() => _usePriceSlider = false),
             decoration: InputDecoration(
               hintText: l10n.filterMinPrice,
               hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
@@ -439,13 +509,14 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text('–', style: AppTypography.bodyLarge.copyWith(color: AppColors.mutedForeground)),
+          child: Text('\u2013', style: AppTypography.bodyLarge.copyWith(color: AppColors.mutedForeground)),
         ),
         Expanded(
           child: TextField(
             controller: _maxPriceController,
             keyboardType: TextInputType.number,
             style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
+            onChanged: (_) => setState(() => _usePriceSlider = false),
             decoration: InputDecoration(
               hintText: l10n.filterMaxPrice,
               hintStyle: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),

@@ -6,12 +6,12 @@ Before you begin, ensure you have the following installed:
 
 ### Required Tools
 
-- **Flutter SDK**: Version 3.38.2 or higher
+- **Flutter SDK**: Version 3.x (any version with Dart SDK >= 3.6.0)
   ```bash
   flutter --version
   ```
 
-- **Dart SDK**: Version 3.10.0 or higher (included with Flutter)
+- **Dart SDK**: Version 3.6.0 or higher (included with Flutter)
   ```bash
   dart --version
   ```
@@ -78,7 +78,7 @@ This command downloads all the packages specified in `pubspec.yaml`.
 flutter gen-l10n
 ```
 
-This generates Dart files from ARB localization files in `lib/core/l10n/`.
+This generates Dart files from ARB localization files in `lib/core/l10n/`. **This step is required after cloning and after any changes to `.arb` files.** Without it, the app will fail to compile due to missing `AppLocalizations` class.
 
 ### 4. Verify Installation
 
@@ -303,52 +303,42 @@ Then while the app is running, open the DevTools URL shown in the terminal.
 
 ### API Configuration
 
-Create environment-specific configuration files:
+The app reads the backend API URL from a compile-time constant via `--dart-define`. The default is `http://localhost:8080/api/v1`.
 
-#### Development
-```dart
-// lib/core/config/env_dev.dart
-class Environment {
-  static const String apiUrl = 'http://localhost:8080/api';
-  static const bool isProduction = false;
-}
-```
-
-#### Production
-```dart
-// lib/core/config/env_prod.dart
-class Environment {
-  static const String apiUrl = 'https://api.ooh-platform.com/api';
-  static const bool isProduction = true;
-}
-```
-
-### Build Flavors (Optional)
-
-#### Android Flavors
-Edit `android/app/build.gradle`:
-
-```gradle
-android {
-    flavorDimensions "environment"
-    productFlavors {
-        dev {
-            dimension "environment"
-            applicationIdSuffix ".dev"
-            versionNameSuffix "-dev"
-        }
-        prod {
-            dimension "environment"
-        }
-    }
-}
-```
-
-Run with flavor:
+#### Override API URL
 ```bash
-flutter run --flavor dev
-flutter build apk --flavor prod
+# Development (default)
+flutter run -d chrome
+
+# Custom backend URL
+flutter run -d chrome --dart-define=API_BASE_URL=https://api.example.com/api/v1
+
+# Production build with custom URL
+flutter build web --release --dart-define=API_BASE_URL=https://api.example.com/api/v1
 ```
+
+The constant is defined in `lib/core/config/api_config.dart`:
+```dart
+static const String baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://localhost:8080/api/v1',
+);
+```
+
+### CORS for Web Development
+
+When running the Flutter web app against a local backend, ensure the backend has CORS configured for the frontend origin. Set the `CORS_ALLOWED_ORIGINS` environment variable on the backend:
+```bash
+CORS_ALLOWED_ORIGINS=http://localhost:3000
+```
+
+### Localization After ARB Changes
+
+After modifying any `.arb` file in `lib/core/l10n/`, you must regenerate localizations:
+```bash
+flutter gen-l10n
+```
+Then perform a **hot restart** (not hot reload) for the changes to take effect. Hot reload does not pick up new l10n keys.
 
 ## Testing
 

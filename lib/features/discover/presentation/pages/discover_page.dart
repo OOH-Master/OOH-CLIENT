@@ -15,8 +15,13 @@ import '../../domain/entities/city.dart';
 import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
+import '../widgets/active_filter_chips.dart';
+import '../widgets/discover_card_grid.dart';
+import '../widgets/discover_card_list.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/inventory_map.dart';
+import '../widgets/sort_dropdown.dart';
+import '../widgets/view_toggle.dart';
 
 class DiscoverPage extends StatefulWidget {
   final String? cityId;
@@ -30,6 +35,7 @@ class DiscoverPage extends StatefulWidget {
 class _DiscoverPageState extends State<DiscoverPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   Timer? _searchDebounce;
   OohUnit? _selectedUnit;
 
@@ -43,13 +49,22 @@ class _DiscoverPageState extends State<DiscoverPage> {
       bloc.add(LoadCountries());
       bloc.add(LoadDictionaries());
     });
+    _scrollController.addListener(_onScroll);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _searchDebounce?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      context.read<DiscoverBloc>().add(LoadMore());
+    }
   }
 
   @override
@@ -86,11 +101,34 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 }
 
                 if (state is DiscoverLoaded) {
-                  if (isDesktop) {
-                    return _buildDesktopLayout(state);
-                  } else {
-                    return _buildMobileLayout(state);
-                  }
+                  return Column(
+                    children: [
+                      // Active filter chips
+                      if (state.activeFilterCount > 0)
+                        ActiveFilterChips(
+                          filters: state.activeFilters,
+                          unitTypes: state.unitTypes,
+                          mediaFormats: state.mediaFormats,
+                          venueTypes: state.venueTypes,
+                          onFilterRemoved: (updatedFilters) {
+                            context.read<DiscoverBloc>().add(ApplyFilters(updatedFilters));
+                          },
+                          onClearAll: () {
+                            _searchController.clear();
+                            context.read<DiscoverBloc>().add(ResetFilters());
+                          },
+                        ),
+                      // Results bar with count, sort, view toggle
+                      _buildResultsBar(state, isDesktop),
+                      // Selection bar
+                      if (state.selectedUnitsForInquiry.isNotEmpty)
+                        _buildSelectionBar(state),
+                      // Main content area
+                      Expanded(
+                        child: _buildMainContent(state, isDesktop),
+                      ),
+                    ],
+                  );
                 }
 
                 return Center(
@@ -105,6 +143,103 @@ class _DiscoverPageState extends State<DiscoverPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildResultsBar(DiscoverLoaded state, bool isDesktop) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          // Results count
+          Expanded(
+            child: Text(
+              'Prikazano ${state.units.length} rezultata',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.mutedForeground,
+              ),
+            ),
+          ),
+          // Sort dropdown
+          SortDropdown(
+            currentSort: state.sortOption,
+            onChanged: (sort) {
+              context.read<DiscoverBloc>().add(ChangeSort(sort));
+            },
+          ),
+          const SizedBox(width: 8),
+          // View toggle
+          ViewToggle(
+            currentMode: state.viewMode,
+            onChanged: (mode) {
+              context.read<DiscoverBloc>().add(ChangeViewMode(mode));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectionBar(DiscoverLoaded state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: AppColors.primary.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          Icon(Icons.check_circle, size: 18, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Text(
+            '${state.selectedUnitsForInquiry.length} odabrano',
+            style: AppTypography.bodySmall.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () {
+              context.read<DiscoverBloc>().add(ClearSelection());
+            },
+            child: Text(
+              'Ponisti',
+              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            onPressed: () {
+              final ids = state.selectedUnitsForInquiry.join(',');
+              context.push('/app/inquiries/create?unitIds=$ids');
+            },
+            icon: const Icon(Icons.send, size: 16),
+            label: const Text('Posalji upit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainContent(DiscoverLoaded state, bool isDesktop) {
+    if (state.viewMode == ViewMode.mapOnly) {
+      return _buildMapSection(state);
+    }
+
+    if (isDesktop) {
+      return _buildDesktopLayout(state);
+    } else {
+      return _buildMobileLayout(state);
+    }
   }
 
   Widget _buildSecondaryToolbar(bool isDesktop) {
@@ -148,10 +283,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
   Widget _buildDesktopLayout(DiscoverLoaded state) {
     return Row(
       children: [
-        // Left side - 3 column grid
+        // Left side - inventory grid/list
         SizedBox(
           width: 720,
-          child: _buildInventoryGrid(state),
+          child: _buildInventoryPanel(state),
         ),
         // Right side - Map
         Expanded(
@@ -161,61 +296,77 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
-  Widget _buildInventoryGrid(DiscoverLoaded state) {
+  Widget _buildInventoryPanel(DiscoverLoaded state) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(right: BorderSide(color: AppColors.border)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Results header
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  l10n.results(state.units.length),
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.foreground,
-                  ),
-                ),
-                if (state.selectedCity != null)
-                  Text(
-                    state.selectedCity!.name,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.mutedForeground,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Divider(height: 1, color: AppColors.border),
-          // Grid
-          Expanded(
-            child: state.isLoadingUnits
-                ? const Center(child: CircularProgressIndicator())
-                : state.units.isEmpty
-                    ? _buildEmptyState(state)
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 0.72,
-                        ),
-                        itemCount: state.units.length,
-                        itemBuilder: (context, index) {
-                          return _buildInventoryCard(state.units[index]);
-                        },
-                      ),
-          ),
-        ],
+      child: state.isLoadingUnits
+          ? const Center(child: CircularProgressIndicator())
+          : state.units.isEmpty
+              ? _buildEmptyState(state)
+              : state.viewMode == ViewMode.list
+                  ? _buildListView(state)
+                  : _buildGridView(state),
+    );
+  }
+
+  Widget _buildGridView(DiscoverLoaded state) {
+    return GridView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 0.72,
       ),
+      itemCount: state.units.length,
+      itemBuilder: (context, index) {
+        final unit = state.units[index];
+        final unitIdInt = int.tryParse(unit.id) ?? 0;
+        return DiscoverCardGrid(
+          unit: unit,
+          isSelected: _selectedUnit?.id == unit.id,
+          isSelectedForInquiry: state.selectedUnitsForInquiry.contains(unitIdInt),
+          onTap: () {
+            setState(() => _selectedUnit = unit);
+          },
+          onAddToInquiry: () {
+            if (unitIdInt > 0) {
+              context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildListView(DiscoverLoaded state) {
+    return ListView.separated(
+      controller: _scrollController,
+      padding: const EdgeInsets.all(16),
+      itemCount: state.units.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final unit = state.units[index];
+        final unitIdInt = int.tryParse(unit.id) ?? 0;
+        return DiscoverCardList(
+          unit: unit,
+          isSelected: _selectedUnit?.id == unit.id,
+          isSelectedForInquiry: state.selectedUnitsForInquiry.contains(unitIdInt),
+          onTap: () {
+            setState(() => _selectedUnit = unit);
+            _navigateToDetail(unit);
+          },
+          onAddToInquiry: () {
+            if (unitIdInt > 0) {
+              context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
+            }
+          },
+        );
+      },
     );
   }
 
@@ -239,7 +390,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 10,
                     offset: const Offset(0, -2),
                   ),
@@ -248,11 +399,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
               child: CustomScrollView(
                 controller: scrollController,
                 slivers: [
-                  // Handle bar and header (non-scrollable pinned)
+                  // Handle bar and header
                   SliverToBoxAdapter(
                     child: Column(
                       children: [
-                        // Handle bar - makes dragging easier
+                        // Handle bar
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           child: Container(
@@ -270,6 +421,11 @@ class _DiscoverPageState extends State<DiscoverPage> {
                             ),
                           ),
                         ),
+                        // Search on mobile
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                          child: _buildSearchField(),
+                        ),
                         // Header
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -277,7 +433,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                l10n.results(state.units.length),
+                                '${state.units.length} rezultata',
                                 style: AppTypography.bodyLarge.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.foreground,
@@ -313,9 +469,10 @@ class _DiscoverPageState extends State<DiscoverPage> {
                         delegate: SliverChildBuilderDelegate(
                           (context, index) {
                             final unit = state.units[index];
+                            final unitIdInt = int.tryParse(unit.id) ?? 0;
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildMobileInventoryCard(unit),
+                              child: _buildMobileInventoryCard(unit, state, unitIdInt),
                             );
                           },
                           childCount: state.units.length,
@@ -332,8 +489,9 @@ class _DiscoverPageState extends State<DiscoverPage> {
   }
 
   // ==================== MOBILE INVENTORY CARD ====================
-  Widget _buildMobileInventoryCard(OohUnit unit) {
+  Widget _buildMobileInventoryCard(OohUnit unit, DiscoverLoaded state, int unitIdInt) {
     final isSelected = _selectedUnit?.id == unit.id;
+    final isSelectedForInquiry = state.selectedUnitsForInquiry.contains(unitIdInt);
 
     return GestureDetector(
       onTap: () {
@@ -342,7 +500,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
@@ -350,7 +508,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -364,13 +522,35 @@ class _DiscoverPageState extends State<DiscoverPage> {
               child: SizedBox(
                 width: 120,
                 height: 100,
-                child: unit.imageUrl != null
-                    ? Image.network(
-                        unit.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                      )
-                    : _buildImagePlaceholder(),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    unit.imageUrl != null
+                        ? Image.network(
+                            unit.imageUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
+                          )
+                        : _buildImagePlaceholder(),
+                    // Media type badge
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: AppColors.foreground.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Icon(
+                          _getTypeIcon(unit.type),
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             // Info on right
@@ -410,168 +590,48 @@ class _DiscoverPageState extends State<DiscoverPage> {
                             color: AppColors.primary,
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: unit.isAvailable ? AppColors.success : AppColors.warning,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            unit.isAvailable ? l10n.available : l10n.booked,
-                            style: AppTypography.caption.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== INVENTORY CARD ====================
-  Widget _buildInventoryCard(OohUnit unit) {
-    final isSelected = _selectedUnit?.id == unit.id;
-    
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedUnit = unit);
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Container(
-                      color: AppColors.muted,
-                      child: unit.imageUrl != null
-                          ? Image.network(
-                              unit.imageUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                            )
-                          : _buildImagePlaceholder(),
-                    ),
-                    // Status badge
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: unit.isAvailable ? AppColors.success : AppColors.warning,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          unit.isAvailable ? l10n.available : l10n.booked,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      unit.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.foreground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on, size: 12, color: AppColors.mutedForeground),
-                        const SizedBox(width: 2),
-                        Expanded(
-                          child: Text(
-                            unit.cityName,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.mutedForeground,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            unit.priceDisplay,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => _navigateToDetail(unit),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              l10n.view,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Availability
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: unit.isAvailable
+                                    ? AppColors.success
+                                    : AppColors.destructive,
+                                shape: BoxShape.circle,
                               ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            // Add to inquiry
+                            GestureDetector(
+                              onTap: () {
+                                if (unitIdInt > 0) {
+                                  context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: isSelectedForInquiry
+                                      ? AppColors.primary
+                                      : AppColors.muted,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Icon(
+                                  isSelectedForInquiry
+                                      ? Icons.check
+                                      : Icons.add_shopping_cart,
+                                  color: isSelectedForInquiry
+                                      ? Colors.white
+                                      : AppColors.primary,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -873,15 +933,12 @@ class _DiscoverPageState extends State<DiscoverPage> {
     final double zoom;
 
     if (state.selectedCity != null) {
-      // City selected — zoom to city
       center = LatLng(state.selectedCity!.latitude, state.selectedCity!.longitude);
       zoom = 12.0;
     } else if (state.selectedCountry != null && state.cities.isNotEmpty) {
-      // Country selected but no city — center on first city of that country
       center = LatLng(state.cities.first.latitude, state.cities.first.longitude);
       zoom = 7.0;
     } else {
-      // "All countries" — show Balkans overview
       center = const LatLng(44.0, 18.5);
       zoom = 6.0;
     }
@@ -912,7 +969,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
           Icon(Icons.error_outline, size: 64, color: AppColors.destructive),
           const SizedBox(height: 16),
           Text(
-              l10n.error,
+            l10n.error,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -950,7 +1007,6 @@ class _DiscoverPageState extends State<DiscoverPage> {
           currentFilters: state.activeFilters,
           onApply: (filters) {
             context.read<DiscoverBloc>().add(ApplyFilters(filters));
-            // Sync search field with keyword from filters
             if (filters.keyword != null && filters.keyword != _searchController.text) {
               _searchController.text = filters.keyword!;
             } else if (filters.keyword == null && _searchController.text.isNotEmpty) {
@@ -968,5 +1024,22 @@ class _DiscoverPageState extends State<DiscoverPage> {
 
   void _navigateToDetail(OohUnit unit) {
     context.push('/discover/${unit.id}');
+  }
+
+  IconData _getTypeIcon(OohType type) {
+    switch (type) {
+      case OohType.billboard:
+        return Icons.campaign;
+      case OohType.digital:
+        return Icons.monitor;
+      case OohType.subway:
+        return Icons.subway;
+      case OohType.airport:
+        return Icons.flight;
+      case OohType.bus:
+        return Icons.directions_bus;
+      case OohType.other:
+        return Icons.location_city;
+    }
   }
 }

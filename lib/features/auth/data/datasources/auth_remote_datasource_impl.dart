@@ -23,13 +23,57 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     );
 
     final data = response.data!;
-    final token = data['token'] as String;
-
-    // Store token and set on ApiClient
-    await _tokenStorage.saveToken(token);
-    _apiClient.setAuthToken(token);
+    await _storeTokens(data);
 
     // Fetch full user profile
+    return _fetchCurrentUser();
+  }
+
+  @override
+  Future<User> register(String name, String email, String password, Role role) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      ApiConfig.authRegister,
+      data: {
+        'username': name,
+        'email': email,
+        'password': password,
+        'role': roleToString(role),
+      },
+    );
+
+    final data = response.data!;
+    await _storeTokens(data);
+
+    // Fetch full user profile
+    return _fetchCurrentUser();
+  }
+
+  @override
+  Future<void> forgotPassword(String email) async {
+    await _apiClient.post(
+      ApiConfig.authForgotPassword,
+      data: {'email': email},
+    );
+  }
+
+  @override
+  Future<void> resetPassword(String token, String newPassword) async {
+    await _apiClient.post(
+      ApiConfig.authResetPassword,
+      data: {'token': token, 'newPassword': newPassword},
+    );
+  }
+
+  @override
+  Future<void> logout() async {
+    try {
+      await _apiClient.post(ApiConfig.authLogout);
+    } catch (_) {
+      // Ignore errors on logout — clear tokens regardless
+    }
+  }
+
+  Future<User> _fetchCurrentUser() async {
     final meResponse = await _apiClient.get<Map<String, dynamic>>(ApiConfig.authMe);
     final meData = meResponse.data!;
 
@@ -40,39 +84,26 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       role: mapRole(meData['role'] as String),
       companyName: meData['companyName'] as String?,
       contactPerson: meData['contactPerson'] as String?,
+      firstName: meData['firstName'] as String?,
+      lastName: meData['lastName'] as String?,
+      phone: meData['phone'] as String?,
+      country: meData['country'] as String?,
+      city: meData['city'] as String?,
+      website: meData['website'] as String?,
+      emailVerified: meData['emailVerified'] as bool? ?? false,
     );
   }
 
-  @override
-  Future<User> register(String name, String email, String password, Role role) async {
-    final response = await _apiClient.post<Map<String, dynamic>>(
-      '/auth/register',
-      data: {
-        'username': name,
-        'email': email,
-        'password': password,
-        'role': _roleToString(role),
-      },
-    );
-
-    final data = response.data!;
+  Future<void> _storeTokens(Map<String, dynamic> data) async {
     final token = data['token'] as String;
+    final refreshToken = data['refreshToken'] as String?;
 
     await _tokenStorage.saveToken(token);
     _apiClient.setAuthToken(token);
 
-    // Fetch full user profile
-    final meResponse = await _apiClient.get<Map<String, dynamic>>(ApiConfig.authMe);
-    final meData = meResponse.data!;
-
-    return User(
-      id: meData['id'].toString(),
-      email: meData['email'] ?? email,
-      name: meData['username'] ?? name,
-      role: mapRole(meData['role'] as String),
-      companyName: meData['companyName'] as String?,
-      contactPerson: meData['contactPerson'] as String?,
-    );
+    if (refreshToken != null) {
+      await _tokenStorage.saveRefreshToken(refreshToken);
+    }
   }
 
   static Role mapRole(String roleStr) {
@@ -90,7 +121,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     }
   }
 
-  static String _roleToString(Role role) {
+  static String roleToString(Role role) {
     switch (role) {
       case Role.mediaOwner:
         return 'MEDIA_OWNER';

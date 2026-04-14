@@ -1,7 +1,9 @@
 enum InquiryStatus {
   submitted,
   inProgress,
+  quotesRequested,
   pricingReady,
+  offerSent,
   acceptedByClient,
   rejectedByClient,
   realized,
@@ -13,8 +15,12 @@ enum InquiryStatus {
         return 'SUBMITTED';
       case InquiryStatus.inProgress:
         return 'IN_PROGRESS';
+      case InquiryStatus.quotesRequested:
+        return 'QUOTES_REQUESTED';
       case InquiryStatus.pricingReady:
         return 'PRICING_READY';
+      case InquiryStatus.offerSent:
+        return 'OFFER_SENT';
       case InquiryStatus.acceptedByClient:
         return 'ACCEPTED_BY_CLIENT';
       case InquiryStatus.rejectedByClient:
@@ -32,8 +38,12 @@ enum InquiryStatus {
         return InquiryStatus.submitted;
       case 'IN_PROGRESS':
         return InquiryStatus.inProgress;
+      case 'QUOTES_REQUESTED':
+        return InquiryStatus.quotesRequested;
       case 'PRICING_READY':
         return InquiryStatus.pricingReady;
+      case 'OFFER_SENT':
+        return InquiryStatus.offerSent;
       case 'ACCEPTED_BY_CLIENT':
         return InquiryStatus.acceptedByClient;
       case 'REJECTED_BY_CLIENT':

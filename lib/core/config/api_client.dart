@@ -1,20 +1,39 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
+import '../../features/auth/data/datasources/auth_token_storage.dart';
 import 'api_config.dart';
 
-/// HTTP client wrapper using Dio
+/// Callback to trigger logout from outside (e.g., when refresh fails)
+typedef LogoutCallback = void Function();
+
+/// HTTP client wrapper using Dio with refresh token support
 class ApiClient {
   late final Dio _dio;
+  late final Dio _refreshDio; // Separate Dio for refresh calls (no interceptor loop)
   final Logger _logger = Logger();
+  AuthTokenStorage? _tokenStorage;
+  LogoutCallback? _onLogout;
+  bool _isRefreshing = false;
 
-  ApiClient() {
+  ApiClient({AuthTokenStorage? tokenStorage}) : _tokenStorage = tokenStorage {
+    _refreshDio = Dio(
+      BaseOptions(
+        baseUrl: ApiConfig.baseUrl,
+        connectTimeout: const Duration(milliseconds: ApiConfig.connectTimeout),
+        receiveTimeout: const Duration(milliseconds: ApiConfig.receiveTimeout),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+
     _dio = Dio(
       BaseOptions(
         baseUrl: ApiConfig.baseUrl,
         connectTimeout: const Duration(milliseconds: ApiConfig.connectTimeout),
         receiveTimeout: const Duration(milliseconds: ApiConfig.receiveTimeout),
-        // sendTimeout doesn't work on web without a request body
         sendTimeout: kIsWeb ? null : const Duration(milliseconds: ApiConfig.sendTimeout),
         headers: {
           'Content-Type': 'application/json',
@@ -28,7 +47,6 @@ class ApiClient {
       InterceptorsWrapper(
         onRequest: (options, handler) {
           _logger.d('REQUEST[${options.method}] => PATH: ${options.path}');
-          _logger.d('Query Parameters: ${options.queryParameters}');
           return handler.next(options);
         },
         onResponse: (response, handler) {
@@ -37,11 +55,68 @@ class ApiClient {
         },
         onError: (error, handler) {
           _logger.e('ERROR[${error.response?.statusCode}] => PATH: ${error.requestOptions.path}');
-          _logger.e('Error Message: ${error.message}');
           return handler.next(error);
         },
       ),
     );
+
+    // Add refresh token interceptor
+    _dio.interceptors.add(
+      QueuedInterceptorsWrapper(
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401 &&
+              !error.requestOptions.path.contains('/auth/')) {
+            // Try to refresh token
+            if (_tokenStorage != null && !_isRefreshing) {
+              _isRefreshing = true;
+              try {
+                final refreshToken = await _tokenStorage!.getRefreshToken();
+                if (refreshToken != null) {
+                  final response = await _refreshDio.post(
+                    ApiConfig.authRefresh,
+                    data: {'refreshToken': refreshToken},
+                  );
+
+                  final newToken = response.data['token'] as String;
+                  final newRefreshToken = response.data['refreshToken'] as String;
+
+                  await _tokenStorage!.saveToken(newToken);
+                  await _tokenStorage!.saveRefreshToken(newRefreshToken);
+                  setAuthToken(newToken);
+
+                  // Retry the original request
+                  final opts = error.requestOptions;
+                  opts.headers['Authorization'] = 'Bearer $newToken';
+                  final retryResponse = await _dio.fetch(opts);
+                  return handler.resolve(retryResponse);
+                } else {
+                  // No refresh token — clear state and trigger logout
+                  await _tokenStorage!.clearAll();
+                  clearAuthToken();
+                  _onLogout?.call();
+                }
+              } catch (e) {
+                // Refresh failed — clear tokens and trigger logout
+                await _tokenStorage!.clearAll();
+                clearAuthToken();
+                _onLogout?.call();
+              } finally {
+                _isRefreshing = false;
+              }
+            }
+          }
+          return handler.next(error);
+        },
+      ),
+    );
+  }
+
+  void setTokenStorage(AuthTokenStorage storage) {
+    _tokenStorage = storage;
+  }
+
+  void setLogoutCallback(LogoutCallback callback) {
+    _onLogout = callback;
   }
 
   /// Set the authorization token

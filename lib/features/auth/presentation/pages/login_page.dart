@@ -177,6 +177,21 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                             const SizedBox(height: 24),
                             
+                            // Forgot Password
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: () => context.push('/auth/forgot-password'),
+                                child: Text(
+                                  'Zaboravljena lozinka?',
+                                  style: AppTypography.bodySmall.copyWith(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
                             // Login Button
                             ElevatedButton(
                               onPressed: state is AuthLoading ? null : _handleLogin,

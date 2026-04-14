@@ -79,6 +79,9 @@ dependencies:
   url_launcher: ^6.3.2
   connectivity_plus: ^7.0.0
   
+  # Charts
+  fl_chart: ^0.69.0
+
   # Image Picker (for media upload)
   image_picker: ^1.1.2
   file_picker: ^10.3.8

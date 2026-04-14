@@ -8,6 +8,8 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/entities/role.dart';
 import '../../../campaign/data/repository/campaign_repository.dart';
 import '../../../inquiry/data/repository/inquiry_repository.dart';
+import '../blocs/analytics_bloc.dart';
+import '../../data/repository/analytics_repository.dart';
 import 'base_dashboard.dart';
 import 'quick_action_card.dart';
 import 'stat_card.dart';
@@ -20,35 +22,46 @@ class BrandDashboard extends BaseDashboard {
     final loc = l10n(context);
     final inquiryFuture = context.read<InquiryRepository>().getInquiries(Role.brand).then((list) => list.length).catchError((_) => 0);
     final campaignFuture = context.read<CampaignRepository>().getCampaigns().then((list) => list.length).catchError((_) => 0);
+    final cardWidth = isDesktop
+        ? 200.0
+        : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2;
+
     return FutureBuilder<List<int>>(
       future: Future.wait([inquiryFuture, campaignFuture]),
       builder: (context, snapshot) {
         final inquiryCount = snapshot.data?[0].toString() ?? '—';
         final campaignCount = snapshot.data?[1].toString() ?? '—';
-        return Wrap(
-          spacing: AppSpacing.sm,
-          runSpacing: AppSpacing.sm,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-              child: StatCard(
-                icon: Icons.mail_outline,
-                label: loc.myInquiries,
-                value: inquiryCount,
-                iconColor: AppColors.primary,
-                onTap: () => context.push('/app/inquiries'),
-              ),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.sm,
+              children: [
+                SizedBox(
+                  width: cardWidth,
+                  child: StatCard(
+                    icon: Icons.mail_outline,
+                    label: loc.myInquiries,
+                    value: inquiryCount,
+                    iconColor: AppColors.primary,
+                    onTap: () => context.push('/app/inquiries'),
+                  ),
+                ),
+                SizedBox(
+                  width: cardWidth,
+                  child: StatCard(
+                    icon: Icons.campaign_outlined,
+                    label: loc.myCampaigns,
+                    value: campaignCount,
+                    iconColor: AppColors.info,
+                    onTap: () => context.push('/app/campaigns'),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(
-              width: isDesktop ? 200 : (MediaQuery.of(context).size.width - AppSpacing.md * 2 - AppSpacing.sm) / 2,
-              child: StatCard(
-                icon: Icons.campaign_outlined,
-                label: loc.myCampaigns,
-                value: campaignCount,
-                iconColor: AppColors.info,
-                onTap: () => context.push('/app/campaigns'),
-              ),
-            ),
+            const SizedBox(height: AppSpacing.md),
+            _BrandAnalyticsSection(),
           ],
         );
       },
@@ -115,4 +128,66 @@ class BrandDashboard extends BaseDashboard {
 
   @override
   Future<void> onRefresh(BuildContext context) async {}
+}
+
+class _BrandAnalyticsSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (context) => AnalyticsBloc(context.read<AnalyticsRepository>())
+        ..add(LoadBrandAnalytics()),
+      child: BlocBuilder<AnalyticsBloc, AnalyticsState>(
+        builder: (context, state) {
+          if (state is AnalyticsLoaded && state.data['error'] == null) {
+            final statusBreakdown = state.data['statusBreakdown'] as Map<String, dynamic>? ?? {};
+            final totalSpending = state.data['totalSpending'];
+            if (statusBreakdown.isEmpty && totalSpending == null) return const SizedBox.shrink();
+
+            return Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Analitika', style: AppTypography.h6),
+                  if (totalSpending != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Row(
+                      children: [
+                        Text('Ukupna potrosnja: ', style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground)),
+                        Text(
+                          (totalSpending as num).toStringAsFixed(2),
+                          style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (statusBreakdown.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text('Status upita:', style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground)),
+                    const SizedBox(height: AppSpacing.xxs),
+                    ...statusBreakdown.entries.map((e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(e.key, style: AppTypography.caption),
+                          Text('${e.value}', style: AppTypography.caption.copyWith(fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    )),
+                  ],
+                ],
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
 }

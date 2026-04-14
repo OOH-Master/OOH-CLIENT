@@ -32,10 +32,14 @@ class AuthRepositoryImpl implements AuthRepository {
       await localDataSource.cacheUser(user);
       return Success(user);
     } on DioException catch (e) {
+      final message = _extractErrorMessage(e);
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        return Error(AuthFailure('Pogrešno korisničko ime ili lozinka.'));
+        return Error(AuthFailure(message ?? 'Pogrešno korisničko ime ili lozinka.'));
       }
-      return Error(AuthFailure('Greška pri povezivanju. Pokušajte ponovo.'));
+      if (e.response?.statusCode == 423) {
+        return Error(AuthFailure(message ?? 'Nalog je zaključan. Pokušajte ponovo za 15 minuta.'));
+      }
+      return Error(AuthFailure(message ?? 'Greška pri povezivanju. Pokušajte ponovo.'));
     } catch (e) {
       return Error(AuthFailure(e.toString()));
     }
@@ -53,10 +57,11 @@ class AuthRepositoryImpl implements AuthRepository {
       await localDataSource.cacheUser(user);
       return Success(user);
     } on DioException catch (e) {
-      if (e.response?.statusCode == 409) {
-        return Error(AuthFailure('Korisnik sa tim imenom već postoji.'));
+      final message = _extractErrorMessage(e);
+      if (e.response?.statusCode == 400) {
+        return Error(AuthFailure(message ?? 'Neispravni podaci. Proverite unos.'));
       }
-      return Error(AuthFailure('Greška pri povezivanju. Pokušajte ponovo.'));
+      return Error(AuthFailure(message ?? 'Greška pri povezivanju. Pokušajte ponovo.'));
     } catch (e) {
       return Error(AuthFailure(e.toString()));
     }
@@ -83,12 +88,19 @@ class AuthRepositoryImpl implements AuthRepository {
           role: AuthRemoteDataSourceImpl.mapRole(data['role'] as String),
           companyName: data['companyName'] as String?,
           contactPerson: data['contactPerson'] as String?,
+          firstName: data['firstName'] as String?,
+          lastName: data['lastName'] as String?,
+          phone: data['phone'] as String?,
+          country: data['country'] as String?,
+          city: data['city'] as String?,
+          website: data['website'] as String?,
+          emailVerified: data['emailVerified'] as bool? ?? false,
         );
         await localDataSource.cacheUser(user);
         return Success(user);
       } catch (_) {
         // Token invalid/expired - clear everything
-        await tokenStorage.deleteToken();
+        await tokenStorage.clearAll();
         await localDataSource.clearUser();
         apiClient.clearAuthToken();
         return const Success(null);
@@ -101,12 +113,51 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<void>> logout() async {
     try {
-      await tokenStorage.deleteToken();
+      await remoteDataSource.logout();
+      await tokenStorage.clearAll();
       await localDataSource.clearUser();
       apiClient.clearAuthToken();
       return const Success(null);
     } catch (e) {
-      return Error(CacheFailure(e.toString()));
+      // Still clear local tokens even if remote logout fails
+      await tokenStorage.clearAll();
+      await localDataSource.clearUser();
+      apiClient.clearAuthToken();
+      return const Success(null);
     }
+  }
+
+  @override
+  Future<Result<void>> forgotPassword(String email) async {
+    try {
+      await remoteDataSource.forgotPassword(email);
+      return const Success(null);
+    } on DioException catch (e) {
+      final message = _extractErrorMessage(e);
+      return Error(ServerFailure(message ?? 'Failed to send reset email.'));
+    } catch (e) {
+      return Error(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<void>> resetPassword(String token, String newPassword) async {
+    try {
+      await remoteDataSource.resetPassword(token, newPassword);
+      return const Success(null);
+    } on DioException catch (e) {
+      final message = _extractErrorMessage(e);
+      return Error(ServerFailure(message ?? 'Failed to reset password.'));
+    } catch (e) {
+      return Error(ServerFailure(e.toString()));
+    }
+  }
+
+  String? _extractErrorMessage(DioException e) {
+    final data = e.response?.data;
+    if (data is Map<String, dynamic>) {
+      return data['message'] as String?;
+    }
+    return null;
   }
 }

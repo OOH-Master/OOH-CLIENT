@@ -223,11 +223,27 @@ class MainShellPage extends StatelessWidget {
       case Role.admin:
         return [
           ListTile(
+            leading: const Icon(Icons.admin_panel_settings_outlined),
+            title: const Text('Upravljanje upitima'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/admin/inquiries');
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.mail_outline),
             title: Text(l10n.allInquiries),
             onTap: () {
               Navigator.pop(context);
               context.push('/app/inquiries');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.people_outline),
+            title: const Text('Korisnici'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/admin/users');
             },
           ),
           ListTile(
@@ -255,6 +271,22 @@ class MainShellPage extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               context.push('/app/inventory/create');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.request_quote_outlined),
+            title: const Text('Zahtevi za ponude'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/media-owner/quotes');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.event_available_outlined),
+            title: const Text('Dostupnost'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/media-owner/availability');
             },
           ),
         ];
@@ -509,12 +541,28 @@ class _DesktopSidebar extends StatelessWidget {
       case Role.admin:
         links.addAll([
           _SidebarItem(
+            icon: Icons.admin_panel_settings_outlined,
+            selectedIcon: Icons.admin_panel_settings,
+            label: 'Upravljanje upitima',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/admin/inquiries'),
+          ),
+          _SidebarItem(
             icon: Icons.mail_outline,
             selectedIcon: Icons.mail,
             label: l10n.allInquiries,
             selected: false,
             expanded: expanded,
             onTap: () => context.push('/app/inquiries'),
+          ),
+          _SidebarItem(
+            icon: Icons.people_outline,
+            selectedIcon: Icons.people,
+            label: 'Korisnici',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/admin/users'),
           ),
           _SidebarItem(
             icon: Icons.settings_outlined,
@@ -542,6 +590,22 @@ class _DesktopSidebar extends StatelessWidget {
             selected: false,
             expanded: expanded,
             onTap: () => context.push('/app/inventory/create'),
+          ),
+          _SidebarItem(
+            icon: Icons.request_quote_outlined,
+            selectedIcon: Icons.request_quote,
+            label: 'Zahtevi za ponude',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/media-owner/quotes'),
+          ),
+          _SidebarItem(
+            icon: Icons.event_available_outlined,
+            selectedIcon: Icons.event_available,
+            label: 'Dostupnost',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/media-owner/availability'),
           ),
         ]);
       case Role.brand:

@@ -46,3 +46,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter plugins file
+.flutter-plugins
+
+# Firebase configuration (project-specific secrets)
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+ios/firebase_app_id_file.json
+
+# Android signing
+android/key.properties
+*.jks
+*.keystore
+
+# VS Code
+.vscode/

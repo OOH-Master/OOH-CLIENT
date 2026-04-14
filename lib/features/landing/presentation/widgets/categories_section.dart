@@ -143,7 +143,7 @@ class _CategoryCardState extends State<_CategoryCard> {
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -165,15 +165,15 @@ class _CategoryCardState extends State<_CategoryCard> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          AppColors.primary.withOpacity(0.7),
-                          AppColors.accent.withOpacity(0.5),
+                          AppColors.primary.withValues(alpha: 0.7),
+                          AppColors.accent.withValues(alpha: 0.5),
                         ],
                       ),
                     ),
                     child: Icon(
                       _getCategoryIcon(widget.category['id']!),
                       size: 80,
-                      color: Colors.white.withOpacity(0.3),
+                      color: Colors.white.withValues(alpha: 0.3),
                     ),
                   ),
                 ),
@@ -186,8 +186,8 @@ class _CategoryCardState extends State<_CategoryCard> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.4),
-                        Colors.black.withOpacity(0.8),
+                        Colors.black.withValues(alpha: 0.4),
+                        Colors.black.withValues(alpha: 0.8),
                       ],
                     ),
                   ),
@@ -211,7 +211,7 @@ class _CategoryCardState extends State<_CategoryCard> {
                       Text(
                         widget.category['subtitle']!,
                         style: AppTypography.bodyMedium.copyWith(
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withValues(alpha: 0.8),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/blocs/auth_bloc.dart';
+import '../../features/notification/presentation/widgets/notification_bell.dart';
 import '../l10n/l10n.dart';
 import '../l10n/locale_cubit.dart';
 import '../responsive/breakpoints.dart';
@@ -87,6 +89,15 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
       centerTitle: false,
       actions: [
         if (actions != null) ...actions!,
+        // Notification bell (only when authenticated)
+        BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, authState) {
+            if (authState is AuthAuthenticated) {
+              return const NotificationBell();
+            }
+            return const SizedBox.shrink();
+          },
+        ),
         BlocBuilder<LocaleCubit, Locale>(
           builder: (context, locale) {
             return TextButton(

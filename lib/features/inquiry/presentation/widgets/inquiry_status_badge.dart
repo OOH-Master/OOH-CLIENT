@@ -37,8 +37,12 @@ class InquiryStatusBadge extends StatelessWidget {
         return AppColors.info;
       case InquiryStatus.inProgress:
         return AppColors.warning;
+      case InquiryStatus.quotesRequested:
+        return const Color(0xFF8B5CF6); // violet
       case InquiryStatus.pricingReady:
         return AppColors.primary;
+      case InquiryStatus.offerSent:
+        return const Color(0xFF0EA5E9); // sky blue
       case InquiryStatus.acceptedByClient:
         return AppColors.success;
       case InquiryStatus.rejectedByClient:
@@ -56,8 +60,12 @@ class InquiryStatusBadge extends StatelessWidget {
         return l10n.statusSubmitted;
       case InquiryStatus.inProgress:
         return l10n.statusInProgress;
+      case InquiryStatus.quotesRequested:
+        return 'Quotes Requested';
       case InquiryStatus.pricingReady:
         return l10n.statusPricingReady;
+      case InquiryStatus.offerSent:
+        return 'Offer Sent';
       case InquiryStatus.acceptedByClient:
         return l10n.statusAccepted;
       case InquiryStatus.rejectedByClient:

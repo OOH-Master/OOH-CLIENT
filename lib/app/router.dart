@@ -2,21 +2,32 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../features/admin/presentation/pages/admin_config_page.dart';
+import '../features/admin/presentation/pages/admin_users_page.dart';
 import '../features/agency/presentation/pages/agency_brands_page.dart';
 import '../features/auth/presentation/blocs/auth_bloc.dart';
+import '../features/auth/presentation/pages/email_verification_page.dart';
+import '../features/auth/presentation/pages/forgot_password_page.dart';
 import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
+import '../features/auth/presentation/pages/reset_password_page.dart';
+import '../features/availability/presentation/pages/availability_management_page.dart';
+import '../features/campaign/presentation/pages/campaign_detail_page.dart';
+import '../features/campaign/presentation/pages/campaign_edit_page.dart';
 import '../features/campaign/presentation/pages/campaign_form_page.dart';
 import '../features/campaign/presentation/pages/campaign_list_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/discover/presentation/pages/discover_detail_page.dart';
 import '../features/discover/presentation/pages/discover_page.dart';
+import '../features/inquiry/presentation/pages/admin_inquiry_management_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_create_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_detail_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_list_page.dart';
+import '../features/inquiry/presentation/pages/media_owner_quotes_page.dart';
+import '../features/inquiry/presentation/pages/offer_review_page.dart';
 import '../features/inventory_management/presentation/pages/inventory_form_page.dart';
 import '../features/inventory_management/presentation/pages/my_inventory_page.dart';
 import '../features/landing/presentation/pages/landing_page.dart';
+import '../features/notification/presentation/pages/notifications_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/shell/presentation/pages/main_shell_page.dart';
 
@@ -37,6 +48,24 @@ class AppRouter {
       GoRoute(
         path: '/auth/register',
         builder: (context, state) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: '/auth/forgot-password',
+        builder: (context, state) => const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: '/auth/reset-password',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'] ?? '';
+          return ResetPasswordPage(token: token);
+        },
+      ),
+      GoRoute(
+        path: '/auth/verify-email',
+        builder: (context, state) {
+          final token = state.uri.queryParameters['token'];
+          return EmailVerificationPage(token: token);
+        },
       ),
       // Public routes - NO shell/bottom bar
       GoRoute(
@@ -117,6 +146,13 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: '/app/inquiries/:id/offer',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return OfferReviewPage(inquiryId: id);
+        },
+      ),
+      GoRoute(
         path: '/app/my-inventory',
         builder: (context, state) => const MyInventoryPage(),
       ),
@@ -140,12 +176,46 @@ class AppRouter {
         builder: (context, state) => const CampaignFormPage(),
       ),
       GoRoute(
+        path: '/app/campaigns/:id',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return CampaignDetailPage(campaignId: id);
+        },
+      ),
+      GoRoute(
+        path: '/app/campaigns/:id/edit',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return CampaignEditPage(campaignId: id);
+        },
+      ),
+      GoRoute(
         path: '/app/admin/config',
         builder: (context, state) => const AdminConfigPage(),
       ),
       GoRoute(
+        path: '/app/admin/users',
+        builder: (context, state) => const AdminUsersPage(),
+      ),
+      GoRoute(
+        path: '/app/notifications',
+        builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: '/app/admin/inquiries',
+        builder: (context, state) => const AdminInquiryManagementPage(),
+      ),
+      GoRoute(
         path: '/app/agency/brands',
         builder: (context, state) => const AgencyBrandsPage(),
+      ),
+      GoRoute(
+        path: '/app/media-owner/quotes',
+        builder: (context, state) => const MediaOwnerQuotesPage(),
+      ),
+      GoRoute(
+        path: '/app/media-owner/availability',
+        builder: (context, state) => const AvailabilityManagementPage(),
       ),
     ],
     redirect: (context, state) {

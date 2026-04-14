@@ -214,14 +214,14 @@ class _ArticleCardState extends State<_ArticleCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           transform: Matrix4.identity()
-            ..translate(0.0, _isHovered ? -8.0 : 0.0),
+            ..translateByDouble(0.0, _isHovered ? -8.0 : 0.0, 0.0, 1.0),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(AppRadius.lg),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(_isHovered ? 0.15 : 0.05),
+                  color: Colors.black.withValues(alpha: _isHovered ? 0.15 : 0.05),
                   blurRadius: _isHovered ? 20 : 10,
                   offset: Offset(0, _isHovered ? 10 : 4),
                 ),
@@ -235,8 +235,8 @@ class _ArticleCardState extends State<_ArticleCard> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        AppColors.primary.withOpacity(0.7),
-                        AppColors.accent.withOpacity(0.5),
+                        AppColors.primary.withValues(alpha: 0.7),
+                        AppColors.accent.withValues(alpha: 0.5),
                       ],
                     ),
                     borderRadius: const BorderRadius.vertical(
@@ -320,7 +320,7 @@ class _TrendingTopicItemState extends State<_TrendingTopicItem> {
               height: 32,
               decoration: BoxDecoration(
                 color: _isHovered
-                    ? AppColors.primary.withOpacity(0.1)
+                    ? AppColors.primary.withValues(alpha: 0.1)
                     : AppColors.background,
                 borderRadius: BorderRadius.circular(AppRadius.md),
               ),
