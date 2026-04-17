@@ -27,6 +27,8 @@ import '../features/dashboard/data/api/analytics_api_service.dart';
 import '../features/dashboard/data/repository/analytics_repository.dart';
 import '../features/discover/data/api/api.dart';
 import '../features/discover/data/repository/discover_repository.dart';
+import '../features/favorite/data/api/favorite_api_service.dart';
+import '../features/favorite/data/repository/favorite_repository.dart';
 import '../features/inquiry/data/api/inquiry_api_service.dart';
 import '../features/inquiry/data/repository/inquiry_repository.dart';
 import '../features/inventory_management/data/api/inventory_management_api_service.dart';
@@ -127,4 +129,8 @@ Future<void> initDependencies() async {
   // Notification Feature
   getIt.registerLazySingleton(() => NotificationApiService(getIt<ApiClient>()));
   getIt.registerLazySingleton(() => NotificationRepository(getIt<NotificationApiService>()));
+
+  // Favorite Feature
+  getIt.registerLazySingleton(() => FavoriteApiService(getIt<ApiClient>()));
+  getIt.registerLazySingleton(() => FavoriteRepository(getIt<FavoriteApiService>()));
 }

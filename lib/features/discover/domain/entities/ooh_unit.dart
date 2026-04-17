@@ -25,6 +25,8 @@ class OohUnit extends Equatable {
   final DateTime? availableFrom;
   final String? description;
   final Map<String, dynamic>? specifications;
+  final String? mediaOwnerName;
+  final bool favorited;
 
   const OohUnit({
     required this.id,
@@ -44,6 +46,8 @@ class OohUnit extends Equatable {
     this.availableFrom,
     this.description,
     this.specifications,
+    this.mediaOwnerName,
+    this.favorited = false,
   });
 
   bool get isAvailable => status == OohStatus.available;
@@ -107,6 +111,8 @@ class OohUnit extends Equatable {
           : null,
       description: json['description'] as String?,
       specifications: json['specifications'] as Map<String, dynamic>?,
+      mediaOwnerName: json['mediaOwnerName'] as String?,
+      favorited: json['favorited'] as bool? ?? false,
     );
   }
 
@@ -180,6 +186,8 @@ class OohUnit extends Equatable {
         availableFrom,
         description,
         specifications,
+        mediaOwnerName,
+        favorited,
       ];
 }
 

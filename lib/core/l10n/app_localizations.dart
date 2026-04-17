@@ -1435,6 +1435,408 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No brands yet'**
   String get noBrands;
+
+  /// No description provided for @editProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit profile'**
+  String get editProfile;
+
+  /// No description provided for @changePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change password'**
+  String get changePassword;
+
+  /// No description provided for @availabilityManagement.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability management'**
+  String get availabilityManagement;
+
+  /// No description provided for @availabilitySlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Availability slots'**
+  String get availabilitySlots;
+
+  /// No description provided for @addSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Add slot'**
+  String get addSlot;
+
+  /// No description provided for @editSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit slot'**
+  String get editSlot;
+
+  /// No description provided for @deleteSlot.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete slot'**
+  String get deleteSlot;
+
+  /// No description provided for @noAvailabilitySlots.
+  ///
+  /// In en, this message translates to:
+  /// **'No availability slots'**
+  String get noAvailabilitySlots;
+
+  /// No description provided for @noAvailabilitySlotsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a slot using the + button'**
+  String get noAvailabilitySlotsHint;
+
+  /// No description provided for @selectInventoryItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Select inventory item'**
+  String get selectInventoryItem;
+
+  /// No description provided for @allInventory.
+  ///
+  /// In en, this message translates to:
+  /// **'All inventory'**
+  String get allInventory;
+
+  /// No description provided for @showingAllSlots.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing all slots'**
+  String get showingAllSlots;
+
+  /// No description provided for @availabilityStatusAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get availabilityStatusAvailable;
+
+  /// No description provided for @availabilityStatusBooked.
+  ///
+  /// In en, this message translates to:
+  /// **'Booked'**
+  String get availabilityStatusBooked;
+
+  /// No description provided for @availabilityStatusMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get availabilityStatusMaintenance;
+
+  /// No description provided for @availabilityStatusBlocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocked'**
+  String get availabilityStatusBlocked;
+
+  /// No description provided for @notes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get notes;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @quoteRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Quote requests'**
+  String get quoteRequests;
+
+  /// No description provided for @submitQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit quote'**
+  String get submitQuote;
+
+  /// No description provided for @declineQuote.
+  ///
+  /// In en, this message translates to:
+  /// **'Decline quote'**
+  String get declineQuote;
+
+  /// No description provided for @noQuotes.
+  ///
+  /// In en, this message translates to:
+  /// **'No quote requests'**
+  String get noQuotes;
+
+  /// No description provided for @acceptOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept offer'**
+  String get acceptOffer;
+
+  /// No description provided for @rejectOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject offer'**
+  String get rejectOffer;
+
+  /// No description provided for @offerReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Offer review'**
+  String get offerReview;
+
+  /// No description provided for @offerTotal.
+  ///
+  /// In en, this message translates to:
+  /// **'Total'**
+  String get offerTotal;
+
+  /// No description provided for @rejectReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejection reason'**
+  String get rejectReason;
+
+  /// No description provided for @viewOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'View offer'**
+  String get viewOffer;
+
+  /// No description provided for @downloadInvoice.
+  ///
+  /// In en, this message translates to:
+  /// **'Download invoice'**
+  String get downloadInvoice;
+
+  /// No description provided for @favorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get favorites;
+
+  /// No description provided for @noFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'No saved units'**
+  String get noFavorites;
+
+  /// No description provided for @noFavoritesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark inventory with the heart icon to find them easily later.'**
+  String get noFavoritesHint;
+
+  /// No description provided for @exploreInventory.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore inventory'**
+  String get exploreInventory;
+
+  /// No description provided for @calendarView.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar view'**
+  String get calendarView;
+
+  /// No description provided for @listView.
+  ///
+  /// In en, this message translates to:
+  /// **'List view'**
+  String get listView;
+
+  /// No description provided for @noCampaignsForDay.
+  ///
+  /// In en, this message translates to:
+  /// **'No campaigns for this day'**
+  String get noCampaignsForDay;
+
+  /// No description provided for @selectDayHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a day in the calendar'**
+  String get selectDayHint;
+
+  /// No description provided for @assignUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign units'**
+  String get assignUnits;
+
+  /// No description provided for @startProcessing.
+  ///
+  /// In en, this message translates to:
+  /// **'Start processing'**
+  String get startProcessing;
+
+  /// No description provided for @requestQuotes.
+  ///
+  /// In en, this message translates to:
+  /// **'Request quotes'**
+  String get requestQuotes;
+
+  /// No description provided for @sendOffer.
+  ///
+  /// In en, this message translates to:
+  /// **'Send offer'**
+  String get sendOffer;
+
+  /// No description provided for @manageInquiries.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage inquiries'**
+  String get manageInquiries;
+
+  /// No description provided for @users.
+  ///
+  /// In en, this message translates to:
+  /// **'Users'**
+  String get users;
+
+  /// No description provided for @enable.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get enable;
+
+  /// No description provided for @disable.
+  ///
+  /// In en, this message translates to:
+  /// **'Disable'**
+  String get disable;
+
+  /// No description provided for @firstName.
+  ///
+  /// In en, this message translates to:
+  /// **'First name'**
+  String get firstName;
+
+  /// No description provided for @lastName.
+  ///
+  /// In en, this message translates to:
+  /// **'Last name'**
+  String get lastName;
+
+  /// No description provided for @phone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get phone;
+
+  /// No description provided for @companyName.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name'**
+  String get companyName;
+
+  /// No description provided for @website.
+  ///
+  /// In en, this message translates to:
+  /// **'Website'**
+  String get website;
+
+  /// No description provided for @currentPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Current password'**
+  String get currentPassword;
+
+  /// No description provided for @newPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'New password'**
+  String get newPassword;
+
+  /// No description provided for @confirmPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm password'**
+  String get confirmPassword;
+
+  /// No description provided for @profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get profile;
+
+  /// No description provided for @passwordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed'**
+  String get passwordChanged;
+
+  /// No description provided for @profileUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated'**
+  String get profileUpdated;
+
+  /// No description provided for @notifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get notifications;
+
+  /// No description provided for @markAllRead.
+  ///
+  /// In en, this message translates to:
+  /// **'Mark all as read'**
+  String get markAllRead;
+
+  /// No description provided for @noNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications'**
+  String get noNotifications;
+
+  /// No description provided for @loading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading...'**
+  String get loading;
+
+  /// No description provided for @statusCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancelled'**
+  String get statusCancelled;
+
+  /// No description provided for @campaignCalendarTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Campaign calendar'**
+  String get campaignCalendarTitle;
+
+  /// No description provided for @assignLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign'**
+  String get assignLabel;
+
+  /// No description provided for @noUnitsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No units found'**
+  String get noUnitsFound;
+
+  /// No description provided for @assignUnitsSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by address, city, owner…'**
+  String get assignUnitsSearchHint;
+
+  /// No description provided for @selectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected: {count}'**
+  String selectedCount(int count);
+
+  /// No description provided for @unitsAssignedSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Assigned {count} units to inquiry'**
+  String unitsAssignedSuccess(int count);
 }
 
 class _AppLocalizationsDelegate

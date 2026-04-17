@@ -55,9 +55,11 @@ class DiscoverMapper {
       cycleType: _mapCycleType(dto.cycleType),
       imageUrl: dto.assetUrl,
       images: dto.assetUrl != null ? [dto.assetUrl!] : [],
-      status: _mapStatus(dto.status),
+      status: dto.available ? _mapStatus(dto.status) : OohStatus.booked,
       description: dto.description,
       specifications: _buildSpecifications(dto),
+      mediaOwnerName: dto.mediaOwnerName ?? dto.mediaOwnerUsername,
+      favorited: dto.favorited ?? false,
     );
   }
 

@@ -1,13 +1,19 @@
 class InquiryItemDto {
   final int id;
   final int? inventoryItemId;
-  final String? inventoryName;
+  final String? inventoryItemName;
+  final String? inventoryItemAddress;
+  final String? inventoryItemCity;
+  final String? mediaOwnerName;
   final double? quotedPrice;
 
   const InquiryItemDto({
     required this.id,
     this.inventoryItemId,
-    this.inventoryName,
+    this.inventoryItemName,
+    this.inventoryItemAddress,
+    this.inventoryItemCity,
+    this.mediaOwnerName,
     this.quotedPrice,
   });
 
@@ -15,7 +21,10 @@ class InquiryItemDto {
     return InquiryItemDto(
       id: json['id'] as int,
       inventoryItemId: json['inventoryItemId'] as int?,
-      inventoryName: json['inventoryName'] as String?,
+      inventoryItemName: json['inventoryItemName'] as String?,
+      inventoryItemAddress: json['inventoryItemAddress'] as String?,
+      inventoryItemCity: json['inventoryItemCity'] as String?,
+      mediaOwnerName: json['mediaOwnerName'] as String?,
       quotedPrice: (json['quotedPrice'] as num?)?.toDouble(),
     );
   }
@@ -37,6 +46,7 @@ class InquiryDto {
   final double? budget;
   final String? pdfFileName;
   final String? createdAt;
+  final int itemCount;
   final List<InquiryItemDto> items;
 
   const InquiryDto({
@@ -55,6 +65,7 @@ class InquiryDto {
     this.budget,
     this.pdfFileName,
     this.createdAt,
+    this.itemCount = 0,
     this.items = const [],
   });
 
@@ -75,6 +86,7 @@ class InquiryDto {
       budget: (json['budget'] as num?)?.toDouble(),
       pdfFileName: json['pdfFileName'] as String?,
       createdAt: json['createdAt'] as String?,
+      itemCount: json['itemCount'] as int? ?? 0,
       items: (json['items'] as List<dynamic>?)
               ?.map((e) => InquiryItemDto.fromJson(e as Map<String, dynamic>))
               .toList() ??

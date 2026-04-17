@@ -210,9 +210,10 @@ class _AdminInquiryManagementViewState extends State<_AdminInquiryManagementView
             ),
           ),
           SizedBox(
-            width: 180,
+            width: 220,
             child: DropdownButtonFormField<InquiryStatus?>(
               initialValue: _statusFilter,
+              isExpanded: true,
               decoration: InputDecoration(
                 labelText: l10n.status,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -226,7 +227,10 @@ class _AdminInquiryManagementViewState extends State<_AdminInquiryManagementView
                 const DropdownMenuItem(value: null, child: Text('Svi statusi')),
                 ...InquiryStatus.values.map((s) => DropdownMenuItem(
                       value: s,
-                      child: Text(s.apiValue.replaceAll('_', ' ')),
+                      child: Text(
+                        s.apiValue.replaceAll('_', ' '),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     )),
               ],
               onChanged: (v) => setState(() => _statusFilter = v),
@@ -342,19 +346,45 @@ class _AdminInquiryManagementViewState extends State<_AdminInquiryManagementView
 
     switch (inquiry.status) {
       case InquiryStatus.submitted:
-        actionButton = _buildActionChip(
-          label: 'Pokreni obradu',
-          icon: Icons.play_arrow,
-          color: AppColors.info,
-          onPressed: () => _handleAction(context, inquiry, 'start_processing'),
+        actionButton = Wrap(
+          spacing: 8,
+          children: [
+            _buildActionChip(
+              label: 'Pokreni obradu',
+              icon: Icons.play_arrow,
+              color: AppColors.info,
+              onPressed: () => _handleAction(context, inquiry, 'start_processing'),
+            ),
+            _buildActionChip(
+              label: 'Dodeli jedinice',
+              icon: Icons.add_box_outlined,
+              color: AppColors.primary,
+              onPressed: () => context.push(
+                '/app/admin/inquiries/${inquiry.id}/assign-units',
+              ),
+            ),
+          ],
         );
         break;
       case InquiryStatus.inProgress:
-        actionButton = _buildActionChip(
-          label: 'Zatrazi ponude',
-          icon: Icons.request_quote,
-          color: AppColors.primary,
-          onPressed: () => _handleAction(context, inquiry, 'request_quotes'),
+        actionButton = Wrap(
+          spacing: 8,
+          children: [
+            _buildActionChip(
+              label: 'Zatrazi ponude',
+              icon: Icons.request_quote,
+              color: AppColors.primary,
+              onPressed: () => _handleAction(context, inquiry, 'request_quotes'),
+            ),
+            _buildActionChip(
+              label: 'Dodeli jedinice',
+              icon: Icons.add_box_outlined,
+              color: AppColors.info,
+              onPressed: () => context.push(
+                '/app/admin/inquiries/${inquiry.id}/assign-units',
+              ),
+            ),
+          ],
         );
         break;
       case InquiryStatus.pricingReady:

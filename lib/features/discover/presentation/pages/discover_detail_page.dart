@@ -267,6 +267,8 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildInfoRow('Naziv', unit.name),
+          if (unit.mediaOwnerName != null)
+            _buildInfoRow('Vlasnik medija', unit.mediaOwnerName!),
           _buildInfoRow('Tip', unit.type.name.toUpperCase()),
           if (unit.specifications?['format'] != null)
             _buildInfoRow('Format', unit.specifications!['format'].toString()),
@@ -492,6 +494,22 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
             ),
           ],
         ),
+        if (unit.mediaOwnerName != null) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Icon(Icons.business, size: 16, color: AppColors.primary),
+              const SizedBox(width: 4),
+              Text(
+                unit.mediaOwnerName!,
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         // Availability badge
         Row(
@@ -628,13 +646,15 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
       children: [
         SizedBox(
           width: double.infinity,
+          height: 48,
           child: ElevatedButton.icon(
-            onPressed: () => _handleAddToInquiry(unit),
-            icon: const Icon(Icons.add_shopping_cart, size: 18),
-            label: const Text('Dodaj u upit'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primary,
-              side: BorderSide(color: AppColors.primary),
+            onPressed: _handleStartInquiry,
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text('Posalji upit'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 0,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -643,37 +663,87 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
         const SizedBox(height: 12),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: _handleStartInquiry,
-            icon: const Icon(Icons.send, size: 18),
-            label: const Text('Posalji upit'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+          height: 48,
+          child: OutlinedButton.icon(
+            onPressed: () => _handleAddToInquiry(unit),
+            icon: Icon(Icons.add_shopping_cart, size: 18, color: AppColors.primary),
+            label: Text('Dodaj u upit', style: TextStyle(color: AppColors.primary)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: AppColors.primary),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _handleShare,
-                icon: Icon(Icons.share_outlined, size: 16, color: AppColors.foreground),
-                label: Text(
-                  l10n.share,
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(color: AppColors.border),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        const SizedBox(height: 20),
+        // General inquiry CTA
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.muted,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.support_agent, size: 20, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Treba vam pomoc?',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Opisite vasu kampanju i nasi eksperti ce vam predloziti najbolje lokacije.',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.mutedForeground,
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  onPressed: _handleGeneralInquiry,
+                  icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
+                  label: Text(
+                    'Posalji generalni upit',
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _handleShare,
+            icon: Icon(Icons.share_outlined, size: 16, color: AppColors.foreground),
+            label: Text(
+              l10n.share,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
             ),
-          ],
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: BorderSide(color: AppColors.border),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
         ),
       ],
     );
@@ -750,6 +820,15 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(l10n.comingSoon)),
     );
+  }
+
+  void _handleGeneralInquiry() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      AuthGuardDialog.show(context);
+      return;
+    }
+    context.push('/app/inquiries/create');
   }
 
   void _handleStartInquiry() {

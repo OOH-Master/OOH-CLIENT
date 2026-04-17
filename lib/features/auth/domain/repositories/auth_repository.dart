@@ -8,8 +8,14 @@ abstract class AuthRepository {
     String name,
     String email,
     String password,
-    Role role,
-  );
+    Role role, {
+    String? firstName,
+    String? lastName,
+    String? companyName,
+    String? phone,
+    String? country,
+    String? city,
+  });
   Future<Result<User?>> getCurrentUser();
   Future<Result<void>> logout();
   Future<Result<void>> forgotPassword(String email);

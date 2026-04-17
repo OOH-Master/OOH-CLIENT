@@ -50,10 +50,24 @@ class AuthRepositoryImpl implements AuthRepository {
     String name,
     String email,
     String password,
-    Role role,
-  ) async {
+    Role role, {
+    String? firstName,
+    String? lastName,
+    String? companyName,
+    String? phone,
+    String? country,
+    String? city,
+  }) async {
     try {
-      final user = await remoteDataSource.register(name, email, password, role);
+      final user = await remoteDataSource.register(
+        name, email, password, role,
+        firstName: firstName,
+        lastName: lastName,
+        companyName: companyName,
+        phone: phone,
+        country: country,
+        city: city,
+      );
       await localDataSource.cacheUser(user);
       return Success(user);
     } on DioException catch (e) {

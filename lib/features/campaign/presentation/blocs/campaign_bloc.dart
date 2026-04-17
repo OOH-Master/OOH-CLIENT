@@ -1,38 +1,55 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/dto/campaign_dto.dart';
 import '../../data/repository/campaign_repository.dart';
 
 // Events
-abstract class CampaignEvent {}
+abstract class CampaignEvent extends Equatable {
+  const CampaignEvent();
+  @override
+  List<Object?> get props => [];
+}
 
-class LoadCampaigns extends CampaignEvent {}
+class LoadCampaigns extends CampaignEvent {
+  const LoadCampaigns();
+}
 
 class LoadCampaignDetail extends CampaignEvent {
   final int id;
-  LoadCampaignDetail(this.id);
+  const LoadCampaignDetail(this.id);
+  @override
+  List<Object?> get props => [id];
 }
 
 class CreateCampaign extends CampaignEvent {
   final Map<String, dynamic> data;
-  CreateCampaign(this.data);
+  const CreateCampaign(this.data);
+  @override
+  List<Object?> get props => [data];
 }
 
 class UpdateCampaign extends CampaignEvent {
   final int id;
   final Map<String, dynamic> data;
-  UpdateCampaign(this.id, this.data);
+  const UpdateCampaign(this.id, this.data);
+  @override
+  List<Object?> get props => [id, data];
 }
 
 class DeleteCampaign extends CampaignEvent {
   final int id;
-  DeleteCampaign(this.id);
+  const DeleteCampaign(this.id);
+  @override
+  List<Object?> get props => [id];
 }
 
 class ChangeStatus extends CampaignEvent {
   final int id;
   final String status;
-  ChangeStatus(this.id, this.status);
+  const ChangeStatus(this.id, this.status);
+  @override
+  List<Object?> get props => [id, status];
 }
 
 // States
@@ -144,6 +161,7 @@ class CampaignBloc extends Bloc<CampaignEvent, CampaignState> {
     ChangeStatus event,
     Emitter<CampaignState> emit,
   ) async {
+    emit(CampaignLoading());
     try {
       final campaign = await _repository.changeStatus(event.id, event.status);
       emit(CampaignFormSuccess('Status promenjen'));

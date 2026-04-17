@@ -31,6 +31,10 @@ lib/
 │   ├── config/
 │   │   ├── api_client.dart       Dio wrapper with QueuedInterceptorsWrapper (refresh token, LogoutCallback)
 │   │   └── api_config.dart       API endpoint constants (40+ constants)
+│   ├── services/
+│   │   └── websocket_service.dart  Singleton STOMP WebSocket client (stomp_dart_client); connects on AuthAuthenticated,
+│   │                               subscribes to /user/notifications, dispatches NewNotificationPush to NotificationBloc;
+│   │                               auto-reconnects every 5s; disconnects on AuthUnauthenticated
 │   ├── constants/
 │   │   └── asset_paths.dart      Asset path constants
 │   ├── l10n/
@@ -57,11 +61,11 @@ lib/
 │   │   └── validation_error_parser.dart  Parses backend validation error responses
 │   └── widgets/
 │       ├── app_button.dart       AppButton (primary/secondary/tertiary variants)
-│       ├── app_text_field.dart   AppTextField with validation support
+│       ├── app_text_field.dart   AppTextField with validation support + suffixIcon
 │       ├── app_scaffold.dart     AppScaffold wrapper
 │       ├── app_shell.dart        AppShell layout
 │       ├── app_snackbar.dart     AppSnackbar (success/error/info/warning)
-│       ├── main_app_bar.dart     MainAppBar with NotificationBell, locale toggle
+│       ├── main_app_bar.dart     MainAppBar with NotificationBell, locale toggle, auth-aware login button
 │       └── auth_guard_dialog.dart  Login prompt dialog for unauthenticated users
 └── features/
     ├── admin/              Dictionary management (5-tab CRUD) + user management (AdminUsersPage, UserEditDialog)
@@ -125,6 +129,7 @@ feature_name/
 - BLoCs created locally in pages: `BlocProvider(create: (_) => FeatureBloc(context.read<Repository>()))`
 - Global BLoCs in `app.dart`: AuthBloc, DiscoverBloc, NotificationBloc, LocaleCubit
 - `ApiClient.setLogoutCallback` wired to `AuthBloc` in `app.dart` for auto-logout on expired refresh tokens
+- `WebSocketService` singleton initialized in `_OohAppState.initState()` — not a BLoC, lives in `core/services/`; lifecycle driven by AuthBloc stream
 
 **12 feature registrations in `di.dart`:**
 
@@ -243,7 +248,7 @@ Semantic colors: primary (#6366F1), destructive (#EF4444), success (#10B981), wa
 | ProfileBloc | profile | LoadProfile, UpdateProfile, ChangePassword | Profile view/edit, password change |
 | AvailabilityBloc | availability | LoadSlots, CreateSlot, UpdateSlot, DeleteSlot | Availability slot management for media owners |
 | AnalyticsBloc | dashboard | LoadAdminAnalytics, LoadMediaOwnerAnalytics, LoadBrandAnalytics, LoadAgencyAnalytics | Role-specific analytics data loading |
-| NotificationBloc | notification | LoadNotifications, LoadUnreadCount, MarkRead, MarkAllRead | Notification list, unread badge count, mark as read |
+| NotificationBloc | notification | LoadNotifications, LoadUnreadCount, MarkRead, MarkAllRead, NewNotificationPush | Notification list, unread badge count, mark as read; NewNotificationPush dispatched by WebSocketService on real-time push (increments unreadCount, prepends notification to list) |
 | LocaleCubit | core/l10n | (Cubit, no events) | Language toggle (en/sr) with SharedPreferences persistence |
 | ShellCubit | shell | (Cubit, no events) | Sidebar expanded/collapsed state, active branch index |
 
@@ -253,7 +258,9 @@ Semantic colors: primary (#6366F1), destructive (#EF4444), success (#10B981), wa
 - `NotificationApiService` + `NotificationRepository` + `NotificationBloc` in `features/notification/`
 - `NotificationBell` widget in MainAppBar shows unread badge count (red circle, hides at 0)
 - `NotificationsPage` lists all notifications with `NotificationTile` widgets (icon by type, read/unread state, timestamp)
-- `NotificationBloc` is global (created in `app.dart` MultiBlocProvider)
+- `NotificationBloc` is global (created as `_notificationBloc` instance field in `_OohAppState`, provided via `BlocProvider.value`)
+- **Real-time WebSocket**: `WebSocketService` singleton (in `core/services/websocket_service.dart`) connects on `AuthAuthenticated`, subscribes to `/user/notifications` via STOMP, and dispatches `NewNotificationPush(payload)` to `NotificationBloc` — the bell badge increments immediately without polling
+- `WebSocketService.init(tokenStorage, bloc)` called in `_OohAppState.initState()`; `connect()`/`disconnect()` driven by AuthBloc stream listener in `app.dart`
 - Route: `/app/notifications`
 
 ### Analytics
@@ -274,13 +281,16 @@ Semantic colors: primary (#6366F1), destructive (#EF4444), success (#10B981), wa
 - `AvailabilityManagementPage` for media owners -- slot-based CRUD (LoadSlots, CreateSlot, UpdateSlot, DeleteSlot)
 - Route: `/app/media-owner/availability`
 
-### Registration (Multi-Step)
+### Registration (Multi-Step, Redesigned)
 - 3-step flow using `PageController` in `RegisterPage`:
-  - Step 1: Role selection via `RoleSelectorCard` widgets (3 cards: Brand, Agency, Media Owner -- no Admin)
-  - Step 2: Account details (first name, last name, email, username, password with strength indicator)
-  - Step 3: Organization info (company name, phone, country, city)
-- Step indicator built inline (not a separate widget)
-- Submits via `RegisterSubmitted` event on AuthBloc
+  - Step 1: Role selection via `RoleSelectorCard` widgets (3 animated cards: Brand, Agency, Media Owner -- no Admin)
+  - Step 2: Account details (first name, last name, email, username, password with strength indicator + visibility toggle)
+  - Step 3: Organization info (company name [required], phone [required], country, city) -- validated via separate `_orgFormKey`
+- Desktop: split-screen layout (gradient branding panel with step indicators + form)
+- Mobile: gradient background with centered card
+- All optional fields (firstName, lastName, phone, companyName, country, city) forwarded through full auth chain: AuthBloc -> RegisterUseCase -> AuthRepository -> RemoteDataSource -> Backend API
+- Backend `AuthenticationService.register()` persists all fields on User entity at registration time
+- Submits via `RegisterSubmitted` event on AuthBloc (includes all 10 fields)
 
 ### Discovery (Redesigned)
 - Grid/list/map view modes via `ViewToggle` + `ChangeViewMode` event (ViewMode enum: grid, list, mapOnly)
@@ -290,18 +300,33 @@ Semantic colors: primary (#6366F1), destructive (#EF4444), success (#10B981), wa
 - `FilterBottomSheet` for advanced filtering (unitType, mediaFormat, venueType, environment, illumination, price range)
 - Pagination with `LoadMore` event, `hasMore` flag, `currentPage` tracking
 - Multi-select units for inquiry via `ToggleUnitSelection` / `ClearSelection`
-- Inventory detail redesign: `ImageGallery` (carousel/lightbox), `Breadcrumb` navigation
+- Inventory detail redesign: `ImageGallery` (carousel/lightbox), `Breadcrumb` navigation, **media owner name display**, tabbed layout (overview/location/specs/pricing)
+- "General inquiry" CTA on discover page results bar and inventory detail page -- allows contacting experts without selecting inventory
 - Desktop: 3-column grid + map (flutter_map + OpenStreetMap with marker clustering)
 - Mobile: DraggableScrollableSheet over map background
 - `InventoryCard` for card display, `InventoryMapCard` for map popup
 - Animated zoom on country/city change
+- Landing page hero filters (country/city/keyword) now passed to discover page via query params
 
-### Inquiry (Dual Flow)
-- **Flow A (Inventory-Based):** user selects specific inventory items on Discover page, passes `unitIds` to `InquiryCreatePage`
-- **Flow B (Campaign Brief):** user describes campaign needs (budget, dates, cities, media types) without selecting inventory
+### Inquiry (Dual-Track Flow)
+
+**Track 1 — Inventory-Based (UNIT_SELECTION) — Automated:**
+- User selects inventory → creates inquiry → backend auto-creates quotes with smart pricing → media owner reviews/submits → offer auto-generated → brand accepts/rejects
+- No admin intervention required for standard flow
+- Smart pricing: `PriceCalculationService` calculates `pricePerCycle × ceil(durationDays / cycleDays)`
+- Prices pre-filled on media owner quote page, they can adjust before submitting
+
+**Track 2 — Brief-Based (BRIEF) — Admin Required:**
+- User describes campaign needs (budget, dates, cities, media types) → admin assigns units → then auto-flow
+
+**Shared features:**
+- Inquiry detail shows selected inventory items with media owner name, address, city (`InquiryItemDto`)
 - Admin management page with filters (status, requesterType, search) and status transitions
+- Admin inquiry detail: PDF download button (downloads via authenticated API call)
 - Media owner quotes page with editable prices per item, submit/decline actions
 - Offer review page with accept/reject (with reason)
+- Contact info pre-filled from authenticated user profile on inquiry create
+- Admin retains full override capability (can intervene at any status)
 
 ## How to Add a New Feature/Screen
 
@@ -348,11 +373,26 @@ flutter build ios --release               # Build iOS
 
 ## Known Issues
 
-- `withOpacity()` deprecation warnings -- should migrate to `withValues()` (already partially migrated in `InquiryStatusBadge`)
 - CORS must be enabled on backend for web development (`CORS_ALLOWED_ORIGINS` env var)
 - Hot reload does not pick up new l10n keys (requires hot restart after ARB changes)
-- App ID is `com.example.ooh_mobile` -- must change for production
+- App ID changed to `com.ooh.mobile` (Android + iOS) -- verify signing configs for production
 - Many pages use hardcoded Serbian strings (should migrate to ARB localization files)
 - English ARB has more keys (~223) than Serbian ARB (~131) -- Serbian translations are incomplete
 - Dark theme is defined (`AppColorsDark`, `AppTheme.darkTheme`) but app is locked to `ThemeMode.light`
 - `discover/data/models/` and `campaign/domain/entities/` directories exist but are empty
+
+## Recent Bug Fixes
+
+- **Session loss on landing page** -- Router redirect conditions reordered so authenticated users get redirected to dashboard before public route passthrough
+- **Campaign page TypeError** -- `getCampaigns()` now handles both paginated `Page<T>` and raw `List` responses from backend
+- **Admin users page blank on desktop** -- `DropdownButtonFormField` in desktop `Row` now wrapped in `Expanded` to prevent unbounded width
+- **Brand inquiries 500 error** -- Added `@Transactional(readOnly = true)` to `getInquiriesForBrand()` to fix lazy LOB stream access
+- **Register page back button** -- Falls back to `/` when no page to pop (direct navigation)
+- **Login page register link** -- Fixed route from `/register` to `/auth/register`
+- **Admin inquiry dropdown overflow** -- Widened to 220px with `isExpanded: true`
+- **Admin users mobile overflow** -- Changed `Row` to `Wrap` for username/role/badge chips
+- **Filter pass-through** -- Hero section now passes country/city/keyword as query params to discover page
+- **Auth-aware headers** -- MainAppBar and landing AppHeader hide login/register when authenticated
+- **Registration fields** -- All optional profile fields (firstName, lastName, phone, companyName, country, city) now forwarded through full auth chain to backend
+- **PDF download** -- Admin inquiry detail page now downloads PDF via authenticated API call
+- **Media owner display** -- Inventory detail page shows media owner name (company name with username fallback)

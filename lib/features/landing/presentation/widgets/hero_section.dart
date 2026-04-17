@@ -67,11 +67,29 @@ class _HeroSectionState extends State<HeroSection> {
   }
 
   void _handleSearch() {
-    context.go('/discover');
+    _navigateToDiscover();
   }
 
   void _handleSeeMap() {
-    context.go('/discover');
+    _navigateToDiscover();
+  }
+
+  void _navigateToDiscover() {
+    final state = context.read<DiscoverBloc>().state;
+    final params = <String, String>{};
+    if (state is DiscoverLoaded) {
+      if (state.selectedCountry != null) {
+        params['countryId'] = state.selectedCountry!.id.toString();
+      }
+      if (state.selectedCity != null) {
+        params['cityId'] = state.selectedCity!.id.toString();
+      }
+    }
+    if (_selectedPillKey != null) {
+      params['keyword'] = _selectedPillKey!;
+    }
+    final uri = Uri(path: '/discover', queryParameters: params.isNotEmpty ? params : null);
+    context.go(uri.toString());
   }
 
   void _scrollToCategoriesSection() {

@@ -88,9 +88,9 @@ class _AdminUsersViewState extends State<_AdminUsersView> {
             child: isDesktop
                 ? Row(
                     children: [
-                      Expanded(child: _buildSearchField()),
+                      Expanded(flex: 3, child: _buildSearchField()),
                       const SizedBox(width: AppSpacing.sm),
-                      _buildRoleDropdown(),
+                      Expanded(flex: 2, child: _buildRoleDropdown()),
                       const SizedBox(width: AppSpacing.sm),
                       _buildSearchButton(),
                     ],
@@ -199,6 +199,7 @@ class _AdminUsersViewState extends State<_AdminUsersView> {
   Widget _buildRoleDropdown() {
     return DropdownButtonFormField<String?>(
       initialValue: _selectedRole,
+      isExpanded: true,
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -296,7 +297,10 @@ class _UserTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                Wrap(
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       username,
@@ -305,7 +309,6 @@ class _UserTile extends StatelessWidget {
                         color: enabled ? AppColors.foreground : AppColors.mutedForeground,
                       ),
                     ),
-                    const SizedBox(width: AppSpacing.xs),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
@@ -317,8 +320,7 @@ class _UserTile extends StatelessWidget {
                         style: AppTypography.labelSmall.copyWith(color: AppColors.primary),
                       ),
                     ),
-                    if (!enabled) ...[
-                      const SizedBox(width: AppSpacing.xs),
+                    if (!enabled)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
@@ -330,7 +332,6 @@ class _UserTile extends StatelessWidget {
                           style: AppTypography.labelSmall.copyWith(color: AppColors.destructive),
                         ),
                       ),
-                    ],
                   ],
                 ),
                 Text(

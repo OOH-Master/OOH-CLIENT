@@ -8,8 +8,17 @@ class CampaignApiService {
   CampaignApiService(this._apiClient);
 
   Future<List<CampaignDto>> getCampaigns() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiConfig.campaigns);
-    return (response.data ?? [])
+    final response = await _apiClient.get<dynamic>(ApiConfig.campaigns);
+    final data = response.data;
+    List<dynamic> content;
+    if (data is Map<String, dynamic> && data.containsKey('content')) {
+      content = (data['content'] as List<dynamic>?) ?? [];
+    } else if (data is List) {
+      content = data;
+    } else {
+      content = [];
+    }
+    return content
         .map((json) => CampaignDto.fromJson(json as Map<String, dynamic>))
         .toList();
   }

@@ -157,6 +157,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       event.email,
       event.password,
       event.role,
+      firstName: event.firstName,
+      lastName: event.lastName,
+      companyName: event.companyName,
+      phone: event.phone,
+      country: event.country,
+      city: event.city,
     );
     switch (result) {
       case Success(data: final user):

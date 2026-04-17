@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/app_constants.dart';
+import '../../../auth/presentation/blocs/auth_bloc.dart';
+import '../../../favorite/presentation/blocs/favorite_bloc.dart' show FavoriteBloc, FavoritesLoaded, ToggleFavorite;
 import '../../domain/entities/ooh_unit.dart';
 
 class InventoryCard extends StatelessWidget {
@@ -18,13 +22,17 @@ class InventoryCard extends StatelessWidget {
     this.isSelected = false,
   });
 
+  bool get _isBooked => unit.status == OohStatus.booked;
+
   @override
   Widget build(BuildContext context) {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: onTap,
-        child: Column(
+        onTap: _isBooked ? null : onTap,
+        child: Opacity(
+          opacity: _isBooked ? 0.65 : 1.0,
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildImage(),
@@ -43,6 +51,7 @@ class InventoryCard extends StatelessWidget {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -50,15 +59,25 @@ class InventoryCard extends StatelessWidget {
   Widget _buildImage() {
     return AspectRatio(
       aspectRatio: 16 / 9,
-      child: Container(
-        color: AppColors.muted,
-        child: unit.imageUrl != null
-            ? Image.network(
-                unit.imageUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
-              )
-            : _buildPlaceholder(),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(
+            color: AppColors.muted,
+            child: unit.imageUrl != null
+                ? Image.network(
+                    unit.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+                  )
+                : _buildPlaceholder(),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: _FavoriteButton(unit: unit),
+          ),
+        ],
       ),
     );
   }
@@ -120,8 +139,8 @@ class InventoryCard extends StatelessWidget {
         badgeText = 'Available';
         break;
       case OohStatus.booked:
-        badgeColor = AppColors.warning;
-        badgeText = 'Booked';
+        badgeColor = Colors.grey;
+        badgeText = 'Zauzeto';
         break;
       case OohStatus.maintenance:
         badgeColor = AppColors.mutedForeground;
@@ -236,5 +255,47 @@ class InventoryCard extends StatelessWidget {
       case OohType.other:
         return 'OOH Unit';
     }
+  }
+}
+
+class _FavoriteButton extends StatelessWidget {
+  final OohUnit unit;
+  const _FavoriteButton({required this.unit});
+
+  @override
+  Widget build(BuildContext context) {
+    final authState = context.watch<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      return const SizedBox.shrink();
+    }
+
+    final favoriteState = context.watch<FavoriteBloc>().state;
+    final int? id = int.tryParse(unit.id);
+    final bool favorited;
+    if (id != null && favoriteState is FavoritesLoaded) {
+      favorited = favoriteState.favoritedIds.contains(id);
+    } else {
+      favorited = unit.favorited;
+    }
+
+    return Material(
+      color: Colors.white.withValues(alpha: 0.9),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: () {
+          if (id == null) return;
+          context.read<FavoriteBloc>().add(ToggleFavorite(id));
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(
+            favorited ? Icons.favorite : Icons.favorite_border,
+            size: 18,
+            color: favorited ? Colors.red : AppColors.foreground,
+          ),
+        ),
+      ),
+    );
   }
 }

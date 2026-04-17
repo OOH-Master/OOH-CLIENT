@@ -53,6 +53,10 @@ class ApiConfig {
   static const String inventory = '/inventory';
   static const String ownerInventory = '/inventory/my';
 
+  // === Media Owner inventory images ===
+  static String inventoryImages(int itemId) => '/media-owner/inventory/$itemId/images';
+  static String inventoryImageDelete(int imageId) => '/media-owner/inventory/images/$imageId';
+
   // === Brand endpoints ===
   static const String brandInquiries = '/brand/inquiries';
   static const String brandAnalytics = '/brand/analytics';
@@ -79,6 +83,32 @@ class ApiConfig {
   static const String notificationsUnreadCount = '/notifications/unread-count';
   static const String devices = '/devices';
 
+  // === Favorites endpoints ===
+  static const String favorites = '/favorites';
+  static String favoriteToggle(int itemId) => '/favorites/$itemId';
+
+  // === Invoice endpoints ===
+  static const String invoicesMy = '/invoices/my';
+  static String invoicePdf(int invoiceId) => '/invoices/$invoiceId/pdf';
+  static String invoicesByCampaign(int campaignId) => '/invoices/campaign/$campaignId';
+  static String invoicesByInquiry(int inquiryId) => '/invoices/inquiry/$inquiryId';
+
   // === File serving ===
   static String publicFileUrl(String filename) => '/public/files/$filename';
+
+  /// Converts a backend relative path (e.g. "/api/v1/public/files/xx.jpg")
+  /// into an absolute URL by prefixing the server host from [baseUrl].
+  /// If [relativePath] is already absolute (starts with http), returns it as-is.
+  static String absoluteUrl(String relativePath) {
+    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+      return relativePath;
+    }
+    // baseUrl includes /api/v1 suffix — strip to host only
+    final uri = Uri.parse(baseUrl);
+    final host = '${uri.scheme}://${uri.authority}';
+    if (relativePath.startsWith('/')) {
+      return '$host$relativePath';
+    }
+    return '$host/$relativePath';
+  }
 }

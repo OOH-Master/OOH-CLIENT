@@ -1,7 +1,14 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/config/api_client.dart';
+import '../../../../core/config/api_config.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
@@ -57,6 +64,54 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
   final _priceFormatter = NumberFormat('#,##0.00');
 
   AppLocalizations get l10n => AppLocalizations.of(context)!;
+  bool _downloadingPdf = false;
+  bool _downloadingInvoice = false;
+
+  bool _isPdfAvailable(InquiryStatus status) {
+    return status == InquiryStatus.offerSent ||
+        status == InquiryStatus.acceptedByClient ||
+        status == InquiryStatus.rejectedByClient ||
+        status == InquiryStatus.realized ||
+        status == InquiryStatus.closed;
+  }
+
+  Future<void> _downloadPdf(Inquiry inquiry) async {
+    if (_downloadingPdf) return;
+    setState(() => _downloadingPdf = true);
+
+    try {
+      final apiClient = context.read<ApiClient>();
+      final response = await apiClient.get<List<int>>(
+        '${ApiConfig.adminInquiries}/${inquiry.id}/pdf',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      final bytes = response.data ?? [];
+      final base64Data = base64Encode(bytes);
+      final dataUri = Uri.parse('data:application/pdf;base64,$base64Data');
+
+      if (await canLaunchUrl(dataUri)) {
+        await launchUrl(dataUri, mode: LaunchMode.externalApplication);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('PDF preuzet: ${inquiry.pdfFileName}')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Greska pri preuzimanju PDF-a'),
+            backgroundColor: AppColors.destructive,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingPdf = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -138,26 +193,104 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
             _buildItemsCard(inquiry),
             const SizedBox(height: AppSpacing.md),
           ],
+          if ((widget.role == Role.brand || widget.role == Role.agency) &&
+              inquiry.status == InquiryStatus.offerSent) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push('/app/inquiries/${inquiry.id}/offer'),
+                icon: const Icon(Icons.description_outlined),
+                label: const Text('Pregled ponude'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+          ],
           if (widget.role == Role.admin) ...[
             _buildAdminNotesCard(inquiry),
             const SizedBox(height: AppSpacing.md),
-            if (inquiry.pdfFileName != null)
+            if (_isPdfAvailable(inquiry.status))
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(l10n.downloadPdf)),
-                    );
-                  },
+                  onPressed: () => _downloadPdf(inquiry),
                   icon: const Icon(Icons.picture_as_pdf),
                   label: Text(l10n.downloadPdf),
                 ),
               ),
           ],
+          if (_isInvoiceAvailable(inquiry.status)) ...[
+            const SizedBox(height: AppSpacing.md),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _downloadingInvoice ? null : () => _downloadInvoice(inquiry),
+                icon: _downloadingInvoice
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.receipt_long),
+                label: const Text('Skini fakturu'),
+              ),
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  bool _isInvoiceAvailable(InquiryStatus status) {
+    return status == InquiryStatus.acceptedByClient ||
+        status == InquiryStatus.realized ||
+        status == InquiryStatus.closed;
+  }
+
+  Future<void> _downloadInvoice(Inquiry inquiry) async {
+    if (_downloadingInvoice) return;
+    setState(() => _downloadingInvoice = true);
+    try {
+      final repo = context.read<InquiryRepository>();
+      final meta = await repo.getInvoiceForInquiry(inquiry.id);
+      if (meta == null || meta['id'] == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Faktura još nije generisana')),
+          );
+        }
+        return;
+      }
+      final invoiceId = meta['id'] as int;
+      final bytes = await repo.downloadInvoicePdf(invoiceId);
+      if (bytes == null) return;
+
+      final base64Data = base64Encode(bytes);
+      final dataUri = Uri.parse('data:application/pdf;base64,$base64Data');
+      if (await canLaunchUrl(dataUri)) {
+        await launchUrl(dataUri, mode: LaunchMode.externalApplication);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Faktura ${meta['invoiceNumber']} preuzeta')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Greška pri preuzimanju fakture: $e'),
+            backgroundColor: AppColors.destructive,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingInvoice = false);
+    }
   }
 
   Widget _buildHeaderCard(Inquiry inquiry) {
@@ -337,18 +470,62 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.inventoryName ?? 'Item #${item.id}',
+                  item.inventoryItemName ?? 'Item #${item.id}',
                   style: AppTypography.bodyMedium.copyWith(
                     fontWeight: FontWeight.w500,
                     color: AppColors.foreground,
                   ),
                 ),
+                if (item.mediaOwnerName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.business, size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            item.mediaOwnerName!,
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.mutedForeground,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (item.inventoryItemAddress != null || item.inventoryItemCity != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on, size: 14, color: AppColors.mutedForeground),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            [
+                              if (item.inventoryItemAddress != null) item.inventoryItemAddress!,
+                              if (item.inventoryItemCity != null) item.inventoryItemCity!,
+                            ].join(', '),
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.mutedForeground,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 if (item.quotedPrice != null)
-                  Text(
-                    '${l10n.quotedPrice}: €${_priceFormatter.format(item.quotedPrice)}',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '${l10n.quotedPrice}: \u20AC${_priceFormatter.format(item.quotedPrice)}',
+                      style: AppTypography.bodySmall.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
               ],

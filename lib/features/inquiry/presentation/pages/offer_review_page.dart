@@ -44,6 +44,19 @@ class _OfferReviewView extends StatelessWidget {
       ),
       body: BlocConsumer<InquiryBloc, InquiryState>(
         listener: (context, state) {
+          if (state is OfferAccepted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ponuda prihvaćena! Kampanja je kreirana.'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            if (state.campaignId != null) {
+              context.go('/app/campaigns/${state.campaignId}');
+            } else {
+              context.pop();
+            }
+          }
           if (state is InquiryActionSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),

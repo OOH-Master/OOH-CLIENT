@@ -686,4 +686,210 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get noBrands => 'No brands yet';
+
+  @override
+  String get editProfile => 'Edit profile';
+
+  @override
+  String get changePassword => 'Change password';
+
+  @override
+  String get availabilityManagement => 'Availability management';
+
+  @override
+  String get availabilitySlots => 'Availability slots';
+
+  @override
+  String get addSlot => 'Add slot';
+
+  @override
+  String get editSlot => 'Edit slot';
+
+  @override
+  String get deleteSlot => 'Delete slot';
+
+  @override
+  String get noAvailabilitySlots => 'No availability slots';
+
+  @override
+  String get noAvailabilitySlotsHint => 'Add a slot using the + button';
+
+  @override
+  String get selectInventoryItem => 'Select inventory item';
+
+  @override
+  String get allInventory => 'All inventory';
+
+  @override
+  String get showingAllSlots => 'Showing all slots';
+
+  @override
+  String get availabilityStatusAvailable => 'Available';
+
+  @override
+  String get availabilityStatusBooked => 'Booked';
+
+  @override
+  String get availabilityStatusMaintenance => 'Maintenance';
+
+  @override
+  String get availabilityStatusBlocked => 'Blocked';
+
+  @override
+  String get notes => 'Notes';
+
+  @override
+  String get edit => 'Edit';
+
+  @override
+  String get quoteRequests => 'Quote requests';
+
+  @override
+  String get submitQuote => 'Submit quote';
+
+  @override
+  String get declineQuote => 'Decline quote';
+
+  @override
+  String get noQuotes => 'No quote requests';
+
+  @override
+  String get acceptOffer => 'Accept offer';
+
+  @override
+  String get rejectOffer => 'Reject offer';
+
+  @override
+  String get offerReview => 'Offer review';
+
+  @override
+  String get offerTotal => 'Total';
+
+  @override
+  String get rejectReason => 'Rejection reason';
+
+  @override
+  String get viewOffer => 'View offer';
+
+  @override
+  String get downloadInvoice => 'Download invoice';
+
+  @override
+  String get favorites => 'Favorites';
+
+  @override
+  String get noFavorites => 'No saved units';
+
+  @override
+  String get noFavoritesHint =>
+      'Mark inventory with the heart icon to find them easily later.';
+
+  @override
+  String get exploreInventory => 'Explore inventory';
+
+  @override
+  String get calendarView => 'Calendar view';
+
+  @override
+  String get listView => 'List view';
+
+  @override
+  String get noCampaignsForDay => 'No campaigns for this day';
+
+  @override
+  String get selectDayHint => 'Select a day in the calendar';
+
+  @override
+  String get assignUnits => 'Assign units';
+
+  @override
+  String get startProcessing => 'Start processing';
+
+  @override
+  String get requestQuotes => 'Request quotes';
+
+  @override
+  String get sendOffer => 'Send offer';
+
+  @override
+  String get manageInquiries => 'Manage inquiries';
+
+  @override
+  String get users => 'Users';
+
+  @override
+  String get enable => 'Enable';
+
+  @override
+  String get disable => 'Disable';
+
+  @override
+  String get firstName => 'First name';
+
+  @override
+  String get lastName => 'Last name';
+
+  @override
+  String get phone => 'Phone';
+
+  @override
+  String get companyName => 'Company name';
+
+  @override
+  String get website => 'Website';
+
+  @override
+  String get currentPassword => 'Current password';
+
+  @override
+  String get newPassword => 'New password';
+
+  @override
+  String get confirmPassword => 'Confirm password';
+
+  @override
+  String get profile => 'Profile';
+
+  @override
+  String get passwordChanged => 'Password changed';
+
+  @override
+  String get profileUpdated => 'Profile updated';
+
+  @override
+  String get notifications => 'Notifications';
+
+  @override
+  String get markAllRead => 'Mark all as read';
+
+  @override
+  String get noNotifications => 'No notifications';
+
+  @override
+  String get loading => 'Loading...';
+
+  @override
+  String get statusCancelled => 'Cancelled';
+
+  @override
+  String get campaignCalendarTitle => 'Campaign calendar';
+
+  @override
+  String get assignLabel => 'Assign';
+
+  @override
+  String get noUnitsFound => 'No units found';
+
+  @override
+  String get assignUnitsSearchHint => 'Search by address, city, owner…';
+
+  @override
+  String selectedCount(int count) {
+    return 'Selected: $count';
+  }
+
+  @override
+  String unitsAssignedSuccess(int count) {
+    return 'Assigned $count units to inquiry';
+  }
 }

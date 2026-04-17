@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/config/api_config.dart';
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../data/repository/inventory_management_repository.dart';
+import '../blocs/inventory_images_cubit.dart';
 import '../blocs/inventory_management_bloc.dart';
 import '../widgets/image_upload_widget.dart';
 import '../widgets/map_location_picker.dart';
@@ -22,9 +24,16 @@ class InventoryFormPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) =>
-          InventoryManagementBloc(context.read<InventoryManagementRepository>()),
+    final repo = context.read<InventoryManagementRepository>();
+    final parsedId = inventoryId != null ? int.tryParse(inventoryId!) : null;
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => InventoryManagementBloc(repo)),
+        if (parsedId != null)
+          BlocProvider(
+            create: (_) => InventoryImagesCubit(repo, parsedId)..load(),
+          ),
+      ],
       child: _InventoryFormView(inventoryId: inventoryId, isEditing: isEditing),
     );
   }
@@ -205,13 +214,34 @@ class _InventoryFormViewState extends State<_InventoryFormView> {
                   // Image Upload (only when editing)
                   if (widget.isEditing) ...[
                     const SizedBox(height: AppSpacing.lg),
-                    ImageUploadWidget(
-                      existingImages: const [],
-                      onImagesAdded: (List<XFile> files) {
-                        // TODO: implement image upload API call
+                    BlocConsumer<InventoryImagesCubit, InventoryImagesState>(
+                      listener: (ctx, imgState) {
+                        if (imgState.error != null) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                              content: Text('Greška sa slikama: ${imgState.error}'),
+                              backgroundColor: AppColors.destructive,
+                            ),
+                          );
+                        }
                       },
-                      onImageRemoved: (int index) {
-                        // TODO: implement image removal API call
+                      builder: (ctx, imgState) {
+                        final cubit = ctx.read<InventoryImagesCubit>();
+                        return ImageUploadWidget(
+                          existingImages: imgState.images.map((img) {
+                            final path = img.imageUrl ?? '/api/v1/public/files/${img.fileName}';
+                            return ApiConfig.absoluteUrl(path);
+                          }).toList(),
+                          isUploading: imgState.isUploading,
+                          onImagesAdded: (List<XFile> files) {
+                            cubit.uploadImages(files);
+                          },
+                          onImageRemoved: (int index) {
+                            if (index < imgState.images.length) {
+                              cubit.deleteImage(imgState.images[index].id);
+                            }
+                          },
+                        );
                       },
                     ),
                   ],

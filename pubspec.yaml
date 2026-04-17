@@ -82,6 +82,12 @@ dependencies:
   # Charts
   fl_chart: ^0.69.0
 
+  # Calendar
+  table_calendar: ^3.1.0
+
+  # WebSocket (STOMP)
+  stomp_dart_client: ^3.0.1
+
   # Image Picker (for media upload)
   image_picker: ^1.1.2
   file_picker: ^10.3.8

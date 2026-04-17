@@ -10,6 +10,7 @@ import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/country.dart';
@@ -48,6 +49,19 @@ class _DiscoverPageState extends State<DiscoverPage> {
       final bloc = context.read<DiscoverBloc>();
       bloc.add(LoadCountries());
       bloc.add(LoadDictionaries());
+
+      // Read query parameters passed from landing page
+      final uri = GoRouterState.of(context).uri;
+      final countryId = uri.queryParameters['countryId'];
+      final cityId = uri.queryParameters['cityId'];
+      final keyword = uri.queryParameters['keyword'];
+      if (countryId != null || cityId != null || keyword != null) {
+        bloc.add(LoadInventoryUnits(
+          countryId: countryId != null ? int.tryParse(countryId) : null,
+          cityId: cityId != null ? int.tryParse(cityId) : null,
+          keyword: keyword,
+        ));
+      }
     });
     _scrollController.addListener(_onScroll);
   }
@@ -163,6 +177,33 @@ class _DiscoverPageState extends State<DiscoverPage> {
               ),
             ),
           ),
+          // General inquiry button
+          TextButton.icon(
+            onPressed: () {
+              final authState = context.read<AuthBloc>().state;
+              if (authState is! AuthAuthenticated) {
+                context.push('/auth/login');
+                return;
+              }
+              context.push('/app/inquiries/create');
+            },
+            icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
+            label: Text(
+              'Generalni upit',
+              style: AppTypography.bodySmall.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           // Sort dropdown
           SortDropdown(
             currentSort: state.sortOption,

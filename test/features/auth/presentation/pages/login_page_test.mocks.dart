@@ -124,8 +124,14 @@ class MockRegisterUseCase extends _i1.Mock implements _i8.RegisterUseCase {
     String? name,
     String? email,
     String? password,
-    _i9.Role? role,
-  ) =>
+    _i9.Role? role, {
+    String? firstName,
+    String? lastName,
+    String? companyName,
+    String? phone,
+    String? country,
+    String? city,
+  }) =>
       (super.noSuchMethod(
         Invocation.method(
           #call,
@@ -135,6 +141,14 @@ class MockRegisterUseCase extends _i1.Mock implements _i8.RegisterUseCase {
             password,
             role,
           ],
+          {
+            #firstName: firstName,
+            #lastName: lastName,
+            #companyName: companyName,
+            #phone: phone,
+            #country: country,
+            #city: city,
+          },
         ),
         returnValue: _i4.Future<_i5.Result<_i6.User>>.value(
             _i7.dummyValue<_i5.Result<_i6.User>>(
@@ -147,6 +161,14 @@ class MockRegisterUseCase extends _i1.Mock implements _i8.RegisterUseCase {
               password,
               role,
             ],
+            {
+              #firstName: firstName,
+              #lastName: lastName,
+              #companyName: companyName,
+              #phone: phone,
+              #country: country,
+              #city: city,
+            },
           ),
         )),
         returnValueForMissingStub: _i4.Future<_i5.Result<_i6.User>>.value(
@@ -160,6 +182,14 @@ class MockRegisterUseCase extends _i1.Mock implements _i8.RegisterUseCase {
               password,
               role,
             ],
+            {
+              #firstName: firstName,
+              #lastName: lastName,
+              #companyName: companyName,
+              #phone: phone,
+              #country: country,
+              #city: city,
+            },
           ),
         )),
       ) as _i4.Future<_i5.Result<_i6.User>>);

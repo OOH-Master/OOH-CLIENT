@@ -45,10 +45,29 @@ class CategoriesSection extends StatelessWidget {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1280),
-        child: ResponsiveLayout(
-          mobile: _buildMobileGrid(),
-          tablet: _buildTabletGrid(),
-          desktop: _buildDesktopGrid(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Istražite kategorije',
+              style: context.isDesktop
+                  ? AppTypography.displaySmall.copyWith(fontWeight: FontWeight.w700)
+                  : AppTypography.h1.copyWith(fontWeight: FontWeight.w700),
+            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+            const SizedBox(height: 8),
+            Text(
+              'Pronađite idealan oglasni prostor za vašu kampanju.',
+              style: AppTypography.bodyLarge.copyWith(
+                color: AppColors.mutedForeground,
+              ),
+            ).animate().fadeIn(delay: 100.ms, duration: 600.ms),
+            const SizedBox(height: 40),
+            ResponsiveLayout(
+              mobile: _buildMobileGrid(),
+              tablet: _buildTabletGrid(),
+              desktop: _buildDesktopGrid(),
+            ),
+          ],
         ),
       ),
     );

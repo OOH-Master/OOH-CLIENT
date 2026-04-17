@@ -134,6 +134,11 @@ class OfferLoaded extends InquiryState {
   OfferLoaded(this.offer);
 }
 
+class OfferAccepted extends InquiryState {
+  final int? campaignId;
+  OfferAccepted({this.campaignId});
+}
+
 // Bloc
 class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
   final InquiryRepository _repository;
@@ -338,13 +343,13 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     Emitter<InquiryState> emit,
   ) async {
     try {
-      // Try brand first, then agency
+      int? campaignId;
       try {
-        await _repository.acceptOffer(event.inquiryId, Role.brand);
+        campaignId = await _repository.acceptOffer(event.inquiryId, Role.brand);
       } catch (_) {
-        await _repository.acceptOffer(event.inquiryId, Role.agency);
+        campaignId = await _repository.acceptOffer(event.inquiryId, Role.agency);
       }
-      emit(InquiryActionSuccess('Ponuda prihvacena'));
+      emit(OfferAccepted(campaignId: campaignId));
     } catch (e) {
       emit(InquiryError(e.toString()));
     }

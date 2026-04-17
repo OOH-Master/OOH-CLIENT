@@ -41,7 +41,7 @@ class _AvailabilityManagementViewState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Upravljanje dostupnoscu'),
+        title: Text(l10n.availabilityManagement),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.foreground,
         elevation: 0,
@@ -103,13 +103,13 @@ class _AvailabilityManagementViewState
                               size: 64, color: AppColors.mutedForeground),
                           const SizedBox(height: AppSpacing.md),
                           Text(
-                            'Nema slotova dostupnosti',
+                            l10n.noAvailabilitySlots,
                             style: AppTypography.bodyMedium
                                 .copyWith(color: AppColors.mutedForeground),
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            'Dodajte slot koristecu dugme +',
+                            l10n.noAvailabilitySlotsHint,
                             style: AppTypography.bodySmall
                                 .copyWith(color: AppColors.mutedForeground),
                           ),
@@ -258,10 +258,13 @@ class _AvailabilityManagementViewState
                 _confirmDelete(context, slot);
               }
             },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'edit', child: Text('Izmeni')),
-              const PopupMenuItem(value: 'delete', child: Text('Obrisi')),
-            ],
+            itemBuilder: (_) {
+              final l10n = AppLocalizations.of(context)!;
+              return [
+                PopupMenuItem(value: 'edit', child: Text(l10n.edit)),
+                PopupMenuItem(value: 'delete', child: Text(l10n.delete)),
+              ];
+            },
           ),
         ],
       ),
@@ -284,15 +287,16 @@ class _AvailabilityManagementViewState
   }
 
   String _getStatusLabel(String status) {
+    final l10n = AppLocalizations.of(context)!;
     switch (status.toUpperCase()) {
       case 'AVAILABLE':
-        return 'Dostupno';
+        return l10n.availabilityStatusAvailable;
       case 'BOOKED':
-        return 'Rezervisano';
+        return l10n.availabilityStatusBooked;
       case 'MAINTENANCE':
-        return 'Odrzavanje';
+        return l10n.availabilityStatusMaintenance;
       case 'BLOCKED':
-        return 'Blokirano';
+        return l10n.availabilityStatusBlocked;
       default:
         return status;
     }

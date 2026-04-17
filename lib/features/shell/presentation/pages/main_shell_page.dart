@@ -10,6 +10,7 @@ import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../auth/domain/entities/role.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
+import '../../../notification/presentation/widgets/notification_bell.dart';
 import '../blocs/shell_cubit.dart';
 
 class MainShellPage extends StatelessWidget {
@@ -46,6 +47,41 @@ class MainShellPage extends StatelessWidget {
 
   Widget _buildMobileLayout(BuildContext context, AppLocalizations l10n) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        leading: Builder(
+          builder: (ctx) => IconButton(
+            icon: Icon(Icons.menu, color: AppColors.foreground),
+            onPressed: () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.apartment, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'OOH Platform',
+              style: AppTypography.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        actions: const [NotificationBell()],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: AppColors.border),
+        ),
+      ),
       drawer: _buildDrawer(context, l10n),
       body: navigationShell,
       bottomNavigationBar: NavigationBar(
@@ -308,6 +344,14 @@ class MainShellPage extends StatelessWidget {
               context.push('/app/campaigns');
             },
           ),
+          ListTile(
+            leading: const Icon(Icons.favorite_border),
+            title: const Text('Omiljeno'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/favorites');
+            },
+          ),
         ];
       case Role.agency:
         return [
@@ -325,6 +369,14 @@ class MainShellPage extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
               context.push('/app/inquiries');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.favorite_border),
+            title: const Text('Omiljeno'),
+            onTap: () {
+              Navigator.pop(context);
+              context.push('/app/favorites');
             },
           ),
           ListTile(
@@ -389,6 +441,7 @@ class _DesktopSidebar extends StatelessWidget {
             children: [
               // ── User header ──
               _buildHeader(name, email, role),
+              if (!expanded) const Center(child: NotificationBell()),
               const SizedBox(height: AppSpacing.xs),
 
               // ── Main nav items ──
@@ -504,6 +557,7 @@ class _DesktopSidebar extends StatelessWidget {
                     ],
                   ),
                 ),
+                const NotificationBell(),
               ],
             )
           : Center(
@@ -626,6 +680,14 @@ class _DesktopSidebar extends StatelessWidget {
             expanded: expanded,
             onTap: () => context.push('/app/campaigns'),
           ),
+          _SidebarItem(
+            icon: Icons.favorite_border,
+            selectedIcon: Icons.favorite,
+            label: 'Omiljeno',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/favorites'),
+          ),
         ]);
       case Role.agency:
         links.addAll([
@@ -652,6 +714,14 @@ class _DesktopSidebar extends StatelessWidget {
             selected: false,
             expanded: expanded,
             onTap: () => context.push('/app/campaigns'),
+          ),
+          _SidebarItem(
+            icon: Icons.favorite_border,
+            selectedIcon: Icons.favorite,
+            label: 'Omiljeno',
+            selected: false,
+            expanded: expanded,
+            onTap: () => context.push('/app/favorites'),
           ),
         ]);
     }

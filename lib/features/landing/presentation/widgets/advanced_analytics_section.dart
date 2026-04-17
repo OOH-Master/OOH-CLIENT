@@ -18,6 +18,17 @@ class AdvancedAnalyticsSection extends StatelessWidget {
       'title': 'Audience Measurement',
       'description': 'Understand the demographics of your viewers.',
     },
+    {
+      'title': 'ROI Tracking',
+      'description': 'Measure return on investment across all your OOH campaigns.',
+    },
+  ];
+
+  static const List<Map<String, String>> stats = [
+    {'value': '300+', 'label': 'Lokacija'},
+    {'value': '70+', 'label': 'Gradova'},
+    {'value': '4', 'label': 'Države'},
+    {'value': '98%', 'label': 'Zadovoljstvo'},
   ];
 
   @override
@@ -120,6 +131,38 @@ class AdvancedAnalyticsSection extends StatelessWidget {
             .animate()
             .fadeIn(delay: 100.ms, duration: 600.ms)
             .slideY(begin: 0.2, end: 0),
+        const SizedBox(height: 32),
+        // Stats row
+        Wrap(
+          spacing: 24,
+          runSpacing: 16,
+          children: stats.asMap().entries.map((entry) {
+            return SizedBox(
+              width: 100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.value['value']!,
+                    style: AppTypography.h2.copyWith(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    entry.value['label']!,
+                    style: AppTypography.bodySmall.copyWith(
+                      color: AppColors.mutedForeground,
+                    ),
+                  ),
+                ],
+              ),
+            )
+                .animate()
+                .fadeIn(delay: Duration(milliseconds: 200 + entry.key * 100), duration: 600.ms)
+                .slideY(begin: 0.3, end: 0);
+          }).toList(),
+        ),
         const SizedBox(height: 32),
         ...features.asMap().entries.map((entry) {
           return Padding(

@@ -80,7 +80,7 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
     });
 
     controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
+      if (status == AnimationStatus.completed || status == AnimationStatus.dismissed) {
         controller.dispose();
       }
     });
@@ -352,7 +352,11 @@ class _InventoryMapState extends State<InventoryMap> with TickerProviderStateMix
       duration: const Duration(milliseconds: 200),
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : _getTypeColor(unit.type),
+          color: isSelected
+              ? AppColors.primary
+              : unit.isAvailable
+                  ? _getTypeColor(unit.type)
+                  : Colors.grey,
           shape: BoxShape.circle,
           border: Border.all(
             color: Colors.white,

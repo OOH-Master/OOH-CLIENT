@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../features/admin/presentation/pages/admin_config_page.dart';
 import '../features/admin/presentation/pages/admin_users_page.dart';
@@ -11,6 +12,7 @@ import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/register_page.dart';
 import '../features/auth/presentation/pages/reset_password_page.dart';
 import '../features/availability/presentation/pages/availability_management_page.dart';
+import '../features/campaign/presentation/pages/campaign_calendar_page.dart';
 import '../features/campaign/presentation/pages/campaign_detail_page.dart';
 import '../features/campaign/presentation/pages/campaign_edit_page.dart';
 import '../features/campaign/presentation/pages/campaign_form_page.dart';
@@ -18,6 +20,8 @@ import '../features/campaign/presentation/pages/campaign_list_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/discover/presentation/pages/discover_detail_page.dart';
 import '../features/discover/presentation/pages/discover_page.dart';
+import '../features/favorite/presentation/pages/favorites_page.dart';
+import '../features/inquiry/presentation/pages/admin_assign_units_page.dart';
 import '../features/inquiry/presentation/pages/admin_inquiry_management_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_create_page.dart';
 import '../features/inquiry/presentation/pages/inquiry_detail_page.dart';
@@ -33,6 +37,11 @@ import '../features/shell/presentation/pages/main_shell_page.dart';
 
 class AppRouter {
   final AuthBloc authBloc;
+
+  // Synchronous in-memory store for redirect path (SharedPreferences is async)
+  static String? _pendingRedirect;
+  static String? get pendingRedirect => _pendingRedirect;
+  static void clearPendingRedirect() => _pendingRedirect = null;
 
   AppRouter(this.authBloc);
 
@@ -172,6 +181,10 @@ class AppRouter {
         builder: (context, state) => const CampaignListPage(),
       ),
       GoRoute(
+        path: '/app/campaigns/calendar',
+        builder: (context, state) => const CampaignCalendarPage(),
+      ),
+      GoRoute(
         path: '/app/campaigns/create',
         builder: (context, state) => const CampaignFormPage(),
       ),
@@ -202,8 +215,19 @@ class AppRouter {
         builder: (context, state) => const NotificationsPage(),
       ),
       GoRoute(
+        path: '/app/favorites',
+        builder: (context, state) => const FavoritesPage(),
+      ),
+      GoRoute(
         path: '/app/admin/inquiries',
         builder: (context, state) => const AdminInquiryManagementPage(),
+      ),
+      GoRoute(
+        path: '/app/admin/inquiries/:id/assign-units',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return AdminAssignUnitsPage(inquiryId: id);
+        },
       ),
       GoRoute(
         path: '/app/agency/brands',
@@ -225,19 +249,24 @@ class AppRouter {
       final isLanding = state.uri.toString() == '/';
       final isPublicDiscover = state.uri.toString().startsWith('/discover');
 
+      // If logged in and trying to access auth pages or landing, redirect to dashboard
+      if (isLoggedIn && (isLoggingIn || isLanding)) {
+        return '/app/dashboard';
+      }
+
       // Allow public routes without auth
       if (isLanding || isLoggingIn || isPublicDiscover) {
         return null;
       }
 
-      // For /app/* routes, require auth
+      // For /app/* routes, require auth — save intended path for post-login redirect
       if (!isLoggedIn && state.uri.toString().startsWith('/app')) {
+        final path = state.uri.toString();
+        _pendingRedirect = path;
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.setString('redirect_after_login', path);
+        });
         return '/auth/login';
-      }
-
-      // If logged in and trying to access auth pages or landing, redirect to dashboard
-      if (isLoggedIn && (isLoggingIn || isLanding)) {
-        return '/app/dashboard';
       }
 
       return null;

@@ -60,6 +60,38 @@ class InquiryApiService {
     );
   }
 
+  /// Downloads the invoice PDF for a given invoiceId.
+  Future<Response<List<int>>> downloadInvoicePdf(int invoiceId) async {
+    return _apiClient.get<List<int>>(
+      ApiConfig.invoicePdf(invoiceId),
+      options: Options(responseType: ResponseType.bytes),
+    );
+  }
+
+  /// Returns the invoice associated with a campaign (if exists).
+  Future<Map<String, dynamic>?> getInvoiceForCampaign(int campaignId) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        ApiConfig.invoicesByCampaign(campaignId),
+      );
+      return response.data;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Returns the invoice associated with an inquiry (if exists).
+  Future<Map<String, dynamic>?> getInvoiceForInquiry(int inquiryId) async {
+    try {
+      final response = await _apiClient.get<Map<String, dynamic>>(
+        ApiConfig.invoicesByInquiry(inquiryId),
+      );
+      return response.data;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> transitionStatus(int id, String newStatus) async {
     await _apiClient.put(
       '${ApiConfig.adminInquiries}/$id/status',
@@ -104,8 +136,11 @@ class InquiryApiService {
     return response.data ?? {};
   }
 
-  Future<void> acceptBrandOffer(int inquiryId) async {
-    await _apiClient.post('${ApiConfig.brandInquiries}/$inquiryId/offer/accept');
+  Future<int?> acceptBrandOffer(int inquiryId) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '${ApiConfig.brandInquiries}/$inquiryId/offer/accept',
+    );
+    return response.data?['campaignId'] as int?;
   }
 
   Future<void> rejectBrandOffer(int inquiryId, String? reason) async {
@@ -137,8 +172,11 @@ class InquiryApiService {
     return response.data ?? {};
   }
 
-  Future<void> acceptAgencyOffer(int inquiryId) async {
-    await _apiClient.post('${ApiConfig.agencyInquiries}/$inquiryId/offer/accept');
+  Future<int?> acceptAgencyOffer(int inquiryId) async {
+    final response = await _apiClient.post<Map<String, dynamic>>(
+      '${ApiConfig.agencyInquiries}/$inquiryId/offer/accept',
+    );
+    return response.data?['campaignId'] as int?;
   }
 
   Future<void> rejectAgencyOffer(int inquiryId, String? reason) async {

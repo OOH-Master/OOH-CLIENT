@@ -9,10 +9,10 @@ class AppLocalizationsSr extends AppLocalizations {
   AppLocalizationsSr([String locale = 'sr']) : super(locale);
 
   @override
-  String get appTitle => 'AutoHome';
+  String get appTitle => 'OOH Platforma';
 
   @override
-  String get appName => 'AutoHome';
+  String get appName => 'OOH Platforma';
 
   @override
   String get landingHeadline =>
@@ -234,7 +234,7 @@ class AppLocalizationsSr extends AppLocalizations {
 
   @override
   String get howToUseMediaProductsDescription =>
-      'Na AutoHome možete brzo i lako kreirati ponudu koja uključuje proizvode od medija koje želite.';
+      'Na OOH Platformi brzo i lako kreirate ponudu koja uključuje proizvode medija koje želite.';
 
   @override
   String get viewDetails => 'Pogledaj detalje';
@@ -360,75 +360,75 @@ class AppLocalizationsSr extends AppLocalizations {
   }
 
   @override
-  String get dashboardTab => 'Dashboard';
+  String get dashboardTab => 'Kontrolna tabla';
 
   @override
-  String get authGuardTitle => 'Sign in required';
+  String get authGuardTitle => 'Prijava obavezna';
 
   @override
-  String get authGuardMessage => 'You must be signed in to continue.';
+  String get authGuardMessage => 'Morate biti prijavljeni za nastavak.';
 
   @override
-  String get dashboard => 'Dashboard';
+  String get dashboard => 'Kontrolna tabla';
 
   @override
   String welcomeBack(Object name) {
-    return 'Welcome back, $name';
+    return 'Dobro došli nazad, $name';
   }
 
   @override
-  String get totalInquiries => 'Total Inquiries';
+  String get totalInquiries => 'Ukupno upita';
 
   @override
-  String get activeInventory => 'Active Inventory';
+  String get activeInventory => 'Aktivan inventar';
 
   @override
-  String get myInventory => 'My Inventory';
+  String get myInventory => 'Moj inventar';
 
   @override
-  String get activeItems => 'Active Items';
+  String get activeItems => 'Aktivne stavke';
 
   @override
-  String get myInquiries => 'My Inquiries';
+  String get myInquiries => 'Moji upiti';
 
   @override
-  String get myCampaigns => 'My Campaigns';
+  String get myCampaigns => 'Moje kampanje';
 
   @override
-  String get myBrands => 'My Brands';
+  String get myBrands => 'Moji brendovi';
 
   @override
-  String get allInquiries => 'All Inquiries';
+  String get allInquiries => 'Svi upiti';
 
   @override
-  String get configuration => 'Configuration';
+  String get configuration => 'Konfiguracija';
 
   @override
-  String get addInventory => 'Add Inventory';
+  String get addInventory => 'Dodaj inventar';
 
   @override
-  String get browseInventory => 'Browse Inventory';
+  String get browseInventory => 'Istraži inventar';
 
   @override
-  String get newCampaign => 'New Campaign';
+  String get newCampaign => 'Nova kampanja';
 
   @override
-  String get recentInquiries => 'Recent Inquiries';
+  String get recentInquiries => 'Nedavni upiti';
 
   @override
-  String get recentInventory => 'Recent Inventory';
+  String get recentInventory => 'Nedavni inventar';
 
   @override
-  String get quickActions => 'Quick Actions';
+  String get quickActions => 'Brze akcije';
 
   @override
-  String get nothingHereYet => 'Nothing here yet';
+  String get nothingHereYet => 'Još uvek nema sadržaja';
 
   @override
-  String get inquiries => 'Inquiries';
+  String get inquiries => 'Upiti';
 
   @override
-  String get inquiryDetail => 'Inquiry Detail';
+  String get inquiryDetail => 'Detalji upita';
 
   @override
   String get contactName => 'Ime kontakta';
@@ -458,25 +458,25 @@ class AppLocalizationsSr extends AppLocalizations {
   String get items => 'Stavke';
 
   @override
-  String get adminNotes => 'Admin Notes';
+  String get adminNotes => 'Admin napomene';
 
   @override
-  String get saveNotes => 'Save Notes';
+  String get saveNotes => 'Sačuvaj napomene';
 
   @override
-  String get quotedPrice => 'Quoted Price';
+  String get quotedPrice => 'Predložena cena';
 
   @override
-  String get updatePrice => 'Update Price';
+  String get updatePrice => 'Ažuriraj cenu';
 
   @override
-  String get downloadPdf => 'Download PDF';
+  String get downloadPdf => 'Preuzmi PDF';
 
   @override
-  String get noInquiries => 'No inquiries yet';
+  String get noInquiries => 'Nema upita';
 
   @override
-  String get inquiryCreated => 'Upit uspešno poslat!';
+  String get inquiryCreated => 'Upit uspešno poslat';
 
   @override
   String get newInquiry => 'Novi upit';
@@ -494,172 +494,173 @@ class AppLocalizationsSr extends AppLocalizations {
   String get selectedUnits => 'Odabrane jedinice';
 
   @override
-  String get notesUpdated => 'Notes updated';
+  String get notesUpdated => 'Napomene ažurirane';
 
   @override
-  String get priceUpdated => 'Price updated';
+  String get priceUpdated => 'Cena ažurirana';
 
   @override
-  String get statusSubmitted => 'Submitted';
+  String get statusSubmitted => 'Poslato';
 
   @override
-  String get statusInProgress => 'In Progress';
+  String get statusInProgress => 'U obradi';
 
   @override
-  String get statusPricingReady => 'Pricing Ready';
+  String get statusPricingReady => 'Cena spremna';
 
   @override
-  String get statusAccepted => 'Accepted';
+  String get statusAccepted => 'Prihvaćeno';
 
   @override
-  String get statusRejected => 'Rejected';
+  String get statusRejected => 'Odbijeno';
 
   @override
-  String get statusRealized => 'Realized';
+  String get statusRealized => 'Realizovano';
 
   @override
-  String get statusClosed => 'Closed';
+  String get statusClosed => 'Zatvoreno';
 
   @override
-  String get inventoryManagement => 'Inventory Management';
+  String get inventoryManagement => 'Upravljanje inventarom';
 
   @override
-  String get createInventory => 'Create Inventory';
+  String get createInventory => 'Dodaj inventar';
 
   @override
-  String get editInventory => 'Edit Inventory';
+  String get editInventory => 'Izmeni inventar';
 
   @override
-  String get deleteInventory => 'Delete Inventory';
+  String get deleteInventory => 'Obriši inventar';
 
   @override
-  String get deleteConfirmation => 'Are you sure you want to delete this item?';
+  String get deleteConfirmation =>
+      'Da li ste sigurni da želite da obrišete ovu stavku?';
 
   @override
-  String get cancel => 'Cancel';
+  String get cancel => 'Otkaži';
 
   @override
-  String get delete => 'Delete';
+  String get delete => 'Obriši';
 
   @override
-  String get save => 'Save';
+  String get save => 'Sačuvaj';
 
   @override
-  String get siteName => 'Site Name';
+  String get siteName => 'Naziv lokacije';
 
   @override
-  String get description => 'Description';
+  String get description => 'Opis';
 
   @override
-  String get address => 'Address';
+  String get address => 'Adresa';
 
   @override
-  String get country => 'Country';
+  String get country => 'Država';
 
   @override
-  String get city => 'City';
+  String get city => 'Grad';
 
   @override
-  String get unitType => 'Unit Type';
+  String get unitType => 'Tip jedinice';
 
   @override
-  String get mediaFormat => 'Media Format';
+  String get mediaFormat => 'Media format';
 
   @override
-  String get venueType => 'Venue Type';
+  String get venueType => 'Tip lokacije';
 
   @override
-  String get environment => 'Environment';
+  String get environment => 'Okruženje';
 
   @override
-  String get illumination => 'Illumination';
+  String get illumination => 'Osvetljenje';
 
   @override
-  String get price => 'Price';
+  String get price => 'Cena';
 
   @override
-  String get currency => 'Currency';
+  String get currency => 'Valuta';
 
   @override
-  String get cycleType => 'Billing Cycle';
+  String get cycleType => 'Obračunski ciklus';
 
   @override
-  String get inventoryCreated => 'Inventory item created';
+  String get inventoryCreated => 'Inventar je kreiran';
 
   @override
-  String get inventoryUpdated => 'Inventory item updated';
+  String get inventoryUpdated => 'Inventar je ažuriran';
 
   @override
-  String get inventoryDeleted => 'Inventory item deleted';
+  String get inventoryDeleted => 'Inventar je obrisan';
 
   @override
-  String get noInventoryItems => 'No inventory items';
+  String get noInventoryItems => 'Nema stavki inventara';
 
   @override
-  String get campaigns => 'Campaigns';
+  String get campaigns => 'Kampanje';
 
   @override
-  String get campaignDetail => 'Campaign Detail';
+  String get campaignDetail => 'Detalji kampanje';
 
   @override
-  String get createCampaign => 'Create Campaign';
+  String get createCampaign => 'Kreiraj kampanju';
 
   @override
-  String get campaignName => 'Campaign Name';
+  String get campaignName => 'Naziv kampanje';
 
   @override
-  String get campaignDescription => 'Description';
+  String get campaignDescription => 'Opis';
 
   @override
-  String get campaignBudget => 'Budget';
+  String get campaignBudget => 'Budžet';
 
   @override
-  String get brandUsername => 'Brand (username)';
+  String get brandUsername => 'Brend (korisničko ime)';
 
   @override
-  String get noCampaigns => 'No campaigns yet';
+  String get noCampaigns => 'Nema kampanja';
 
   @override
-  String get campaignCreated => 'Campaign created';
+  String get campaignCreated => 'Kampanja kreirana';
 
   @override
-  String get statusDraft => 'Draft';
+  String get statusDraft => 'Nacrt';
 
   @override
-  String get statusInNegotiation => 'In Negotiation';
+  String get statusInNegotiation => 'U pregovoru';
 
   @override
-  String get statusBooked => 'Booked';
+  String get statusBooked => 'Rezervisana';
 
   @override
-  String get statusRunning => 'Running';
+  String get statusRunning => 'Aktivna';
 
   @override
-  String get statusFinished => 'Finished';
+  String get statusFinished => 'Završena';
 
   @override
-  String get configManagement => 'Configuration';
+  String get configManagement => 'Konfiguracija';
 
   @override
-  String get countries => 'Countries';
+  String get countries => 'Države';
 
   @override
-  String get cities => 'Cities';
+  String get cities => 'Gradovi';
 
   @override
-  String get unitTypes => 'Unit Types';
+  String get unitTypes => 'Tipovi jedinica';
 
   @override
-  String get mediaFormats => 'Media Formats';
+  String get mediaFormats => 'Media formati';
 
   @override
-  String get venueTypes => 'Venue Types';
+  String get venueTypes => 'Tipovi lokacija';
 
   @override
-  String get addNew => 'Add New';
+  String get addNew => 'Dodaj novi';
 
   @override
-  String get enterName => 'Enter name';
+  String get enterName => 'Unesite naziv';
 
   @override
   String get selectCountry => 'Izaberi državu';
@@ -671,20 +672,226 @@ class AppLocalizationsSr extends AppLocalizations {
   String get allCities => 'Svi gradovi';
 
   @override
-  String get configCreated => 'Item created successfully';
+  String get configCreated => 'Stavka uspešno kreirana';
 
   @override
-  String get brands => 'Brands';
+  String get brands => 'Brendovi';
 
   @override
-  String get addBrand => 'Add Brand';
+  String get addBrand => 'Dodaj brend';
 
   @override
-  String get brandName => 'Brand Name';
+  String get brandName => 'Naziv brenda';
 
   @override
-  String get brandCreated => 'Brand created';
+  String get brandCreated => 'Brend kreiran';
 
   @override
-  String get noBrands => 'No brands yet';
+  String get noBrands => 'Nema brendova';
+
+  @override
+  String get editProfile => 'Izmeni profil';
+
+  @override
+  String get changePassword => 'Promeni lozinku';
+
+  @override
+  String get availabilityManagement => 'Upravljanje dostupnošću';
+
+  @override
+  String get availabilitySlots => 'Slotovi dostupnosti';
+
+  @override
+  String get addSlot => 'Dodaj slot';
+
+  @override
+  String get editSlot => 'Izmeni slot';
+
+  @override
+  String get deleteSlot => 'Obriši slot';
+
+  @override
+  String get noAvailabilitySlots => 'Nema slotova dostupnosti';
+
+  @override
+  String get noAvailabilitySlotsHint => 'Dodajte slot koristeći dugme +';
+
+  @override
+  String get selectInventoryItem => 'Izaberite inventar';
+
+  @override
+  String get allInventory => 'Sav inventar';
+
+  @override
+  String get showingAllSlots => 'Prikazani su svi slotovi';
+
+  @override
+  String get availabilityStatusAvailable => 'Dostupno';
+
+  @override
+  String get availabilityStatusBooked => 'Rezervisano';
+
+  @override
+  String get availabilityStatusMaintenance => 'Održavanje';
+
+  @override
+  String get availabilityStatusBlocked => 'Blokirano';
+
+  @override
+  String get notes => 'Napomene';
+
+  @override
+  String get edit => 'Izmeni';
+
+  @override
+  String get quoteRequests => 'Zahtevi za ponude';
+
+  @override
+  String get submitQuote => 'Pošalji ponudu';
+
+  @override
+  String get declineQuote => 'Odbij ponudu';
+
+  @override
+  String get noQuotes => 'Nemate zahteve za ponude';
+
+  @override
+  String get acceptOffer => 'Prihvati ponudu';
+
+  @override
+  String get rejectOffer => 'Odbij ponudu';
+
+  @override
+  String get offerReview => 'Pregled ponude';
+
+  @override
+  String get offerTotal => 'Ukupno';
+
+  @override
+  String get rejectReason => 'Razlog odbijanja';
+
+  @override
+  String get viewOffer => 'Pregled ponude';
+
+  @override
+  String get downloadInvoice => 'Skini fakturu';
+
+  @override
+  String get favorites => 'Omiljeno';
+
+  @override
+  String get noFavorites => 'Nemate sačuvanih jedinica';
+
+  @override
+  String get noFavoritesHint =>
+      'Označite inventar srcem kako biste ga kasnije lako pronašli.';
+
+  @override
+  String get exploreInventory => 'Istraži inventar';
+
+  @override
+  String get calendarView => 'Kalendarski prikaz';
+
+  @override
+  String get listView => 'Prikaz liste';
+
+  @override
+  String get noCampaignsForDay => 'Nema kampanja za ovaj dan';
+
+  @override
+  String get selectDayHint => 'Izaberite dan u kalendaru';
+
+  @override
+  String get assignUnits => 'Dodeli jedinice';
+
+  @override
+  String get startProcessing => 'Pokreni obradu';
+
+  @override
+  String get requestQuotes => 'Zatraži ponude';
+
+  @override
+  String get sendOffer => 'Pošalji ponudu';
+
+  @override
+  String get manageInquiries => 'Upravljanje upitima';
+
+  @override
+  String get users => 'Korisnici';
+
+  @override
+  String get enable => 'Uključi';
+
+  @override
+  String get disable => 'Isključi';
+
+  @override
+  String get firstName => 'Ime';
+
+  @override
+  String get lastName => 'Prezime';
+
+  @override
+  String get phone => 'Telefon';
+
+  @override
+  String get companyName => 'Naziv kompanije';
+
+  @override
+  String get website => 'Web sajt';
+
+  @override
+  String get currentPassword => 'Trenutna lozinka';
+
+  @override
+  String get newPassword => 'Nova lozinka';
+
+  @override
+  String get confirmPassword => 'Potvrdi lozinku';
+
+  @override
+  String get profile => 'Profil';
+
+  @override
+  String get passwordChanged => 'Lozinka je promenjena';
+
+  @override
+  String get profileUpdated => 'Profil je ažuriran';
+
+  @override
+  String get notifications => 'Obaveštenja';
+
+  @override
+  String get markAllRead => 'Označi sve kao pročitano';
+
+  @override
+  String get noNotifications => 'Nema obaveštenja';
+
+  @override
+  String get loading => 'Učitavanje...';
+
+  @override
+  String get statusCancelled => 'Otkazana';
+
+  @override
+  String get campaignCalendarTitle => 'Kalendar kampanja';
+
+  @override
+  String get assignLabel => 'Dodeli';
+
+  @override
+  String get noUnitsFound => 'Nema jedinica';
+
+  @override
+  String get assignUnitsSearchHint => 'Pretraga po adresi, gradu, vlasniku…';
+
+  @override
+  String selectedCount(int count) {
+    return 'Odabrano: $count';
+  }
+
+  @override
+  String unitsAssignedSuccess(int count) {
+    return 'Dodeljeno $count jedinica upitu';
+  }
 }

@@ -60,7 +60,13 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: showBackButton
           ? IconButton(
               icon: const Icon(Icons.arrow_back, color: AppColors.foreground),
-              onPressed: onBackPressed ?? () => context.pop(),
+              onPressed: onBackPressed ?? () {
+                if (Navigator.of(context).canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/');
+                }
+              },
             )
           : Padding(
               padding: const EdgeInsets.only(left: 16),
@@ -116,19 +122,30 @@ class MainAppBar extends StatelessWidget implements PreferredSizeWidget {
             );
           },
         ),
-        if (showLoginButton) ...[
-          OutlinedButton(
-            onPressed: () => context.push('/auth/login'),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: Text(
-              l10n.loginButton,
-              style: AppTypography.button.copyWith(color: AppColors.foreground),
-            ),
+        if (showLoginButton)
+          BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, authState) {
+              if (authState is AuthAuthenticated) {
+                return const SizedBox.shrink();
+              }
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => context.push('/auth/login'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: Text(
+                      l10n.loginButton,
+                      style: AppTypography.button.copyWith(color: AppColors.foreground),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              );
+            },
           ),
-          const SizedBox(width: 16),
-        ],
       ],
       bottom: PreferredSize(
         preferredSize: Size.fromHeight((bottom?.preferredSize.height ?? 0) + 1),

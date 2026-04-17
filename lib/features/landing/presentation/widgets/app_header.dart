@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/l10n.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../auth/presentation/blocs/auth_bloc.dart';
 
 class AppHeader extends StatefulWidget implements PreferredSizeWidget {
   const AppHeader({super.key});
@@ -55,33 +57,60 @@ class _AppHeaderState extends State<AppHeader> {
         ],
       ),
       actions: [
-        if (context.isDesktop) ...[
-          TextButton(
-            onPressed: () => context.go('/auth/login'),
-            child: Text(
-              l10n.loginButton,
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => context.go('/auth/register'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.primaryForeground,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            ),
-            child: Text(l10n.getStarted),
-          ),
-          const SizedBox(width: 16),
-        ] else ...[
-          IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => _showMobileMenu(context, l10n),
-          ),
-        ],
+        BlocBuilder<AuthBloc, AuthState>(
+          builder: (context, authState) {
+            final isLoggedIn = authState is AuthAuthenticated;
+            if (context.isDesktop) {
+              if (isLoggedIn) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => context.go('/app/dashboard'),
+                      icon: const Icon(Icons.dashboard_outlined, size: 18),
+                      label: Text(l10n.dashboard),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.primaryForeground,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                );
+              }
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => context.go('/auth/login'),
+                    child: Text(
+                      l10n.loginButton,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: AppColors.mutedForeground,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => context.go('/auth/register'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.primaryForeground,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: Text(l10n.getStarted),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              );
+            }
+            return IconButton(
+              icon: const Icon(Icons.menu),
+              onPressed: () => _showMobileMenu(context, l10n, isLoggedIn),
+            );
+          },
+        ),
       ],
     );
   }
@@ -102,10 +131,10 @@ class _AppHeaderState extends State<AppHeader> {
     );
   }
 
-  void _showMobileMenu(BuildContext context, AppLocalizations l10n) {
+  void _showMobileMenu(BuildContext context, AppLocalizations l10n, bool isLoggedIn) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => Container(
+      builder: (ctx) => Container(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -121,36 +150,51 @@ class _AppHeaderState extends State<AppHeader> {
             ListTile(
               title: Text(l10n.home),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 context.go('/');
               },
             ),
             ListTile(
               title: Text(l10n.findMedia),
               onTap: () {
-                Navigator.pop(context);
+                Navigator.pop(ctx);
                 context.go('/discover');
               },
             ),
             const Divider(),
-            ListTile(
-              title: Text(l10n.loginButton),
-              onTap: () {
-                Navigator.pop(context);
-                context.go('/auth/login');
-              },
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                context.go('/auth/register');
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
+            if (isLoggedIn) ...[
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/app/dashboard');
+                },
+                icon: const Icon(Icons.dashboard_outlined, size: 18),
+                label: Text(l10n.dashboard),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.primaryForeground,
+                ),
               ),
-              child: Text(l10n.getStarted),
-            ),
+            ] else ...[
+              ListTile(
+                title: Text(l10n.loginButton),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.go('/auth/login');
+                },
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.go('/auth/register');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.primaryForeground,
+                ),
+                child: Text(l10n.getStarted),
+              ),
+            ],
           ],
         ),
       ),

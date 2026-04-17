@@ -30,19 +30,38 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<User> register(String name, String email, String password, Role role) async {
+  Future<User> register(
+    String name,
+    String email,
+    String password,
+    Role role, {
+    String? firstName,
+    String? lastName,
+    String? companyName,
+    String? phone,
+    String? country,
+    String? city,
+  }) async {
+    final data = <String, dynamic>{
+      'username': name,
+      'email': email,
+      'password': password,
+      'role': roleToString(role),
+    };
+    if (firstName != null && firstName.isNotEmpty) data['firstName'] = firstName;
+    if (lastName != null && lastName.isNotEmpty) data['lastName'] = lastName;
+    if (companyName != null && companyName.isNotEmpty) data['organizationName'] = companyName;
+    if (phone != null && phone.isNotEmpty) data['phone'] = phone;
+    if (country != null && country.isNotEmpty) data['country'] = country;
+    if (city != null && city.isNotEmpty) data['city'] = city;
+
     final response = await _apiClient.post<Map<String, dynamic>>(
       ApiConfig.authRegister,
-      data: {
-        'username': name,
-        'email': email,
-        'password': password,
-        'role': roleToString(role),
-      },
+      data: data,
     );
 
-    final data = response.data!;
-    await _storeTokens(data);
+    final responseData = response.data!;
+    await _storeTokens(responseData);
 
     // Fetch full user profile
     return _fetchCurrentUser();

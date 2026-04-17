@@ -136,6 +136,17 @@ class InquiryRepository {
     return response.data;
   }
 
+  Future<List<int>?> downloadInvoicePdf(int invoiceId) async {
+    final response = await _apiService.downloadInvoicePdf(invoiceId);
+    return response.data;
+  }
+
+  Future<Map<String, dynamic>?> getInvoiceForCampaign(int campaignId) =>
+      _apiService.getInvoiceForCampaign(campaignId);
+
+  Future<Map<String, dynamic>?> getInvoiceForInquiry(int inquiryId) =>
+      _apiService.getInvoiceForInquiry(inquiryId);
+
   Future<void> createInquiry(Map<String, dynamic> data) async {
     await _apiService.createInquiry(data);
   }
@@ -150,6 +161,10 @@ class InquiryRepository {
 
   Future<void> sendOffer(int id) async {
     await _apiService.sendOffer(id);
+  }
+
+  Future<void> assignUnits(int inquiryId, List<int> unitIds) async {
+    await _apiService.assignUnits(inquiryId, unitIds);
   }
 
   Future<List<QuoteData>> getMediaOwnerQuotes() async {
@@ -178,14 +193,12 @@ class InquiryRepository {
     return OfferData.fromJson(data);
   }
 
-  Future<void> acceptOffer(int inquiryId, Role role) async {
+  Future<int?> acceptOffer(int inquiryId, Role role) async {
     switch (role) {
       case Role.brand:
-        await _apiService.acceptBrandOffer(inquiryId);
-        break;
+        return await _apiService.acceptBrandOffer(inquiryId);
       case Role.agency:
-        await _apiService.acceptAgencyOffer(inquiryId);
-        break;
+        return await _apiService.acceptAgencyOffer(inquiryId);
       default:
         throw Exception('Only brands and agencies can accept offers');
     }

@@ -5,6 +5,7 @@ class InventoryItemDto {
   final int id;
   final int? mediaOwnerId;
   final String? mediaOwnerUsername;
+  final String? mediaOwnerName;
   final DictionaryRefDto? country;
   final DictionaryRefDto? city;
   final String? vendorInventoryId;
@@ -41,11 +42,14 @@ class InventoryItemDto {
   final String? assetUrlDescription;
   final String? environment;
   final String? status;
+  final bool available;
+  final bool? favorited;
 
   const InventoryItemDto({
     required this.id,
     this.mediaOwnerId,
     this.mediaOwnerUsername,
+    this.mediaOwnerName,
     this.country,
     this.city,
     this.vendorInventoryId,
@@ -82,6 +86,8 @@ class InventoryItemDto {
     this.assetUrlDescription,
     this.environment,
     this.status,
+    this.available = true,
+    this.favorited,
   });
 
   factory InventoryItemDto.fromJson(Map<String, dynamic> json) {
@@ -89,6 +95,7 @@ class InventoryItemDto {
       id: json['id'] as int,
       mediaOwnerId: json['mediaOwnerId'] as int?,
       mediaOwnerUsername: json['mediaOwnerUsername'] as String?,
+      mediaOwnerName: json['mediaOwnerName'] as String?,
       country: json['country'] != null
           ? DictionaryRefDto.fromJson(json['country'] as Map<String, dynamic>)
           : null,
@@ -135,6 +142,8 @@ class InventoryItemDto {
       assetUrlDescription: json['assetUrlDescription'] as String?,
       environment: json['environment'] as String?,
       status: json['status'] as String?,
+      available: json['available'] as bool? ?? true,
+      favorited: json['favorited'] as bool?,
     );
   }
 

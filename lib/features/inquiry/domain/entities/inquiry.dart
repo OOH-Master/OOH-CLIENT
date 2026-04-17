@@ -61,13 +61,19 @@ enum InquiryStatus {
 class InquiryItem {
   final int id;
   final int? inventoryItemId;
-  final String? inventoryName;
+  final String? inventoryItemName;
+  final String? inventoryItemAddress;
+  final String? inventoryItemCity;
+  final String? mediaOwnerName;
   final double? quotedPrice;
 
   const InquiryItem({
     required this.id,
     this.inventoryItemId,
-    this.inventoryName,
+    this.inventoryItemName,
+    this.inventoryItemAddress,
+    this.inventoryItemCity,
+    this.mediaOwnerName,
     this.quotedPrice,
   });
 }

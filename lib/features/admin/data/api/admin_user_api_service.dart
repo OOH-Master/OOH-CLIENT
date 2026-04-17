@@ -16,13 +16,20 @@ class AdminUserApiService {
     if (enabled != null) queryParams['enabled'] = enabled.toString();
     if (search != null && search.isNotEmpty) queryParams['search'] = search;
 
-    final response = await _apiClient.get<List<dynamic>>(
+    final response = await _apiClient.get<dynamic>(
       ApiConfig.adminUsers,
       queryParameters: queryParams,
     );
-    return (response.data ?? [])
-        .map((json) => json as Map<String, dynamic>)
-        .toList();
+    final data = response.data;
+    List<dynamic> list;
+    if (data is Map<String, dynamic> && data.containsKey('content')) {
+      list = (data['content'] as List<dynamic>?) ?? [];
+    } else if (data is List) {
+      list = data;
+    } else {
+      list = [];
+    }
+    return list.map((json) => json as Map<String, dynamic>).toList();
   }
 
   Future<Map<String, dynamic>> getUser(int id) async {

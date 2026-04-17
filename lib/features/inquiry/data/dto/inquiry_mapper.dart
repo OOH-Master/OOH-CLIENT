@@ -21,7 +21,10 @@ class InquiryMapper {
           .map((e) => InquiryItem(
                 id: e.id,
                 inventoryItemId: e.inventoryItemId,
-                inventoryName: e.inventoryName,
+                inventoryItemName: e.inventoryItemName,
+                inventoryItemAddress: e.inventoryItemAddress,
+                inventoryItemCity: e.inventoryItemCity,
+                mediaOwnerName: e.mediaOwnerName,
                 quotedPrice: e.quotedPrice,
               ))
           .toList(),

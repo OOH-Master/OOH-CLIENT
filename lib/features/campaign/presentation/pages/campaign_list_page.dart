@@ -63,6 +63,13 @@ class _CampaignListViewState extends State<_CampaignListView> {
         foregroundColor: AppColors.foreground,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.calendar_month_outlined),
+            tooltip: 'Kalendarski prikaz',
+            onPressed: () => context.push('/app/campaigns/calendar'),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/app/campaigns/create'),
