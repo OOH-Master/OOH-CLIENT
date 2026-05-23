@@ -1,0 +1,45 @@
+name: Build and Deploy
+
+on:
+  push:
+    tags:
+      - '*'
+      
+env:
+  IMAGE_NAME: "ooh-ui-img"
+  CONTAINER_NAME: "ooh-ui"
+  CONTAINER_PORT: "1235"
+
+jobs:
+  shutdown_old_container:
+    runs-on: mmui
+    steps:
+      - name: Stop and delete old container + Docker image
+        run: |
+          docker rm -f $CONTAINER_NAME || true
+          docker rmi $(docker images -q $IMAGE_NAME)|| true
+          
+  build:
+    runs-on: mmui
+    needs: shutdown_old_container
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build
+        run: |
+          echo "Building version: ${{ github.ref_name }}"
+          docker build -t $IMAGE_NAME:${{ github.ref_name }} .
+
+  deploy_new_version:
+    runs-on: mmui
+    needs: build
+    steps:
+      - name: Run new container
+        run: |
+          pwd
+          docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:${{ github.ref_name }}
+          sleep 5
+          docker ps | grep $CONTAINER_NAME
+        
+      
+    
