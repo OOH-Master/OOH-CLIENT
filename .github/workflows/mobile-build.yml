@@ -1,0 +1,145 @@
+name: Mobile Build (APK + AAB)
+
+# --------------------------------------------------------------------
+# Builds Android APK + AAB on every push to main.
+# Publishes artifacts as GitHub Release with download links.
+#
+# APK  = installable file (sideload via "Install from unknown sources")
+# AAB  = Android App Bundle (what would go to Play Store)
+#
+# iOS build is OPTIONAL — requires macOS runner ($) + Apple signing.
+# For the demo, Android-only is sufficient. iOS commented out below.
+# --------------------------------------------------------------------
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g. v1.0.0). Leave empty to use date+sha.'
+        required: false
+        type: string
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write     # for GitHub Releases
+
+env:
+  FLUTTER_VERSION: '3.44.0'
+
+jobs:
+  build-android:
+    name: Build Android APK + AAB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 17 (required for Android Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          flutter gen-l10n
+
+      - name: Build APK (release, unsigned)
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL="${{ vars.PROD_API_BASE_URL }}" \
+            --dart-define=APP_VERSION="$(git rev-parse --short HEAD)"
+
+      - name: Build App Bundle (release, unsigned)
+        run: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL="${{ vars.PROD_API_BASE_URL }}" \
+            --dart-define=APP_VERSION="$(git rev-parse --short HEAD)"
+
+      - name: Compute release tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="mobile-$(date +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Rename artifacts with version
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          mv build/app/outputs/flutter-apk/app-release.apk \
+             build/app/outputs/flutter-apk/ooh-$TAG.apk
+          mv build/app/outputs/bundle/release/app-release.aab \
+             build/app/outputs/bundle/release/ooh-$TAG.aab
+
+      - name: Upload artifacts (always available even if Release fails)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-builds-${{ steps.tag.outputs.tag }}
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+          retention-days: 90
+
+      - name: Create GitHub Release with APK + AAB
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Mobile build ${{ steps.tag.outputs.tag }}
+          body: |
+            **Automatska mobile gradnja iz commit-a `${{ github.sha }}`**
+
+            ## 📱 Preuzimanje
+
+            - **APK** (direktna instalacija na Android) — vidi assets dole
+            - **AAB** (App Bundle za Play Store) — vidi assets dole
+
+            ## 🔧 Build info
+
+            - Commit: `${{ github.sha }}`
+            - Branch: `${{ github.ref_name }}`
+            - Build time: `${{ github.event.head_commit.timestamp }}`
+            - API base URL: `${{ vars.PROD_API_BASE_URL }}`
+
+            > ⚠️ APK je **nepotpisan / debug-signed**. Za stvarni Play Store
+            > deploy treba dodati keystore tajnu i potpisati build.
+          files: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+          draft: false
+          prerelease: true
+          make_latest: false
+
+  # ---------------------------------------------------------------
+  # OPTIONAL: iOS build — requires Apple Developer Program ($99/yr).
+  # Uncomment + configure secrets to enable.
+  # ---------------------------------------------------------------
+  # build-ios:
+  #   name: Build iOS IPA
+  #   runs-on: macos-latest    # macOS runner uses 10× more CI minutes
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: subosito/flutter-action@v2
+  #       with:
+  #         flutter-version: ${{ env.FLUTTER_VERSION }}
+  #         channel: stable
+  #     - name: Build iOS (no signing — for inspection only)
+  #       run: |
+  #         flutter pub get
+  #         flutter gen-l10n
+  #         flutter build ios --release --no-codesign \
+  #           --dart-define=API_BASE_URL="${{ vars.PROD_API_BASE_URL }}"

@@ -1,0 +1,152 @@
+# =====================================================================
+# Codemagic CI/CD configuration for OOH Flutter Client
+#
+# This file is the ALTERNATIVE mobile pipeline used to demonstrate
+# Flutter-specific CI/CD tooling. Primary mobile pipeline is GitHub
+# Actions (.github/workflows/mobile-build.yml).
+#
+# To activate Codemagic:
+#   1. Sign up at codemagic.io (free tier: 500 min/month + macOS runner)
+#   2. Connect this GitHub repo
+#   3. Codemagic auto-detects codemagic.yaml and runs workflows on push
+#
+# Documentation: https://docs.codemagic.io/yaml-quick-start/building-a-flutter-app/
+# =====================================================================
+
+workflows:
+  # ---------------------------------------------------------------
+  # ANDROID workflow — builds APK + AAB, sends email on success/fail
+  # ---------------------------------------------------------------
+  android-workflow:
+    name: OOH Android (Codemagic)
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+      vars:
+        # Override these in Codemagic UI → Environment variables for production
+        API_BASE_URL: $API_BASE_URL
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+          flutter gen-l10n
+      - name: Flutter analyze
+        script: flutter analyze --no-fatal-infos
+        ignore_failure: true
+      - name: Flutter tests
+        script: flutter test --no-pub
+      - name: Build APK (release)
+        script: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=$API_BASE_URL
+      - name: Build App Bundle (release)
+        script: |
+          flutter build appbundle --release \
+            --dart-define=API_BASE_URL=$API_BASE_URL
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
+      - build/app/outputs/bundle/release/*.aab
+    publishing:
+      email:
+        recipients:
+          - m.maksimovic@appstersolutions.com
+        notify:
+          success: true
+          failure: true
+      # Optional: Firebase App Distribution (uncomment + add FIREBASE_SERVICE_ACCOUNT secret)
+      # firebase:
+      #   firebase_service_account: $FIREBASE_SERVICE_ACCOUNT
+      #   android:
+      #     app_id: $FIREBASE_ANDROID_APP_ID
+      #     groups:
+      #       - internal-testers
+      #     artifact_type: 'apk'
+
+  # ---------------------------------------------------------------
+  # iOS workflow — uses macOS runner. Builds unsigned IPA.
+  # Comment out if you don't want to use Codemagic's macOS minutes.
+  # ---------------------------------------------------------------
+  ios-workflow:
+    name: OOH iOS (Codemagic, unsigned)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        API_BASE_URL: $API_BASE_URL
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+          flutter gen-l10n
+      - name: Install CocoaPods
+        script: cd ios && pod install
+      - name: Build iOS (unsigned — no Apple Developer cert)
+        script: |
+          flutter build ios --release --no-codesign \
+            --dart-define=API_BASE_URL=$API_BASE_URL
+    artifacts:
+      - build/ios/iphoneos/*.app
+    publishing:
+      email:
+        recipients:
+          - m.maksimovic@appstersolutions.com
+        notify:
+          success: true
+          failure: true
+
+  # ---------------------------------------------------------------
+  # WEB workflow — alternative to GitHub Pages (Codemagic can also
+  # publish web build to Firebase Hosting, Netlify, etc.)
+  # ---------------------------------------------------------------
+  web-workflow:
+    name: OOH Web (Codemagic)
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      vars:
+        API_BASE_URL: $API_BASE_URL
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+    scripts:
+      - name: Build web (release)
+        script: |
+          flutter pub get
+          flutter gen-l10n
+          flutter build web --release \
+            --dart-define=API_BASE_URL=$API_BASE_URL
+    artifacts:
+      - build/web/**
+    publishing:
+      email:
+        recipients:
+          - m.maksimovic@appstersolutions.com
+        notify:
+          success: true
+          failure: true
+      # Optional: deploy to Firebase Hosting
+      # firebase:
+      #   firebase_service_account: $FIREBASE_SERVICE_ACCOUNT
+      #   web:
+      #     site: ooh-platform
