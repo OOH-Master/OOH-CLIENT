@@ -1,17 +1,28 @@
 name: Build and Deploy
 
+# Pokrece se na svaki git tag (npr. v1.0.X)
+# Paralelno radi:
+#   • Web deploy na server fakulteta (ooh-ui.appstersolutions.com)
+#   • Mobile APK + AAB build → GitHub Releases (clickable download)
+
 on:
   push:
     tags:
       - '*'
 
+permissions:
+  contents: write    # za kreiranje GitHub Releases (mobile artifacts)
+
 env:
   IMAGE_NAME: "ooh-ui-img"
   CONTAINER_NAME: "ooh-ui"
   CONTAINER_PORT: "1235"
+  API_BASE_URL: "https://ooh-api.appstersolutions.com/api/v1"
 
 jobs:
-  # 1. Flutter unit testovi (BLoC mock data — discover_bloc + auth_bloc)
+  # ===================================================================
+  # 1. UNIT TESTOVI — Flutter BLoC sa mock podacima (Mockito)
+  # ===================================================================
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +39,58 @@ jobs:
       - name: Run BLoC unit tests (mock data)
         run: flutter test test/features/auth/presentation/blocs/ test/features/discover/presentation/blocs/
 
-  # 2. Ubij stari container (ALI ne briši image — treba za rollback)
+  # ===================================================================
+  # 2. MOBILE BUILD — APK + AAB → GitHub Releases
+  # ===================================================================
+  build_mobile:
+    runs-on: ubuntu-latest    # GitHub-hosted (treba Android SDK)
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          flutter gen-l10n
+      - name: Build APK
+        run: flutter build apk --release --dart-define=API_BASE_URL=$API_BASE_URL
+      - name: Build AAB (App Bundle)
+        run: flutter build appbundle --release --dart-define=API_BASE_URL=$API_BASE_URL
+      - name: Rename artifacts with tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/ooh-$TAG.apk
+          mv build/app/outputs/bundle/release/app-release.aab build/app/outputs/bundle/release/ooh-$TAG.aab
+      - name: Create GitHub Release with APK + AAB
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Mobile build ${{ github.ref_name }}
+          body: |
+            **Automatska mobile gradnja iz tag-a `${{ github.ref_name }}`**
+
+            Preuzmi:
+            - **APK** — direktna instalacija na Android (sideload)
+            - **AAB** — App Bundle za Play Store
+
+            API base URL: `${{ env.API_BASE_URL }}`
+          files: |
+            build/app/outputs/flutter-apk/*.apk
+            build/app/outputs/bundle/release/*.aab
+          draft: false
+          prerelease: false
+
+  # ===================================================================
+  # 3. WEB DEPLOY — server fakulteta (Docker container sa nginx)
+  # ===================================================================
   shutdown_old_container:
     runs-on: mmui
     needs: tests
@@ -36,39 +98,41 @@ jobs:
       - name: Stop old container (keep image for rollback)
         run: docker rm -f $CONTAINER_NAME || true
 
-  # 3. Build novog Docker image-a
-  build:
+  build_web:
     runs-on: mmui
     needs: shutdown_old_container
     steps:
       - uses: actions/checkout@v4
-      - name: Build
+      - name: Build web Docker image
         run: |
           echo "Building version: ${{ github.ref_name }}"
           docker build -t $IMAGE_NAME:${{ github.ref_name }} .
 
-  # 4. Deploy novi container
-  deploy_new_version:
+  deploy_web:
     runs-on: mmui
-    needs: build
+    needs: build_web
     steps:
-      - name: Run new container
+      - name: Run new web container
         run: |
           docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:${{ github.ref_name }}
           sleep 5
           docker ps | grep $CONTAINER_NAME
 
-  # 5. Smoke test — verifikuje da frontend stvarno radi
+  # ===================================================================
+  # 4. SMOKE TEST — verifikuje da je frontend live
+  # ===================================================================
   smoke_test:
     runs-on: ubuntu-latest
-    needs: deploy_new_version
+    needs: deploy_web
     steps:
       - name: Ping frontend
         run: |
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 6. AUTO-ROLLBACK — ako smoke padne, vraća prethodni image
+  # ===================================================================
+  # 5. AUTO-ROLLBACK — ako smoke padne, vraća prethodni image
+  # ===================================================================
   rollback:
     runs-on: mmui
     needs: smoke_test
