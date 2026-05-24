@@ -12,12 +12,17 @@ RUN git clone --branch stable --depth 1 \
 
 WORKDIR /app
 ARG API_BASE_URL=https://ooh-api.appstersolutions.com/api/v1
+ARG APP_VERSION=dev
+ARG APP_BUILD_TIME=local
 ENV API_BASE_URL=$API_BASE_URL
 COPY pubspec.yaml pubspec.lock* ./
 RUN flutter pub get
 COPY . .
 RUN flutter gen-l10n
-RUN flutter build web --release --dart-define=API_BASE_URL=$API_BASE_URL
+RUN flutter build web --release \
+    --dart-define=API_BASE_URL=$API_BASE_URL \
+    --dart-define=APP_VERSION=$APP_VERSION \
+    --dart-define=APP_BUILD_TIME=$APP_BUILD_TIME
 
 FROM nginx:alpine
 COPY --from=build /app/build/web /usr/share/nginx/html

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../../../core/config/app_version.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
@@ -35,12 +36,26 @@ class AppFooter extends StatelessWidget {
             const SizedBox(height: 32),
             const Divider(),
             const SizedBox(height: 32),
-            Text(
-              '© 2026 AutoHome. All rights reserved.',
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-              textAlign: TextAlign.center,
+            Column(
+              children: [
+                Text(
+                  '© 2026 AutoHome. All rights reserved.',
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.mutedForeground,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  AppVersion.displayLabel,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.mutedForeground.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             )
                 .animate()
                 .fadeIn(delay: 300.ms, duration: 600.ms),
