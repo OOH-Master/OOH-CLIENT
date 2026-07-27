@@ -1,3 +1,4 @@
+import '../../../../core/config/api_config.dart';
 import '../../domain/entities/city.dart';
 import '../../domain/entities/country.dart';
 import '../../domain/entities/ooh_unit.dart';
@@ -6,6 +7,25 @@ import '../dto/dto.dart';
 /// Maps DTOs from API to domain entities
 class DiscoverMapper {
   DiscoverMapper._();
+
+  static const _imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
+
+  /// Resolves the inventory asset URL into something a widget can actually load.
+  ///
+  /// Two cases are handled. Paths served by our API are relative
+  /// ("/api/v1/public/files/..."), so they are prefixed with the API host,
+  /// otherwise the browser would resolve them against the frontend origin.
+  /// Vendor imports, on the other hand, sometimes put a link to the media
+  /// owner's website in this field; such URLs are not images and are ignored so
+  /// the card falls back to its placeholder instead of a broken image.
+  static String? _resolveImageUrl(String? path) {
+    if (path == null || path.isEmpty) return null;
+    final isOwnFile = path.startsWith('/');
+    final lower = path.toLowerCase();
+    final looksLikeImage = _imageExtensions.any(lower.endsWith);
+    if (!isOwnFile && !looksLikeImage) return null;
+    return ApiConfig.absoluteUrl(path);
+  }
 
   /// Convert CountryDto to Country domain entity
   static Country countryFromDto(CountryDto dto) {
@@ -41,6 +61,7 @@ class DiscoverMapper {
 
   /// Convert InventoryItemDto to OohUnit domain entity
   static OohUnit unitFromDto(InventoryItemDto dto) {
+    final imageUrl = _resolveImageUrl(dto.assetUrl);
     return OohUnit(
       id: dto.id.toString(),
       name: dto.siteName ?? dto.vendorInventoryId ?? 'Unit #${dto.id}',
@@ -53,8 +74,8 @@ class DiscoverMapper {
       price: dto.pricePerCycle ?? 0.0,
       currency: dto.currency ?? 'EUR',
       cycleType: _mapCycleType(dto.cycleType),
-      imageUrl: dto.assetUrl,
-      images: dto.assetUrl != null ? [dto.assetUrl!] : [],
+      imageUrl: imageUrl,
+      images: imageUrl != null ? [imageUrl] : const [],
       status: dto.available ? _mapStatus(dto.status) : OohStatus.booked,
       description: dto.description,
       specifications: _buildSpecifications(dto),
