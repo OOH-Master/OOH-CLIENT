@@ -146,6 +146,7 @@ class _OohAppState extends State<OohApp> {
           builder: (context, locale) {
             return MaterialApp.router(
               title: 'OOH Planner',
+              debugShowCheckedModeBanner: false,
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: ThemeMode.light,

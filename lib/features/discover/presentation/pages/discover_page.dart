@@ -159,6 +159,16 @@ class _DiscoverPageState extends State<DiscoverPage> {
     );
   }
 
+  /// Opens the general inquiry form, sending unauthenticated users to login.
+  void _openGeneralInquiry() {
+    final authState = context.read<AuthBloc>().state;
+    if (authState is! AuthAuthenticated) {
+      context.push('/auth/login');
+      return;
+    }
+    context.push('/app/inquiries/create');
+  }
+
   Widget _buildResultsBar(DiscoverLoaded state, bool isDesktop) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -168,41 +178,52 @@ class _DiscoverPageState extends State<DiscoverPage> {
       ),
       child: Row(
         children: [
-          // Results count
-          Expanded(
-            child: Text(
-              'Prikazano ${state.units.length} rezultata',
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.mutedForeground,
+          // Results count: on narrow screens the sheet header already shows it,
+          // so the label is dropped to leave room for the controls.
+          if (isDesktop)
+            Expanded(
+              child: Text(
+                'Prikazano ${state.units.length} rezultata',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.mutedForeground,
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          // General inquiry: full button on desktop, icon only on narrow screens
+          if (isDesktop)
+            TextButton.icon(
+              onPressed: _openGeneralInquiry,
+              icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
+              label: Text(
+                'Generalni upit',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+            )
+          else
+            IconButton(
+              onPressed: _openGeneralInquiry,
+              tooltip: 'Generalni upit',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.mail_outline, size: 20, color: AppColors.primary),
+              style: IconButton.styleFrom(
+                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
             ),
-          ),
-          // General inquiry button
-          TextButton.icon(
-            onPressed: () {
-              final authState = context.read<AuthBloc>().state;
-              if (authState is! AuthAuthenticated) {
-                context.push('/auth/login');
-                return;
-              }
-              context.push('/app/inquiries/create');
-            },
-            icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
-            label: Text(
-              'Generalni upit',
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            style: TextButton.styleFrom(
-              backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-          ),
           const SizedBox(width: 8),
           // Sort dropdown
           SortDropdown(
