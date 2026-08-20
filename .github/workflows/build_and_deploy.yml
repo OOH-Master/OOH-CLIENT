@@ -1,7 +1,7 @@
 name: Build and Deploy
 
-# Tag-based deploy. Reorder: build PRE shutdown-a → downtime ~5s umesto 1-2 min.
-# Paralelno: web na server + APK/AAB na GitHub Releases.
+# Tag-based deploy. The build runs BEFORE shutdown, cutting the outage window from 1-2 min to ~20s.
+# Two parallel branches: web image to our server, APK/AAB to GitHub Releases.
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - '*'
 
 permissions:
-  contents: write    # za GitHub Releases (mobile artifacts)
+  contents: write    # required to publish GitHub Releases (mobile artifacts)
 
 env:
   IMAGE_NAME: "ooh-ui-img"
@@ -18,7 +18,7 @@ env:
   API_BASE_URL: "https://ooh-api.appstersolutions.com/api/v1"
 
 jobs:
-  # 1. Flutter BLoC mock testovi (quality gate)
+  # 1. Flutter BLoC tests over mock data - quality gate for both branches
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Run BLoC unit tests (mock data)
         run: flutter test test/features/auth/presentation/blocs/ test/features/discover/presentation/blocs/
 
-  # 2. Mobile build (paralelno sa web) — APK + AAB → GitHub Releases
+  # 2. Mobile build (parallel with web) - APK + AAB published as a GitHub Release
   build_mobile:
     runs-on: ubuntu-latest
     needs: tests
@@ -69,17 +69,17 @@ jobs:
           tag_name: ${{ github.ref_name }}
           name: Mobile build ${{ github.ref_name }}
           body: |
-            **Automatska gradnja iz tag-a `${{ github.ref_name }}`**
+            **Automated build from tag `${{ github.ref_name }}`**
 
-            - APK — direktna instalacija na Android
-            - AAB — App Bundle za Play Store
+            - APK - direct install on Android
+            - AAB - App Bundle for the Play Store
 
             API base URL: `${{ env.API_BASE_URL }}`
           files: |
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/bundle/release/*.aab
 
-  # 3. BUILD WEB DOCKER IMAGE — pre nego što ubije stari container (zero-downtime-ish)
+  # 3. BUILD the web image - runs before the old container is stopped
   build_web:
     runs-on: mmui
     needs: tests
@@ -94,7 +94,7 @@ jobs:
             --build-arg APP_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
             -t $IMAGE_NAME:${{ github.ref_name }} .
 
-  # 4. ATOMIC SWITCH — ubij stari container + pokreni novi (downtime ~5s)
+  # 4. ATOMIC SWITCH - stop the old container, start the new one
   deploy_web:
     runs-on: mmui
     needs: build_web
@@ -106,7 +106,7 @@ jobs:
           sleep 5
           docker ps | grep $CONTAINER_NAME
 
-  # 5. Smoke test
+  # 5. Smoke test - external check that the site actually responds
   smoke_test:
     runs-on: ubuntu-latest
     needs: deploy_web
@@ -116,7 +116,7 @@ jobs:
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 6. AUTO-ROLLBACK
+  # 6. AUTO-ROLLBACK - restores the previous image if the smoke test fails
   rollback:
     runs-on: mmui
     needs: smoke_test
@@ -126,12 +126,12 @@ jobs:
         run: |
           PREVIOUS=$(docker images $IMAGE_NAME --format "{{.Tag}}" | grep -v '<none>' | grep -v "${{ github.ref_name }}" | head -1)
           if [ -z "$PREVIOUS" ]; then
-            echo "::error::Nema prethodnog image-a za rollback"
+            echo "::error::No previous image found - manual intervention required"
             exit 1
           fi
-          echo "🔄 Rollback na: $IMAGE_NAME:$PREVIOUS"
+          echo "🔄 Rolling back to: $IMAGE_NAME:$PREVIOUS"
           docker rm -f $CONTAINER_NAME || true
           docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:$PREVIOUS
           sleep 5
           docker ps | grep $CONTAINER_NAME
-          echo "✅ ROLLBACK COMPLETE — vraćeno na $PREVIOUS"
+          echo "✅ ROLLBACK COMPLETE - restored $PREVIOUS"
