@@ -1,7 +1,7 @@
 name: Build and Deploy
 
 # Tag-based deploy. The build runs BEFORE shutdown, cutting the outage window from 1-2 min to ~20s.
-# Two parallel branches: web image to our server, APK/AAB to GitHub Releases.
+# Two parallel branches: web image to our server, Android + iOS to GitHub Releases.
 
 on:
   push:
@@ -35,8 +35,8 @@ jobs:
       - name: Run BLoC unit tests (mock data)
         run: flutter test test/features/auth/presentation/blocs/ test/features/discover/presentation/blocs/
 
-  # 2. Mobile build (parallel with web) - APK + AAB published as a GitHub Release
-  build_mobile:
+  # 2a. Android build (parallel with web) - APK + AAB published as a GitHub Release
+  build_android:
     runs-on: ubuntu-latest
     needs: tests
     steps:
@@ -79,13 +79,13 @@ jobs:
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/bundle/release/*.aab
 
-  # 2b. iOS build - runs after build_mobile because both artifacts go into the
+  # 2b. iOS build - runs after build_android because both artifacts go into the
   #     SAME GitHub Release; two jobs must not race to create it.
   #     Unsigned on purpose: no Apple Developer account, no certificates. The IPA
   #     proves the build works; making it installable only needs signing.
   build_ios:
     runs-on: macos-latest          # Xcode only runs on macOS - the one job our Linux server cannot take
-    needs: build_mobile
+    needs: build_android
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -112,7 +112,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: ooh-*-unsigned.ipa
 
-  # 3. BUILD the web image - runs before the old container is stopped
+  # 2c. BUILD the web image - runs before the old container is stopped
   build_web:
     runs-on: mmui
     needs: tests
@@ -127,7 +127,7 @@ jobs:
             --build-arg APP_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
             -t $IMAGE_NAME:${{ github.ref_name }} .
 
-  # 4. ATOMIC SWITCH - stop the old container, start the new one
+  # 3. ATOMIC SWITCH - stop the old container, start the new one
   deploy_web:
     runs-on: mmui
     needs: build_web
@@ -139,7 +139,7 @@ jobs:
           sleep 5
           docker ps | grep $CONTAINER_NAME
 
-  # 5. Smoke test - external check that the site actually responds
+  # 4. Smoke test - external check that the site actually responds
   smoke_test:
     runs-on: ubuntu-latest
     needs: deploy_web
@@ -149,9 +149,9 @@ jobs:
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 6. AUTO-ROLLBACK - restores the previous image, but ONLY when the web deploy
+  # 5. AUTO-ROLLBACK - restores the previous image, but ONLY when the web deploy
   #    or its smoke test failed. Deliberately not `if: failure()`: a failing
-  #    mobile or iOS build must never revert a healthy web container.
+  #    Android or iOS build must never revert a healthy web container.
   rollback:
     runs-on: mmui
     needs: [deploy_web, smoke_test]
