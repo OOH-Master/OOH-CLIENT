@@ -79,6 +79,39 @@ jobs:
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/bundle/release/*.aab
 
+  # 2b. iOS build - runs after build_mobile because both artifacts go into the
+  #     SAME GitHub Release; two jobs must not race to create it.
+  #     Unsigned on purpose: no Apple Developer account, no certificates. The IPA
+  #     proves the build works; making it installable only needs signing.
+  build_ios:
+    runs-on: macos-latest          # Xcode only runs on macOS - the one job our Linux server cannot take
+    needs: build_mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - name: Install dependencies
+        run: |
+          flutter pub get
+          flutter gen-l10n
+      - name: Build iOS without code signing
+        run: flutter build ios --release --no-codesign --dart-define=API_BASE_URL=$API_BASE_URL --dart-define=APP_VERSION=${{ github.ref_name }}
+      - name: Package Runner.app into an unsigned IPA
+        run: |
+          TAG="${{ github.ref_name }}"
+          mkdir -p Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry "ooh-$TAG-unsigned.ipa" Payload
+          ls -lh "ooh-$TAG-unsigned.ipa"
+      - name: Attach the IPA to the existing GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: ooh-*-unsigned.ipa
+
   # 3. BUILD the web image - runs before the old container is stopped
   build_web:
     runs-on: mmui
@@ -116,11 +149,13 @@ jobs:
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 6. AUTO-ROLLBACK - restores the previous image if the smoke test fails
+  # 6. AUTO-ROLLBACK - restores the previous image, but ONLY when the web deploy
+  #    or its smoke test failed. Deliberately not `if: failure()`: a failing
+  #    mobile or iOS build must never revert a healthy web container.
   rollback:
     runs-on: mmui
-    needs: smoke_test
-    if: failure()
+    needs: [deploy_web, smoke_test]
+    if: always() && (needs.deploy_web.result == 'failure' || needs.smoke_test.result == 'failure')
     steps:
       - name: Find previous image and rollback
         run: |
