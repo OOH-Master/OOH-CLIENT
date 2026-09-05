@@ -1,6 +1,6 @@
 name: Build and Deploy
 
-# Tag-based deploy. The build runs BEFORE shutdown, cutting the outage window from 1-2 min to ~20s.
+# Tag-based deploy. The image is built before the old container stops, so the outage is ~20s instead of 1-2 min.
 # Two parallel branches: web image to our server, Android + iOS to GitHub Releases.
 
 on:
@@ -18,7 +18,7 @@ env:
   API_BASE_URL: "https://ooh-api.appstersolutions.com/api/v1"
 
 jobs:
-  # 1. Flutter BLoC tests over mock data - quality gate for both branches
+  # 1. Flutter BLoC tests over mock data. Both branches below wait for this.
   tests:
     runs-on: ubuntu-latest
     steps:
@@ -35,7 +35,7 @@ jobs:
       - name: Run BLoC unit tests (mock data)
         run: flutter test test/features/auth/presentation/blocs/ test/features/discover/presentation/blocs/
 
-  # 2a. Android build (parallel with web) - APK + AAB published as a GitHub Release
+  # 2a. Android build, in parallel with web. APK + AAB go to a GitHub Release.
   build_android:
     runs-on: ubuntu-latest
     needs: tests
@@ -79,10 +79,10 @@ jobs:
             build/app/outputs/flutter-apk/*.apk
             build/app/outputs/bundle/release/*.aab
 
-  # 2b. iOS build - runs after build_android because both artifacts go into the
-  #     SAME GitHub Release; two jobs must not race to create it.
-  #     Unsigned on purpose: no Apple Developer account, no certificates. The IPA
-  #     proves the build works; making it installable only needs signing.
+  # 2b. iOS build. Runs after build_android because both upload to the same
+  #     GitHub Release and two jobs must not race to create it.
+  #     Unsigned on purpose - there is no Apple Developer account and no certificate.
+  #     The IPA proves the build works; signing is all it needs to be installable.
   build_ios:
     runs-on: macos-latest          # Xcode only runs on macOS - the one job our Linux server cannot take
     needs: build_android
@@ -112,7 +112,7 @@ jobs:
           tag_name: ${{ github.ref_name }}
           files: ooh-*-unsigned.ipa
 
-  # 2c. BUILD the web image - runs before the old container is stopped
+  # 2c. Build the web image on our server, before the old container is stopped.
   build_web:
     runs-on: mmui
     needs: tests
@@ -127,7 +127,7 @@ jobs:
             --build-arg APP_BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
             -t $IMAGE_NAME:${{ github.ref_name }} .
 
-  # 3. ATOMIC SWITCH - stop the old container, start the new one
+  # 3. Swap containers: stop the old one, start the new one.
   deploy_web:
     runs-on: mmui
     needs: build_web
@@ -139,7 +139,7 @@ jobs:
           sleep 5
           docker ps | grep $CONTAINER_NAME
 
-  # 4. Smoke test - external check that the site actually responds
+  # 4. Smoke test from outside: does the site answer over the public URL.
   smoke_test:
     runs-on: ubuntu-latest
     needs: deploy_web
@@ -149,9 +149,9 @@ jobs:
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 5. AUTO-ROLLBACK - restores the previous image, but ONLY when the web deploy
-  #    or its smoke test failed. Deliberately not `if: failure()`: a failing
-  #    Android or iOS build must never revert a healthy web container.
+  # 5. Rollback, but only when the web deploy or its smoke test failed.
+  #    Not `if: failure()` on purpose: a failing Android or iOS build
+  #    must never revert a healthy web container.
   rollback:
     runs-on: mmui
     needs: [deploy_web, smoke_test]
@@ -164,9 +164,9 @@ jobs:
             echo "::error::No previous image found - manual intervention required"
             exit 1
           fi
-          echo "🔄 Rolling back to: $IMAGE_NAME:$PREVIOUS"
+          echo "Rolling back to $IMAGE_NAME:$PREVIOUS"
           docker rm -f $CONTAINER_NAME || true
           docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:$PREVIOUS
           sleep 5
           docker ps | grep $CONTAINER_NAME
-          echo "✅ ROLLBACK COMPLETE - restored $PREVIOUS"
+          echo "Rollback complete, running $PREVIOUS"
