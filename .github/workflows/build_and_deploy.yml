@@ -149,7 +149,17 @@ jobs:
           sleep 10
           curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
 
-  # 5. Rollback, but only when the web deploy or its smoke test failed.
+  # 5. The smoke test passed, so this is the version to come back to.
+  mark_good:
+    runs-on: mmui
+    needs: smoke_test
+    steps:
+      - name: Tag this image as last-known-good
+        run: |
+          docker tag $IMAGE_NAME:${{ github.ref_name }} $IMAGE_NAME:last-known-good
+          echo "last-known-good now points at ${{ github.ref_name }}"
+
+  # 6. Rollback, but only when the web deploy or its smoke test failed.
   #    Not `if: failure()` on purpose: a failing Android or iOS build
   #    must never revert a healthy web container.
   rollback:
@@ -157,16 +167,14 @@ jobs:
     needs: [deploy_web, smoke_test]
     if: always() && (needs.deploy_web.result == 'failure' || needs.smoke_test.result == 'failure')
     steps:
-      - name: Find previous image and rollback
+      - name: Roll back to the last known good image
         run: |
-          PREVIOUS=$(docker images $IMAGE_NAME --format "{{.Tag}}" | grep -v '<none>' | grep -v "${{ github.ref_name }}" | head -1)
-          if [ -z "$PREVIOUS" ]; then
-            echo "::error::No previous image found - manual intervention required"
+          if ! docker image inspect $IMAGE_NAME:last-known-good > /dev/null 2>&1; then
+            echo "::error::No last-known-good image yet - manual intervention required"
             exit 1
           fi
-          echo "Rolling back to $IMAGE_NAME:$PREVIOUS"
           docker rm -f $CONTAINER_NAME || true
-          docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:$PREVIOUS
+          docker run --name=$CONTAINER_NAME -p $CONTAINER_PORT:80 -d $IMAGE_NAME:last-known-good
           sleep 5
           docker ps | grep $CONTAINER_NAME
-          echo "Rollback complete, running $PREVIOUS"
+          echo "Rollback complete, running last-known-good"
