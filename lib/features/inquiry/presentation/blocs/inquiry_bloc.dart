@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/analytics_service.dart';
+
 import '../../../auth/domain/entities/role.dart';
 import '../../data/repository/inquiry_repository.dart';
 import '../../domain/entities/inquiry.dart';
@@ -224,6 +226,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     emit(InquirySubmitting());
     try {
       await _repository.createInquiry(event.data);
+      Analytics.track(AnalyticsEvents.inquirySubmitted);
       emit(InquirySubmitSuccess('Inquiry submitted successfully'));
     } catch (e) {
       emit(InquiryError(e.toString()));
@@ -349,6 +352,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
       } catch (_) {
         campaignId = await _repository.acceptOffer(event.inquiryId, Role.agency);
       }
+      Analytics.track(AnalyticsEvents.offerAccepted, {'inquiryId': event.inquiryId});
       emit(OfferAccepted(campaignId: campaignId));
     } catch (e) {
       emit(InquiryError(e.toString()));
@@ -366,6 +370,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
       } catch (_) {
         await _repository.rejectOffer(event.inquiryId, event.reason, Role.agency);
       }
+      Analytics.track(AnalyticsEvents.offerRejected, {'inquiryId': event.inquiryId});
       emit(InquiryActionSuccess('Ponuda odbijena'));
     } catch (e) {
       emit(InquiryError(e.toString()));

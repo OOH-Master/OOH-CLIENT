@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/config/api_client.dart';
+import '../core/services/analytics_service.dart';
 import '../features/admin/data/api/admin_config_api_service.dart';
 import '../features/admin/data/api/admin_user_api_service.dart';
 import '../features/admin/data/repository/admin_config_repository.dart';
@@ -43,6 +44,9 @@ final getIt = GetIt.instance;
 Future<void> initDependencies() async {
   // Core
   getIt.registerLazySingleton(() => Logger());
+  getIt.registerLazySingleton<AnalyticsService>(
+      () => LogAnalyticsService(getIt<Logger>()));
+  Analytics.use(getIt<AnalyticsService>());
   final sharedPreferences = await SharedPreferences.getInstance();
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 

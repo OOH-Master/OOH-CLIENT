@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/services/analytics_service.dart';
 import '../../../../core/utils/result.dart';
 import '../../data/api/inventory_api_service.dart';
 import '../../data/dto/dto.dart';
@@ -468,6 +469,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     ));
 
     if (event.city != null) {
+      Analytics.track(AnalyticsEvents.searchCitySelected, {'cityId': event.city!.id});
       add(LoadInventoryUnits(cityId: event.city!.id));
     } else {
       // "All cities" — load all units for the selected country (or all units)
@@ -516,6 +518,7 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     final currentState = state;
     if (currentState is! DiscoverLoaded) return;
 
+    Analytics.track(AnalyticsEvents.searchFiltersApplied);
     final mergedFilters = event.filters.copyWith(
       cityId: currentState.selectedCity?.id,
       countryId: currentState.selectedCountry?.id,
@@ -616,8 +619,10 @@ class DiscoverBloc extends Bloc<DiscoverEvent, DiscoverState> {
     final selected = List<int>.from(currentState.selectedUnitsForInquiry);
     if (selected.contains(event.unitId)) {
       selected.remove(event.unitId);
+      Analytics.track(AnalyticsEvents.unitRemovedFromInquiry, {'unitId': event.unitId});
     } else {
       selected.add(event.unitId);
+      Analytics.track(AnalyticsEvents.unitAddedToInquiry, {'unitId': event.unitId});
     }
     emit(currentState.copyWith(selectedUnitsForInquiry: selected));
   }
