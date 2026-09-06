@@ -139,15 +139,19 @@ jobs:
           sleep 5
           docker ps | grep $CONTAINER_NAME
 
-  # 4. Smoke test from outside: does the site answer over the public URL.
+  # 4. Smoke test from outside: the site answers, and it really serves this build.
   smoke_test:
     runs-on: ubuntu-latest
     needs: deploy_web
     steps:
-      - name: Ping frontend
+      - name: Check the site serves this build
         run: |
           sleep 10
-          curl -fsSL -o /dev/null -w "HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
+          curl -fsSL -o index.html -w "index.html   HTTP %{http_code}\n" https://ooh-ui.appstersolutions.com/
+          grep -q 'flutter_bootstrap.js' index.html
+          curl -fsSL -o main.dart.js -w "main.dart.js HTTP %{http_code}  %{size_download} B\n" https://ooh-ui.appstersolutions.com/main.dart.js
+          grep -qF -- "${{ github.ref_name }}" main.dart.js
+          echo "Site is serving ${{ github.ref_name }}"
 
   # 5. The smoke test passed, so this is the version to come back to.
   mark_good:
