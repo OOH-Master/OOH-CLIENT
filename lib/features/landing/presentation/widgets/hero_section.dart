@@ -185,7 +185,7 @@ class _HeroCopy extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Text(
-              'Više od 300 površina u 70 gradova Srbije, Hrvatske i Bosne i Hercegovine.',
+              'Više od 500 površina u 70 gradova Srbije, Hrvatske i Bosne i Hercegovine.',
               style: AppTypography.bodyMedium.copyWith(color: muted),
             ),
             TextButton(

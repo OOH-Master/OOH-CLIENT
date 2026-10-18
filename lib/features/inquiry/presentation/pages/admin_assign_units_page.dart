@@ -80,6 +80,12 @@ class _AssignUnitsViewState extends State<_AssignUnitsView> {
         _units = units;
         _brief = brief;
         _loading = false;
+        // Brif sa jednim ciljanim gradom: lista kreće od tog grada.
+        final cities = brief?.targetCityNames ?? const <String>[];
+        if (_search.isEmpty && cities.length == 1) {
+          _search = cities.first;
+          _searchController.text = cities.first;
+        }
       });
     } catch (e) {
       if (!mounted) return;
