@@ -1,22 +1,29 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'package:latlong2/latlong.dart';
 
-import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/app_constants.dart';
+import '../../../../core/utils/result.dart';
 import '../../../../core/widgets/auth_guard_dialog.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
+import '../../data/repository/discover_repository.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
 import '../widgets/breadcrumb.dart';
 import '../widgets/image_gallery.dart';
+import '../widgets/unit_card_parts.dart';
+import '../widgets/unit_detail_sections.dart';
+import '../widgets/unit_labels.dart';
 
+/// Detalj oglasne površine: velika fotografija, ispod nje kartice Pregled,
+/// Lokacija, Specifikacije i Cena; desno cena za period zakupa, dostupnost,
+/// "Dodaj u upit", "Pošalji upit" i generalni upit. Na telefonu je sve u
+/// jednoj koloni, istim redom.
 class DiscoverDetailPage extends StatefulWidget {
   final String unitId;
 
@@ -30,12 +37,17 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  AppLocalizations get l10n => AppLocalizations.of(context)!;
+  /// Površina učitana posebno, kada je nema u rezultatima pretrage
+  /// (npr. otvorena iz omiljenih ili preko linka).
+  OohUnit? _fetched;
+  bool _fetching = false;
+  bool _notFound = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureUnit());
   }
 
   @override
@@ -44,749 +56,127 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= Breakpoints.desktop;
-
-    return BlocBuilder<DiscoverBloc, DiscoverState>(
-      builder: (context, state) {
-        OohUnit? unit;
-        String? cityName;
-        if (state is DiscoverLoaded) {
-          unit = state.units.where((u) => u.id == widget.unitId).firstOrNull;
-          cityName = state.selectedCity?.name;
-        }
-
-        if (unit == null) {
-          return Scaffold(
-            appBar: const AppHeader(),
-            body: const Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        return Scaffold(
-          backgroundColor: AppColors.background,
-          appBar: const AppHeader(),
-          body: Column(
-            children: [
-              // Breadcrumb bar
-              _buildBreadcrumbBar(unit, cityName),
-              // Main content
-              Expanded(
-                child: isDesktop
-                    ? _buildDesktopLayout(unit)
-                    : _buildMobileLayout(unit),
-              ),
-            ],
-          ),
-          bottomNavigationBar: !isDesktop ? _buildMobileBottomBar(unit) : null,
-        );
-      },
-    );
-  }
-
-  Widget _buildBreadcrumbBar(OohUnit unit, String? cityName) {
-    final isLoggedIn = context.read<AuthBloc>().state is AuthAuthenticated;
-    final discoverPath = isLoggedIn ? '/app/discover' : '/discover';
-    final homePath = isLoggedIn ? '/app/dashboard' : '/';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, size: 20),
-            onPressed: () => context.pop(),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Nazad',
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Breadcrumb(
-              items: [
-                BreadcrumbItem(
-                  label: 'Pocetna',
-                  onTap: () => context.go(homePath),
-                ),
-                BreadcrumbItem(
-                  label: 'Istrazivanje',
-                  onTap: () => context.go(discoverPath),
-                ),
-                if (cityName != null)
-                  BreadcrumbItem(
-                    label: cityName,
-                    onTap: () => context.go(discoverPath),
-                  ),
-                BreadcrumbItem(label: unit.name),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopLayout(OohUnit unit) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Left side: image gallery + tabs
-        Expanded(
-          flex: 6,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildImageSection(unit, isDesktop: true),
-                const SizedBox(height: 24),
-                _buildTabSection(unit),
-              ],
-            ),
-          ),
-        ),
-        // Right panel: pricing + actions
-        Container(
-          width: 420,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(left: BorderSide(color: AppColors.border)),
-          ),
-          child: _buildDesktopSidePanel(unit),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileLayout(OohUnit unit) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image gallery
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: _buildImageSection(unit, isDesktop: false),
-          ),
-          // Title + price card
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildTitleSection(unit),
-                const SizedBox(height: 12),
-                _buildPriceCard(unit),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-          // Tabbed content
-          _buildTabSection(unit),
-          const SizedBox(height: 100), // Space for bottom bar
-        ],
-      ),
-    );
-  }
-
-  Widget _buildImageSection(OohUnit unit, {required bool isDesktop}) {
-    final images = unit.images.isNotEmpty
-        ? unit.images
-        : (unit.imageUrl != null ? [unit.imageUrl!] : <String>[]);
-
-    return ImageGallery(
-      images: images,
-      placeholderLabel: unit.type.name.toUpperCase(),
-      aspectRatio: isDesktop ? 2.2 : 16 / 9,
-      showThumbnails: isDesktop,
-    );
-  }
-
-  Widget _buildTabSection(OohUnit unit) {
-    return Column(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border(
-              bottom: BorderSide(color: AppColors.border),
-            ),
-          ),
-          child: TabBar(
-            controller: _tabController,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: AppColors.mutedForeground,
-            indicatorColor: AppColors.primary,
-            labelStyle: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w600),
-            unselectedLabelStyle: AppTypography.bodySmall,
-            tabs: const [
-              Tab(text: 'Pregled'),
-              Tab(text: 'Lokacija'),
-              Tab(text: 'Specifikacije'),
-              Tab(text: 'Cena'),
-            ],
-          ),
-        ),
-        // Tab content - using IndexedStack-like approach for non-scrollable tabs
-        AnimatedBuilder(
-          animation: _tabController,
-          builder: (context, _) {
-            return _buildTabContent(unit, _tabController.index);
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTabContent(OohUnit unit, int index) {
-    switch (index) {
-      case 0:
-        return _buildOverviewTab(unit);
-      case 1:
-        return _buildLocationTab(unit);
-      case 2:
-        return _buildSpecificationsTab(unit);
-      case 3:
-        return _buildPricingTab(unit);
-      default:
-        return const SizedBox.shrink();
+  bool get _inApp {
+    try {
+      return GoRouterState.of(context).uri.path.startsWith('/app');
+    } catch (_) {
+      return false;
     }
   }
 
-  // ==================== TAB: Pregled (Overview) ====================
-  Widget _buildOverviewTab(OohUnit unit) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('Naziv', unit.name),
-          if (unit.mediaOwnerName != null)
-            _buildInfoRow('Vlasnik medija', unit.mediaOwnerName!),
-          _buildInfoRow('Tip', unit.type.name.toUpperCase()),
-          if (unit.specifications?['format'] != null)
-            _buildInfoRow('Format', unit.specifications!['format'].toString()),
-          _buildInfoRow('Okruzenje',
-              unit.specifications?['environment']?.toString() ?? '-'),
-          _buildInfoRow('Osvetljenje',
-              unit.specifications?['illumination']?.toString() ?? '-'),
-          const SizedBox(height: 16),
-          Text(
-            'Opis',
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            unit.description ?? _generateDefaultDescription(unit),
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.mutedForeground,
-              height: 1.6,
-            ),
-          ),
-        ],
+  OohUnit? _fromBloc(DiscoverState state) => state is DiscoverLoaded
+      ? state.units.where((u) => u.id == widget.unitId).firstOrNull
+      : null;
+
+  Future<void> _ensureUnit() async {
+    if (!mounted || _fetching || _fetched != null) return;
+    if (_fromBloc(context.read<DiscoverBloc>().state) != null) return;
+    final id = int.tryParse(widget.unitId);
+    if (id == null) {
+      setState(() => _notFound = true);
+      return;
+    }
+    _fetching = true;
+    final repository = context.read<DiscoverRepository>();
+    final result = await repository.getUnitById(id);
+    if (!mounted) return;
+    setState(() {
+      _fetching = false;
+      switch (result) {
+        case Success(data: final unit):
+          _fetched = unit;
+        case Error():
+          _notFound = true;
+      }
+    });
+  }
+
+  String get _discoverPath =>
+      context.read<AuthBloc>().state is AuthAuthenticated
+          ? '/app/discover'
+          : '/discover';
+
+  @override
+  Widget build(BuildContext context) {
+    final inApp = _inApp;
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: inApp ? null : const AppHeader(),
+      body: BlocBuilder<DiscoverBloc, DiscoverState>(
+        builder: (context, state) {
+          final unit = _fromBloc(state) ?? _fetched;
+          if (unit == null) {
+            return _notFound
+                ? _buildNotFound()
+                : const Center(child: CircularProgressIndicator());
+          }
+          final selected = state is DiscoverLoaded
+              ? state.selectedUnitsForInquiry
+              : const <int>[];
+          final inBasket = selected.contains(unit.intId ?? -1);
+          return LayoutBuilder(
+            builder: (context, constraints) => constraints.maxWidth >= 900
+                ? _buildWide(unit, inBasket, constraints.maxWidth)
+                : _buildSingleColumn(unit, inBasket, constraints.maxWidth),
+          );
+        },
       ),
     );
   }
 
-  // ==================== TAB: Lokacija (Location) ====================
-  Widget _buildLocationTab(OohUnit unit) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildInfoRow('Adresa', unit.address),
-          _buildInfoRow('Grad', unit.cityName),
-          const SizedBox(height: 16),
-          // Mini map
-          Container(
-            height: 250,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+  // ==================== RASPORED ====================
+
+  Widget _buildWide(OohUnit unit, bool inBasket, double width) {
+    final pad = width >= 1200 ? 32.0 : 24.0;
+    final sideWidth = (width * 0.3).clamp(330.0, 400.0);
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1240 + pad * 2),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad, 22, pad, 14),
+              child: _buildTopBar(unit),
             ),
-            clipBehavior: Clip.antiAlias,
-            child: FlutterMap(
-              options: MapOptions(
-                initialCenter: LatLng(unit.latitude, unit.longitude),
-                initialZoom: 15.0,
-                interactionOptions: const InteractionOptions(
-                  flags: InteractiveFlag.none,
-                ),
-              ),
-              children: [
-                TileLayer(
-                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.ooh.mobile',
-                ),
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: LatLng(unit.latitude, unit.longitude),
-                      width: 40,
-                      height: 40,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 6,
-                            ),
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.fromLTRB(pad, 4, 12, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildGallery(unit),
+                          const SizedBox(height: 20),
+                          _buildTabs(unit, wide: true),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    width: sideWidth + 12 + pad,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(context)
+                          .copyWith(scrollbars: false),
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(12, 4, pad, 32),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _buildPriceCard(unit, inBasket),
+                            const SizedBox(height: 16),
+                            GeneralInquiryBox(onPressed: _handleGeneralInquiry),
                           ],
                         ),
-                        child: const Icon(
-                          Icons.location_on,
-                          color: Colors.white,
-                          size: 20,
-                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Koordinate: ${unit.latitude.toStringAsFixed(5)}, ${unit.longitude.toStringAsFixed(5)}',
-            style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== TAB: Specifikacije ====================
-  Widget _buildSpecificationsTab(OohUnit unit) {
-    final specs = unit.specifications ?? {};
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (specs['dimensions'] != null)
-            _buildInfoRow('Dimenzije', specs['dimensions'].toString()),
-          if (specs['resolution'] != null || specs['pixelWidth'] != null)
-            _buildInfoRow(
-              'Rezolucija',
-              specs['resolution']?.toString() ??
-                  '${specs['pixelWidth'] ?? '-'}x${specs['pixelHeight'] ?? '-'}',
-            ),
-          if (specs['faces'] != null)
-            _buildInfoRow('Broj strana', specs['faces'].toString()),
-          if (specs['facingDirection'] != null)
-            _buildInfoRow('Smer', specs['facingDirection'].toString()),
-          if (specs['illumination'] != null)
-            _buildInfoRow('Osvetljenje', specs['illumination'].toString()),
-          if (specs['format'] != null)
-            _buildInfoRow('Format', specs['format'].toString()),
-          if (specs['venueType'] != null)
-            _buildInfoRow('Tip lokacije', specs['venueType'].toString()),
-          if (specs.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    Icon(Icons.info_outline, size: 48, color: AppColors.mutedForeground),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Specifikacije nisu dostupne',
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: AppColors.mutedForeground,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== TAB: Cena (Pricing) ====================
-  Widget _buildPricingTab(OohUnit unit) {
-    final formatter = NumberFormat('#,###', 'en_US');
-    final specs = unit.specifications ?? {};
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildPriceCard(unit),
-          const SizedBox(height: 16),
-          if (specs['productionCost'] != null)
-            _buildInfoRow(
-              'Troskovi produkcije',
-              '${unit.currency} ${formatter.format((specs['productionCost'] as num).round())}',
-            ),
-          if (specs['cpm'] != null)
-            _buildInfoRow(
-              'CPM',
-              '${unit.currency} ${(specs['cpm'] as num).toStringAsFixed(2)}',
-            ),
-          if (specs['impressions'] != null)
-            _buildInfoRow(
-              'Impresije',
-              formatter.format(specs['impressions'] as int),
-            ),
-        ],
-      ),
-    );
-  }
-
-  // ==================== SHARED WIDGETS ====================
-
-  Widget _buildTitleSection(OohUnit unit) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Type badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            unit.type.name.toUpperCase(),
-            style: AppTypography.labelSmall.copyWith(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          unit.name,
-          style: AppTypography.h3.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.foreground,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Icon(Icons.location_on, size: 16, color: AppColors.mutedForeground),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Text(
-                '${unit.address}, ${unit.cityName}',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.mutedForeground,
-                ),
-              ),
-            ),
-          ],
-        ),
-        if (unit.mediaOwnerName != null) ...[
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Icon(Icons.business, size: 16, color: AppColors.primary),
-              const SizedBox(width: 4),
-              Text(
-                unit.mediaOwnerName!,
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-        const SizedBox(height: 8),
-        // Availability badge
-        Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: unit.isAvailable ? AppColors.success : AppColors.destructive,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              unit.isAvailable ? 'Dostupno' : 'Zauzeto',
-              style: AppTypography.bodySmall.copyWith(
-                color: unit.isAvailable ? AppColors.success : AppColors.destructive,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPriceCard(OohUnit unit) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.advertisingPeriod,
-            style: AppTypography.labelSmall.copyWith(color: AppColors.mutedForeground),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _getCycleDisplayLocalized(unit.cycleType),
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w500,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            unit.priceDisplay,
-            style: AppTypography.h3.copyWith(
-              fontWeight: FontWeight.bold,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopSidePanel(OohUnit unit) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildTitleSection(unit),
-          const SizedBox(height: 20),
-          _buildPriceCard(unit),
-          const SizedBox(height: 20),
-          // Updated date
-          _buildUpdatedDate(unit),
-          const Divider(height: 40),
-          // Actions
-          _buildDesktopActions(unit),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTypography.bodySmall.copyWith(
-                fontWeight: FontWeight.w500,
-                color: AppColors.foreground,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUpdatedDate(OohUnit unit) {
-    final dateFormat = DateFormat('yyyy-MM-dd');
-    final date = unit.availableFrom ?? DateTime.now();
-
-    return Row(
-      children: [
-        Text(
-          l10n.updated,
-          style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          dateFormat.format(date),
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.foreground,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDesktopActions(OohUnit unit) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton.icon(
-            onPressed: _handleStartInquiry,
-            icon: const Icon(Icons.send, size: 18),
-            label: const Text('Posalji upit'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: OutlinedButton.icon(
-            onPressed: () => _handleAddToInquiry(unit),
-            icon: Icon(Icons.add_shopping_cart, size: 18, color: AppColors.primary),
-            label: Text('Dodaj u upit', style: TextStyle(color: AppColors.primary)),
-            style: OutlinedButton.styleFrom(
-              side: BorderSide(color: AppColors.primary),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        // General inquiry CTA
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.muted,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.support_agent, size: 20, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Treba vam pomoc?',
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Opisite vasu kampanju i nasi eksperti ce vam predloziti najbolje lokacije.',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.mutedForeground,
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton.icon(
-                  onPressed: _handleGeneralInquiry,
-                  icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
-                  label: Text(
-                    'Posalji generalni upit',
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  style: TextButton.styleFrom(
-                    backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _handleShare,
-            icon: Icon(Icons.share_outlined, size: 16, color: AppColors.foreground),
-            label: Text(
-              l10n.share,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.foreground),
-            ),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              side: BorderSide(color: AppColors.border),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileBottomBar(OohUnit unit) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.border)),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _handleAddToInquiry(unit),
-                icon: Icon(Icons.add_shopping_cart, size: 16, color: AppColors.primary),
-                label: Text(
-                  'Dodaj u upit',
-                  style: AppTypography.bodySmall.copyWith(color: AppColors.primary),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: AppColors.primary),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _handleStartInquiry,
-                icon: const Icon(Icons.send, size: 16),
-                label: const Text('Posalji upit'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
             ),
           ],
         ),
@@ -794,67 +184,254 @@ class _DiscoverDetailPageState extends State<DiscoverDetailPage>
     );
   }
 
-  String _getCycleDisplayLocalized(CycleType cycle) {
-    switch (cycle) {
-      case CycleType.oneDay:
-        return l10n.day;
-      case CycleType.oneWeek:
-        return l10n.week;
-      case CycleType.twoWeek:
-        return l10n.twoWeeks;
-      case CycleType.fourWeek:
-        return l10n.fourWeeks;
-      case CycleType.oneMonth:
-        return '1 ${l10n.month}';
-    }
-  }
-
-  String _generateDefaultDescription(OohUnit unit) {
-    return '${unit.name} je ${unit.type.name} oglasni prostor koji se nalazi '
-        'na adresi ${unit.address}. '
-        'Lociran u ${unit.cityName}, pruza odlicnu vidljivost '
-        'sa glavnih saobracajnih ruta i pesackih zona.';
-  }
-
-  void _handleShare() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.comingSoon)),
+  Widget _buildSingleColumn(OohUnit unit, bool inBasket, double width) {
+    final pad = width >= 600 ? 24.0 : 16.0;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(pad, 14, pad, 28),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 760),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildTopBar(unit),
+              const SizedBox(height: 14),
+              _buildGallery(unit),
+              const SizedBox(height: 16),
+              // u jednoj koloni cena i dugmad idu odmah posle fotografije, kao
+              // desna kolona na širokom ekranu
+              _buildPriceCard(unit, inBasket),
+              const SizedBox(height: 16),
+              _buildTabs(unit, wide: false),
+              const SizedBox(height: 16),
+              GeneralInquiryBox(onPressed: _handleGeneralInquiry),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  void _handleGeneralInquiry() {
+  // ==================== DELOVI ====================
+
+  Widget _buildTopBar(OohUnit unit) {
+    return Row(
+      children: [
+        _SquareIconButton(
+          icon: Icons.arrow_back_rounded,
+          tooltip: 'Nazad',
+          onTap: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(_discoverPath);
+            }
+          },
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Breadcrumb(
+            items: [
+              BreadcrumbItem(
+                label: 'Istraži',
+                onTap: () => context.go(_discoverPath),
+              ),
+              if (unit.cityLabel.isNotEmpty)
+                BreadcrumbItem(
+                  label: unit.cityLabel,
+                  onTap: () => context.go(_discoverPath),
+                ),
+              BreadcrumbItem(label: unit.title),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        UnitFavoriteButton(unit: unit, onSurface: true, size: 38),
+        const SizedBox(width: 8),
+        _SquareIconButton(
+          icon: Icons.ios_share_rounded,
+          tooltip: 'Podeli',
+          onTap: () => _handleShare(unit),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGallery(OohUnit unit) {
+    final images = unit.images.isNotEmpty
+        ? unit.images
+        : (unit.imageUrl != null ? [unit.imageUrl!] : <String>[]);
+    return ImageGallery(
+      images: images,
+      aspectRatio: 16 / 9,
+      radius: AppRadius.card,
+      digital: unit.isDigitalUnit,
+      showThumbnails: true,
+      topLeft: UnitTypeBadge(unit: unit),
+    );
+  }
+
+  Widget _buildTabs(OohUnit unit, {required bool wide}) {
+    return DecoratedBox(
+      decoration: AppDecorations.card(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: wide ? 12 : 4),
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+              tabs: const [
+                Tab(text: 'Pregled'),
+                Tab(text: 'Lokacija'),
+                Tab(text: 'Specifikacije'),
+                Tab(text: 'Cena'),
+              ],
+            ),
+          ),
+          AnimatedBuilder(
+            animation: _tabController,
+            builder: (context, _) {
+              final index = _tabController.index;
+              final Widget content = switch (index) {
+                0 => UnitOverviewTab(unit: unit),
+                1 => UnitLocationTab(unit: unit, wide: wide),
+                2 => UnitSpecsTab(unit: unit, wide: wide),
+                _ => UnitPricingTab(unit: unit),
+              };
+              return Padding(
+                padding: EdgeInsets.all(wide ? 24 : 16),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  layoutBuilder: (current, previous) => Stack(
+                    alignment: Alignment.topLeft,
+                    children: [...previous, if (current != null) current],
+                  ),
+                  child: KeyedSubtree(key: ValueKey(index), child: content),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPriceCard(OohUnit unit, bool inBasket) {
+    return UnitPriceCard(
+      unit: unit,
+      inBasket: inBasket,
+      onToggleInquiry: () => _handleToggleInquiry(unit, inBasket),
+      onSendInquiry: _handleStartInquiry,
+    );
+  }
+
+  Widget _buildNotFound() {
+    return EmptyState(
+      icon: Icons.search_off_rounded,
+      title: 'Površina nije pronađena',
+      message: 'Možda je uklonjena iz ponude.',
+      action: FilledButton.icon(
+        onPressed: () => context.go(_discoverPath),
+        icon: const Icon(Icons.travel_explore_rounded, size: 18),
+        label: const Text('Nazad na pretragu'),
+      ),
+    );
+  }
+
+  // ==================== AKCIJE ====================
+
+  bool _requireAuth() {
     final authState = context.read<AuthBloc>().state;
     if (authState is! AuthAuthenticated) {
       AuthGuardDialog.show(context);
-      return;
+      return false;
     }
+    return true;
+  }
+
+  Future<void> _handleShare(OohUnit unit) async {
+    final text = kIsWeb
+        ? Uri.base.toString()
+        : '${unit.title}, ${unit.cityAndCountry}, ${unit.priceDisplay}';
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(kIsWeb
+            ? 'Link ka površini je kopiran'
+            : 'Podaci o površini su kopirani'),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+
+  void _handleGeneralInquiry() {
+    if (!_requireAuth()) return;
     context.push('/app/inquiries/create');
   }
 
   void _handleStartInquiry() {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) {
-      AuthGuardDialog.show(context);
-      return;
-    }
+    if (!_requireAuth()) return;
     context.push('/app/inquiries/create?unitIds=${widget.unitId}');
   }
 
-  void _handleAddToInquiry(OohUnit unit) {
-    final authState = context.read<AuthBloc>().state;
-    if (authState is! AuthAuthenticated) {
-      AuthGuardDialog.show(context);
+  void _handleToggleInquiry(OohUnit unit, bool inBasket) {
+    if (!_requireAuth()) return;
+    final id = unit.intId;
+    if (id == null) return;
+    final bloc = context.read<DiscoverBloc>();
+    // Bez učitane pretrage nema izbora više površina; upit ide za ovu površinu.
+    if (bloc.state is! DiscoverLoaded) {
+      _handleStartInquiry();
       return;
     }
-    final unitIdInt = int.tryParse(unit.id);
-    if (unitIdInt != null) {
-      context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${unit.name} dodat u upit'),
-          duration: const Duration(seconds: 2),
+    bloc.add(ToggleUnitSelection(id));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(inBasket
+            ? '${unit.title}: uklonjeno iz upita'
+            : '${unit.title}: dodato u upit'),
+        duration: const Duration(seconds: 2),
+      ));
+  }
+}
+
+class _SquareIconButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _SquareIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: AppColors.border),
         ),
-      );
-    }
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: SizedBox(
+            width: 38,
+            height: 38,
+            child: Icon(icon, size: 19, color: AppColors.text2),
+          ),
+        ),
+      ),
+    );
   }
 }

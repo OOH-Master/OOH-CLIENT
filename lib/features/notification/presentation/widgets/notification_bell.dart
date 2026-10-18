@@ -10,7 +10,10 @@ import '../blocs/notification_bloc.dart';
 import 'notification_tile.dart';
 
 class NotificationBell extends StatefulWidget {
-  const NotificationBell({super.key});
+  /// Boja ikonice; na tamnom meniju se prosleđuje svetla.
+  final Color? iconColor;
+
+  const NotificationBell({super.key, this.iconColor});
 
   @override
   State<NotificationBell> createState() => _NotificationBellState();
@@ -82,12 +85,12 @@ class _NotificationBellState extends State<NotificationBell> {
             backgroundColor: AppColors.destructive,
             child: Icon(
               Icons.notifications_outlined,
-              color: AppColors.foreground,
+              color: widget.iconColor ?? AppColors.foreground,
               size: 22,
             ),
           ),
           onPressed: () => _showDropdown(context),
-          tooltip: 'Obavestenja',
+          tooltip: 'Obaveštenja',
         );
       },
     );
@@ -124,12 +127,12 @@ class _NotificationDropdown extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Obavestenja', style: AppTypography.h6),
+                    Text('Obaveštenja', style: AppTypography.h6),
                     TextButton(
                       onPressed: onMarkAllRead,
                       style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
                       child: Text(
-                        'Oznaci sve kao procitano',
+                        'Označi sve kao pročitano',
                         style: AppTypography.caption.copyWith(color: AppColors.primary),
                       ),
                     ),
@@ -148,7 +151,7 @@ class _NotificationDropdown extends StatelessWidget {
                   padding: const EdgeInsets.all(AppSpacing.lg),
                   child: Center(
                     child: Text(
-                      'Nema obavestenja',
+                      'Nema obaveštenja',
                       style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
                     ),
                   ),

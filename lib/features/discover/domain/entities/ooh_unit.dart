@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
-import 'package:intl/intl.dart';
+
+import '../../../../core/utils/sr_format.dart';
 
 enum OohType { billboard, digital, subway, airport, bus, other }
 
@@ -28,6 +29,29 @@ class OohUnit extends Equatable {
   final String? mediaOwnerName;
   final bool favorited;
 
+  // Podaci za bogatiji prikaz površine; svi su opcioni, pa postojeći pozivi rade.
+  /// Šifra površine kod vlasnika (vendorInventoryId), npr. "LiD95".
+  final String? code;
+  final String? countryName;
+
+  /// Tip iz rečnika: "Static", "Digital (moving image)"...
+  final String? unitTypeName;
+
+  /// Format iz rečnika ("CLP", "Billboard"), a kada ga nema naziv vlasnika.
+  final String? mediaFormatName;
+
+  /// Naziv formata kako ga vodi vlasnik ("megaboard", "Digital Citylight").
+  final String? vendorFormatName;
+  final String? venueTypeName;
+  final String? environment;
+  final String? illumination;
+  final double? physicalWidth;
+  final double? physicalHeight;
+  final String? sizeUnit;
+  final int? pixelWidth;
+  final int? pixelHeight;
+  final int? impressions;
+
   const OohUnit({
     required this.id,
     required this.name,
@@ -48,47 +72,31 @@ class OohUnit extends Equatable {
     this.specifications,
     this.mediaOwnerName,
     this.favorited = false,
+    this.code,
+    this.countryName,
+    this.unitTypeName,
+    this.mediaFormatName,
+    this.vendorFormatName,
+    this.venueTypeName,
+    this.environment,
+    this.illumination,
+    this.physicalWidth,
+    this.physicalHeight,
+    this.sizeUnit,
+    this.pixelWidth,
+    this.pixelHeight,
+    this.impressions,
   });
 
   bool get isAvailable => status == OohStatus.available;
 
-  String get priceDisplay {
-    final symbol = _getCurrencySymbol(currency);
-    final cycle = _getCycleDisplay(cycleType);
-    final formatter = NumberFormat('#,###', 'en_US');
-    final formattedPrice = formatter.format(price.round());
-    return '$symbol$formattedPrice/$cycle';
-  }
+  /// Cena je poznata (uvoz bez cene daje 0).
+  bool get hasPrice => price > 0;
 
-  static String _getCurrencySymbol(String currency) {
-    switch (currency.toUpperCase()) {
-      case 'USD':
-        return '\$';
-      case 'EUR':
-        return '€';
-      case 'GBP':
-        return '£';
-      case 'RSD':
-        return 'RSD ';
-      default:
-        return '$currency ';
-    }
-  }
-
-  static String _getCycleDisplay(CycleType cycle) {
-    switch (cycle) {
-      case CycleType.oneDay:
-        return 'day';
-      case CycleType.oneWeek:
-        return 'week';
-      case CycleType.twoWeek:
-        return '2 weeks';
-      case CycleType.fourWeek:
-        return '4 weeks';
-      case CycleType.oneMonth:
-        return 'month';
-    }
-  }
+  /// "180 € / 4 nedelje"; bez cene "Cena na upit".
+  String get priceDisplay => hasPrice
+      ? SrFormat.priceWithCycle(price, currency, cycleType.name)
+      : 'Cena na upit';
 
   factory OohUnit.fromJson(Map<String, dynamic> json) {
     return OohUnit(
@@ -113,6 +121,20 @@ class OohUnit extends Equatable {
       specifications: json['specifications'] as Map<String, dynamic>?,
       mediaOwnerName: json['mediaOwnerName'] as String?,
       favorited: json['favorited'] as bool? ?? false,
+      code: json['code'] as String?,
+      countryName: json['countryName'] as String?,
+      unitTypeName: json['unitTypeName'] as String?,
+      mediaFormatName: json['mediaFormatName'] as String?,
+      vendorFormatName: json['vendorFormatName'] as String?,
+      venueTypeName: json['venueTypeName'] as String?,
+      environment: json['environment'] as String?,
+      illumination: json['illumination'] as String?,
+      physicalWidth: (json['physicalWidth'] as num?)?.toDouble(),
+      physicalHeight: (json['physicalHeight'] as num?)?.toDouble(),
+      sizeUnit: json['sizeUnit'] as String?,
+      pixelWidth: (json['pixelWidth'] as num?)?.toInt(),
+      pixelHeight: (json['pixelHeight'] as num?)?.toInt(),
+      impressions: (json['impressions'] as num?)?.toInt(),
     );
   }
 
@@ -188,6 +210,19 @@ class OohUnit extends Equatable {
         specifications,
         mediaOwnerName,
         favorited,
+        code,
+        countryName,
+        unitTypeName,
+        mediaFormatName,
+        vendorFormatName,
+        venueTypeName,
+        environment,
+        illumination,
+        physicalWidth,
+        physicalHeight,
+        sizeUnit,
+        pixelWidth,
+        pixelHeight,
+        impressions,
       ];
 }
-

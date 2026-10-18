@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/spacing.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/widgets/app_text_field.dart';
-import '../../../../core/widgets/main_app_bar.dart';
 import '../../domain/entities/role.dart';
 import '../blocs/auth_bloc.dart';
+import '../widgets/auth_shell.dart';
 import '../widgets/role_selector_card.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -25,13 +22,12 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
   final _orgFormKey = GlobalKey<FormState>();
-  final _pageController = PageController();
   int _currentStep = 0;
 
-  // Step 1: Role
+  // Korak 1: uloga
   Role _selectedRole = Role.brand;
 
-  // Step 2: Account
+  // Korak 2: nalog
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -39,7 +35,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // Step 3: Organization
+  // Korak 3: organizacija
   final _companyNameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _countryController = TextEditingController();
@@ -50,7 +46,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   void dispose() {
-    _pageController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
@@ -77,7 +72,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Color _strengthColor(double strength) {
     if (strength < 0.3) return AppColors.destructive;
-    if (strength < 0.6) return AppColors.warning;
+    if (strength < 0.6) return AppColors.primary;
     return AppColors.success;
   }
 
@@ -93,503 +88,337 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     if (_currentStep < 2) {
       setState(() => _currentStep++);
-      _pageController.animateToPage(
-        _currentStep,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
     }
   }
 
   void _prevStep() {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
-      _pageController.animateToPage(
-        _currentStep,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
     }
   }
 
   void _onRegisterPressed() {
     if (!_orgFormKey.currentState!.validate()) return;
     context.read<AuthBloc>().add(
-      RegisterSubmitted(
-        name: _usernameController.text.trim(),
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-        role: _selectedRole,
-        firstName: _firstNameController.text.trim(),
-        lastName: _lastNameController.text.trim(),
-        companyName: _companyNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        country: _countryController.text.trim(),
-        city: _cityController.text.trim(),
-      ),
-    );
+          RegisterSubmitted(
+            name: _usernameController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text,
+            role: _selectedRole,
+            firstName: _firstNameController.text.trim(),
+            lastName: _lastNameController.text.trim(),
+            companyName: _companyNameController.text.trim(),
+            phone: _phoneController.text.trim(),
+            country: _countryController.text.trim(),
+            city: _cityController.text.trim(),
+          ),
+        );
+  }
+
+  void _leave() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= Breakpoints.desktop;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: MainAppBar(showBackButton: true, showLoginButton: false),
-      body: BlocListener<AuthBloc, AuthState>(
-        listener: (context, state) {
-          if (state is AuthFailure) {
-            AppSnackbar.show(context, state.message, isError: true);
-          }
-        },
-        child: isDesktop
-            ? _buildDesktopLayout(l10n)
-            : _buildMobileLayout(l10n),
-      ),
-    );
-  }
+    final Widget step = switch (_currentStep) {
+      0 => _buildStep1RoleSelection(),
+      1 => _buildStep2AccountDetails(l10n),
+      _ => _buildStep3Organization(l10n),
+    };
 
-  Widget _buildDesktopLayout(AppLocalizations l10n) {
-    return Row(
-      children: [
-        // Left panel — branding
-        Expanded(
-          flex: 4,
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppColors.primary,
-                  AppColors.primary.withValues(alpha: 0.85),
-                  const Color(0xFF4338CA),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthFailure) {
+          AppSnackbar.show(context, state.message, isError: true);
+        }
+      },
+      child: AuthShell(
+        art: AuthArt.citylight,
+        onBack: _leave,
+        maxFormWidth: 480,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AuthHeading(
+              title: l10n.authRegisterTitle,
+              below: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Već imate nalog?',
+                    style: AppTypography.bodyMedium
+                        .copyWith(color: AppColors.mutedForeground),
+                  ),
+                  TextButton(
+                    onPressed: () => context.go('/auth/login'),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 32),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(
+                      'Prijavite se',
+                      style: AppTypography.labelMedium.copyWith(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.all(48),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Icon(Icons.apartment, color: Colors.white, size: 36),
-                    ),
-                    const SizedBox(height: 32),
-                    Text(
-                      'Kreirajte nalog',
-                      style: AppTypography.displaySmall.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Pridružite se vodećoj platformi za\noutdoor oglašavanje u regionu.',
-                      style: AppTypography.lead.copyWith(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        height: 1.6,
-                      ),
-                    ),
-                    const SizedBox(height: 48),
-                    // Step indicator on left panel
-                    ...List.generate(3, (i) {
-                      final isActive = i <= _currentStep;
-                      final isComplete = i < _currentStep;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        child: Row(
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 300),
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isComplete
-                                    ? Colors.white.withValues(alpha: 0.25)
-                                    : isActive
-                                        ? Colors.white.withValues(alpha: 0.15)
-                                        : Colors.white.withValues(alpha: 0.08),
-                                border: Border.all(
-                                  color: isActive
-                                      ? Colors.white.withValues(alpha: 0.5)
-                                      : Colors.white.withValues(alpha: 0.2),
-                                ),
-                              ),
-                              child: Center(
-                                child: isComplete
-                                    ? const Icon(Icons.check, color: Colors.white, size: 18)
-                                    : Text(
-                                        '${i + 1}',
-                                        style: AppTypography.bodyMedium.copyWith(
-                                          color: isActive
-                                              ? Colors.white
-                                              : Colors.white.withValues(alpha: 0.5),
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Text(
-                              _stepLabels[i],
-                              style: AppTypography.bodyLarge.copyWith(
-                                color: isActive
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.5),
-                                fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
+            const SizedBox(height: 24),
+            _StepIndicator(current: _currentStep, labels: _stepLabels),
+            const SizedBox(height: 28),
+            // Samo trenutni korak je u stablu, pa se ključevi formi ne ponavljaju.
+            KeyedSubtree(
+              key: ValueKey(_currentStep),
+              child: step
+                  .animate()
+                  .fadeIn(duration: 220.ms)
+                  .slideX(begin: 0.03, curve: Curves.easeOut),
             ),
-          ),
-        ),
-        // Right panel — form
-        Expanded(
-          flex: 5,
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(48),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 520),
-                child: _buildFormContent(l10n),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileLayout(AppLocalizations l10n) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          stops: const [0.0, 0.2, 1.0],
-          colors: [
-            AppColors.primary.withValues(alpha: 0.06),
-            AppColors.background,
-            AppColors.background,
+            const SizedBox(height: 28),
+            _buildNavigationButtons(l10n),
           ],
         ),
       ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(Spacing.lg),
-        child: _buildFormContent(l10n),
-      ),
     );
   }
 
-  Widget _buildFormContent(AppLocalizations l10n) {
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            l10n.authRegisterTitle,
-            style: AppTypography.h3.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: Spacing.md),
-          // Mobile step indicator
-          _buildProgressIndicator(),
-          const SizedBox(height: Spacing.lg),
-          // Steps content
-          SizedBox(
-            height: _currentStep == 0 ? 380 : 420,
-            child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _buildStep1RoleSelection(),
-                _buildStep2AccountDetails(l10n),
-                _buildStep3Organization(l10n),
-              ],
-            ),
-          ),
-          const SizedBox(height: Spacing.md),
-          _buildNavigationButtons(l10n),
-        ],
-      ),
-    ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.05);
-  }
-
-  Widget _buildProgressIndicator() {
-    return Row(
-      children: List.generate(_stepLabels.length, (index) {
-        final isActive = index <= _currentStep;
-        final isComplete = index < _currentStep;
-        return Expanded(
-          child: Row(
-            children: [
-              if (index > 0)
-                Expanded(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    height: 2,
-                    color: isActive ? AppColors.primary : AppColors.border,
-                  ),
-                ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: isActive ? AppColors.primary : AppColors.muted,
-                  border: Border.all(
-                    color: isActive ? AppColors.primary : AppColors.border,
-                    width: isActive ? 2 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: isComplete
-                      ? const Icon(Icons.check, size: 16, color: Colors.white)
-                      : Text(
-                          '${index + 1}',
-                          style: AppTypography.labelMedium.copyWith(
-                            color: isActive ? Colors.white : AppColors.mutedForeground,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
-              ),
-              if (index < _stepLabels.length - 1)
-                Expanded(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    height: 2,
-                    color: index < _currentStep ? AppColors.primary : AppColors.border,
-                  ),
-                ),
-            ],
-          ),
-        );
-      }),
+  Widget _stepTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Text(title, style: AppTypography.h5),
     );
   }
 
   Widget _buildStep1RoleSelection() {
-    return SingleChildScrollView(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _stepTitle('Ko ste vi na platformi?'),
+        for (final role in _availableRoles)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: RoleSelectorCard(
+              role: role,
+              isSelected: _selectedRole == role,
+              onTap: () => setState(() => _selectedRole = role),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _field({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+    String? hint,
+    TextInputType? keyboardType,
+    bool obscure = false,
+    Widget? suffix,
+    Iterable<String>? autofill,
+    String? Function(String?)? validator,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Izaberite tip naloga',
-            style: AppTypography.h5.copyWith(fontWeight: FontWeight.w600),
+          AuthFieldLabel(label),
+          TextFormField(
+            controller: controller,
+            keyboardType: keyboardType,
+            obscureText: obscure,
+            textInputAction: TextInputAction.next,
+            autofillHints: autofill,
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixIcon: Icon(icon, size: 20),
+              suffixIcon: suffix,
+            ),
+            validator: validator,
           ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            'Odaberite ulogu koja najbolje opisuje vasu delatnost.',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          ...List.generate(_availableRoles.length, (index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-              child: RoleSelectorCard(
-                role: _availableRoles[index],
-                isSelected: _selectedRole == _availableRoles[index],
-                onTap: () => setState(() => _selectedRole = _availableRoles[index]),
-              ),
-            ).animate().fadeIn(duration: 300.ms, delay: (index * 80).ms).slideX(begin: 0.05);
-          }),
         ],
       ),
     );
   }
 
-  Widget _buildStep2AccountDetails(AppLocalizations l10n) {
-    return SingleChildScrollView(
-      child: Form(
-        key: _formKey,
-        child: Column(
+  /// Dva polja jedno pored drugog kada ima mesta, inače jedno ispod drugog.
+  Widget _pair(Widget a, Widget b) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 360) {
+          return Column(children: [a, b]);
+        }
+        return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Podaci o nalogu',
-              style: AppTypography.h5.copyWith(fontWeight: FontWeight.w600),
+            Expanded(child: a),
+            const SizedBox(width: 12),
+            Expanded(child: b),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildStep2AccountDetails(AppLocalizations l10n) {
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _stepTitle('Podaci o nalogu'),
+          _pair(
+            _field(
+              label: 'Ime',
+              controller: _firstNameController,
+              icon: Icons.badge_outlined,
+              autofill: const [AutofillHints.givenName],
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? l10n.validatorRequired : null,
             ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              'Unesite osnovne podatke za kreiranje naloga.',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+            _field(
+              label: 'Prezime',
+              controller: _lastNameController,
+              icon: Icons.badge_outlined,
+              autofill: const [AutofillHints.familyName],
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? l10n.validatorRequired : null,
             ),
-            const SizedBox(height: AppSpacing.md),
-            Row(
-              children: [
-                Expanded(
-                  child: AppTextField(
-                    label: 'Ime',
-                    controller: _firstNameController,
-                    prefixIcon: Icons.person_outline,
-                    validator: (v) => (v == null || v.isEmpty) ? l10n.validatorRequired : null,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: AppTextField(
-                    label: 'Prezime',
-                    controller: _lastNameController,
-                    prefixIcon: Icons.person_outline,
-                    validator: (v) => (v == null || v.isEmpty) ? l10n.validatorRequired : null,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              label: l10n.emailLabel,
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              prefixIcon: Icons.email_outlined,
-              validator: (v) {
-                if (v == null || v.isEmpty) return l10n.validatorEmailRequired;
-                if (!v.contains('@')) return l10n.validatorEmailInvalid;
-                return null;
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              label: l10n.usernameLabel,
-              controller: _usernameController,
-              prefixIcon: Icons.alternate_email,
-              validator: (v) => (v == null || v.isEmpty) ? l10n.validatorRequired : null,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              label: l10n.passwordLabel,
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              prefixIcon: Icons.lock_outline,
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                  size: 20,
-                  color: AppColors.mutedForeground,
-                ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+          ),
+          _field(
+            label: l10n.emailLabel,
+            controller: _emailController,
+            icon: Icons.email_outlined,
+            hint: 'ime@kompanija.rs',
+            keyboardType: TextInputType.emailAddress,
+            autofill: const [AutofillHints.email],
+            validator: (v) {
+              if (v == null || v.isEmpty) return l10n.validatorEmailRequired;
+              if (!v.contains('@')) return l10n.validatorEmailInvalid;
+              return null;
+            },
+          ),
+          _field(
+            label: l10n.usernameLabel,
+            controller: _usernameController,
+            icon: Icons.alternate_email_rounded,
+            hint: 'koristi se za prijavu',
+            autofill: const [AutofillHints.newUsername],
+            validator: (v) =>
+                (v == null || v.isEmpty) ? l10n.validatorRequired : null,
+          ),
+          _field(
+            label: l10n.passwordLabel,
+            controller: _passwordController,
+            icon: Icons.lock_outline_rounded,
+            obscure: _obscurePassword,
+            autofill: const [AutofillHints.newPassword],
+            suffix: IconButton(
+              tooltip: _obscurePassword ? 'Prikaži lozinku' : 'Sakrij lozinku',
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
+                size: 20,
               ),
-              validator: (v) {
-                if (v == null || v.isEmpty) return l10n.validatorPasswordRequired;
-                if (v.length < 6) return l10n.validatorPasswordMin;
-                return null;
-              },
+              onPressed: () =>
+                  setState(() => _obscurePassword = !_obscurePassword),
             ),
-            const SizedBox(height: AppSpacing.xs),
-            // Password strength indicator
-            ValueListenableBuilder(
-              valueListenable: _passwordController,
-              builder: (_, value, ___) {
-                final password = value.text;
-                if (password.isEmpty) return const SizedBox.shrink();
-                final strength = _calcPasswordStrength(password);
-                final color = _strengthColor(strength);
-                final label = _strengthLabel(strength);
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppRadius.xs),
+            validator: (v) {
+              if (v == null || v.isEmpty) return l10n.validatorPasswordRequired;
+              if (v.length < 6) return l10n.validatorPasswordMin;
+              return null;
+            },
+          ),
+          ValueListenableBuilder(
+            valueListenable: _passwordController,
+            builder: (_, value, __) {
+              final password = value.text;
+              if (password.isEmpty) return const SizedBox.shrink();
+              final strength = _calcPasswordStrength(password);
+              final color = _strengthColor(strength);
+              return Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
                       child: LinearProgressIndicator(
                         value: strength,
-                        backgroundColor: AppColors.border,
+                        backgroundColor: AppColors.surfaceSunken,
                         color: color,
-                        minHeight: 4,
+                        minHeight: 5,
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      'Jacina lozinke: $label',
-                      style: AppTypography.caption.copyWith(color: color),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Jačina lozinke: ${_strengthLabel(strength)}',
+                    style: AppTypography.caption
+                        .copyWith(color: color, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildStep3Organization(AppLocalizations l10n) {
-    return SingleChildScrollView(
-      child: Form(
-        key: _orgFormKey,
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Form(
+      key: _orgFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Podaci o organizaciji',
-            style: AppTypography.h5.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            'Unesite podatke o vasoj kompaniji ili organizaciji.',
-            style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          AppTextField(
+          _stepTitle('Podaci o organizaciji'),
+          _field(
             label: 'Naziv kompanije',
             controller: _companyNameController,
-            prefixIcon: Icons.business_outlined,
-            validator: (v) => (v == null || v.isEmpty) ? l10n.validatorRequired : null,
+            icon: Icons.business_outlined,
+            autofill: const [AutofillHints.organizationName],
+            validator: (v) =>
+                (v == null || v.isEmpty) ? l10n.validatorRequired : null,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
+          _field(
             label: 'Telefon',
             controller: _phoneController,
+            icon: Icons.phone_outlined,
+            hint: '+381 ...',
             keyboardType: TextInputType.phone,
-            prefixIcon: Icons.phone_outlined,
-            validator: (v) => (v == null || v.isEmpty) ? l10n.validatorRequired : null,
+            autofill: const [AutofillHints.telephoneNumber],
+            validator: (v) =>
+                (v == null || v.isEmpty) ? l10n.validatorRequired : null,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            label: l10n.country,
-            controller: _countryController,
-            prefixIcon: Icons.flag_outlined,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          AppTextField(
-            label: l10n.city,
-            controller: _cityController,
-            prefixIcon: Icons.location_city_outlined,
+          _pair(
+            _field(
+              label: l10n.country,
+              controller: _countryController,
+              icon: Icons.flag_outlined,
+              hint: 'Srbija',
+              autofill: const [AutofillHints.countryName],
+            ),
+            _field(
+              label: l10n.city,
+              controller: _cityController,
+              icon: Icons.location_city_outlined,
+              hint: 'Beograd',
+              autofill: const [AutofillHints.addressCity],
+            ),
           ),
         ],
-        ),
       ),
     );
   }
@@ -600,78 +429,109 @@ class _RegisterPageState extends State<RegisterPage> {
         if (_currentStep > 0) ...[
           Expanded(
             child: SizedBox(
-              height: 48,
-              child: OutlinedButton.icon(
+              height: 50,
+              child: OutlinedButton(
                 onPressed: _prevStep,
-                icon: const Icon(Icons.arrow_back, size: 18),
-                label: const Text('Nazad'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.foreground,
-                  side: BorderSide(color: AppColors.border),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                ),
+                child: const Text('Nazad'),
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: 12),
         ],
         Expanded(
+          flex: _currentStep > 0 ? 2 : 1,
           child: _currentStep < 2
               ? SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
+                  height: 50,
+                  child: ElevatedButton(
                     onPressed: _nextStep,
-                    icon: const Text('Dalje'),
-                    label: const Icon(Icons.arrow_forward, size: 18),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                      ),
-                    ),
+                    child: const Text('Dalje'),
                   ),
                 )
               : BlocBuilder<AuthBloc, AuthState>(
-                  builder: (context, state) {
-                    return SizedBox(
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed: state is AuthLoading ? null : _onRegisterPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                          ),
-                        ),
-                        child: state is AuthLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : Text(
-                                l10n.registerButton,
-                                style: AppTypography.bodyLarge.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.white,
-                                ),
-                              ),
-                      ),
-                    );
-                  },
+                  builder: (context, state) => AuthSubmitButton(
+                    label: l10n.registerButton,
+                    loading: state is AuthLoading,
+                    onPressed: _onRegisterPressed,
+                  ),
                 ),
         ),
       ],
     );
+  }
+}
+
+/// Tri koraka registracije: krug sa brojem (ili kvačicom) i naziv, spojeni linijom.
+class _StepIndicator extends StatelessWidget {
+  final int current;
+  final List<String> labels;
+
+  const _StepIndicator({required this.current, required this.labels});
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <Widget>[];
+    for (var i = 0; i < labels.length; i++) {
+      final done = i < current;
+      final active = i == current;
+      if (i > 0) {
+        items.add(
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              height: 2,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: i <= current ? AppColors.primary : AppColors.border,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            ),
+          ),
+        );
+      }
+      items.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: 28,
+              height: 28,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: done || active ? AppColors.primary : AppColors.surface,
+                border: Border.all(
+                  color: done || active ? AppColors.primary : AppColors.input,
+                  width: 1.5,
+                ),
+              ),
+              child: done
+                  ? const Icon(Icons.check_rounded,
+                      size: 16, color: Colors.white)
+                  : Text(
+                      '${i + 1}',
+                      style: AppTypography.labelMedium.copyWith(
+                        color:
+                            active ? Colors.white : AppColors.mutedForeground,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              labels[i],
+              style: AppTypography.labelMedium.copyWith(
+                color: active || done
+                    ? AppColors.foreground
+                    : AppColors.mutedForeground,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Row(children: items);
   }
 }

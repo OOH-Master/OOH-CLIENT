@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/app_text_field.dart';
 
 class ChangePasswordDialog extends StatefulWidget {
   final void Function(String currentPassword, String newPassword) onSubmit;
@@ -19,6 +16,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  bool _obscure = true;
 
   @override
   void dispose() {
@@ -28,71 +26,92 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     super.dispose();
   }
 
+  void _submit() {
+    if (_formKey.currentState!.validate()) {
+      widget.onSubmit(
+        _currentPasswordController.text,
+        _newPasswordController.text,
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  Widget _field(String label, TextEditingController controller,
+      String? Function(String?) validator,
+      {TextInputAction action = TextInputAction.next}) {
+    return TextFormField(
+      controller: controller,
+      obscureText: _obscure,
+      textInputAction: action,
+      onFieldSubmitted:
+          action == TextInputAction.done ? (_) => _submit() : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
+      ),
+      validator: validator,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(
-        'Promena lozinke',
-        style: AppTypography.h5,
-      ),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppTextField(
-              label: 'Trenutna lozinka',
-              controller: _currentPasswordController,
-              obscureText: true,
-              prefixIcon: Icons.lock_outline,
-              validator: (v) => (v == null || v.isEmpty) ? 'Obavezno polje' : null,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              label: 'Nova lozinka',
-              controller: _newPasswordController,
-              obscureText: true,
-              prefixIcon: Icons.lock_outline,
-              validator: (v) {
+      title: const Text('Promena lozinke'),
+      content: SizedBox(
+        width: 420,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _field('Trenutna lozinka', _currentPasswordController,
+                  (v) => (v == null || v.isEmpty) ? 'Obavezno polje' : null),
+              const SizedBox(height: 14),
+              _field('Nova lozinka', _newPasswordController, (v) {
                 if (v == null || v.isEmpty) return 'Obavezno polje';
                 if (v.length < 6) return 'Najmanje 6 karaktera';
                 return null;
-              },
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AppTextField(
-              label: 'Potvrdi novu lozinku',
-              controller: _confirmPasswordController,
-              obscureText: true,
-              prefixIcon: Icons.lock_outline,
-              validator: (v) {
-                if (v != _newPasswordController.text) return 'Lozinke se ne poklapaju';
-                return null;
-              },
-            ),
-          ],
+              }),
+              const SizedBox(height: 14),
+              _field(
+                'Potvrdite novu lozinku',
+                _confirmPasswordController,
+                (v) {
+                  if (v != _newPasswordController.text) {
+                    return 'Lozinke se ne poklapaju';
+                  }
+                  return null;
+                },
+                action: TextInputAction.done,
+              ),
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    size: 18,
+                  ),
+                  label: Text(_obscure ? 'Prikaži lozinke' : 'Sakrij lozinke'),
+                  style: TextButton.styleFrom(foregroundColor: AppColors.text2),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Otkazi'),
+          child: const Text('Otkaži'),
         ),
-        ElevatedButton(
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              widget.onSubmit(
-                _currentPasswordController.text,
-                _newPasswordController.text,
-              );
-              Navigator.pop(context);
-            }
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: AppColors.primaryForeground,
-          ),
-          child: const Text('Promeni'),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Promeni lozinku'),
         ),
       ],
     );

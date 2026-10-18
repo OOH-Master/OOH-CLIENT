@@ -79,7 +79,7 @@ class AvailabilityBloc extends Bloc<AvailabilityEvent, AvailabilityState> {
   ) async {
     try {
       await _repository.createSlot(event.data);
-      emit(AvailabilityActionSuccess('Slot kreiran'));
+      emit(AvailabilityActionSuccess('Termin je dodat'));
     } catch (e) {
       emit(AvailabilityError(e.toString()));
     }
@@ -91,7 +91,7 @@ class AvailabilityBloc extends Bloc<AvailabilityEvent, AvailabilityState> {
   ) async {
     try {
       await _repository.updateSlot(event.id, event.data);
-      emit(AvailabilityActionSuccess('Slot azuriran'));
+      emit(AvailabilityActionSuccess('Termin je izmenjen'));
     } catch (e) {
       emit(AvailabilityError(e.toString()));
     }
@@ -103,7 +103,7 @@ class AvailabilityBloc extends Bloc<AvailabilityEvent, AvailabilityState> {
   ) async {
     try {
       await _repository.deleteSlot(event.id);
-      emit(AvailabilityActionSuccess('Slot obrisan'));
+      emit(AvailabilityActionSuccess('Termin je obrisan'));
       add(LoadSlots(inventoryItemId: event.inventoryItemId));
     } catch (e) {
       emit(AvailabilityError(e.toString()));

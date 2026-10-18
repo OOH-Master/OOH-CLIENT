@@ -62,11 +62,13 @@ class DiscoverMapper {
   /// Convert InventoryItemDto to OohUnit domain entity
   static OohUnit unitFromDto(InventoryItemDto dto) {
     final imageUrl = _resolveImageUrl(dto.assetUrl);
+    final code = _clean(dto.vendorInventoryId);
+    final vendorFormat = _clean(dto.vendorMediaFormatName);
     return OohUnit(
       id: dto.id.toString(),
-      name: dto.siteName ?? dto.vendorInventoryId ?? 'Unit #${dto.id}',
+      name: _clean(dto.siteName) ?? code ?? 'Površina #${dto.id}',
       type: _mapUnitType(dto.unitType?.name),
-      address: dto.fullAddress ?? '',
+      address: _clean(dto.fullAddress) ?? '',
       cityId: dto.city?.id.toString() ?? '',
       cityName: dto.city?.name ?? '',
       latitude: dto.lat ?? 0.0,
@@ -77,11 +79,31 @@ class DiscoverMapper {
       imageUrl: imageUrl,
       images: imageUrl != null ? [imageUrl] : const [],
       status: dto.available ? _mapStatus(dto.status) : OohStatus.booked,
-      description: dto.description,
+      description: _clean(dto.description),
       specifications: _buildSpecifications(dto),
       mediaOwnerName: dto.mediaOwnerName ?? dto.mediaOwnerUsername,
       favorited: dto.favorited ?? false,
+      code: code,
+      countryName: _clean(dto.country?.name),
+      unitTypeName: _clean(dto.unitType?.name),
+      mediaFormatName: _clean(dto.mediaFormat?.name) ?? vendorFormat,
+      vendorFormatName: vendorFormat,
+      venueTypeName: _clean(dto.venueType?.name),
+      environment: _clean(dto.environment),
+      illumination: _clean(dto.illumination),
+      physicalWidth: dto.physicalWidth,
+      physicalHeight: dto.physicalHeight,
+      sizeUnit: _clean(dto.sizeUnit),
+      pixelWidth: dto.pixelWidth,
+      pixelHeight: dto.pixelHeight,
+      impressions: dto.impressions,
     );
+  }
+
+  /// Prazan string iz uvoza tretira kao da podatka nema.
+  static String? _clean(String? value) {
+    final v = value?.trim();
+    return (v == null || v.isEmpty) ? null : v;
   }
 
   /// Convert list of InventoryItemDto to list of OohUnit
@@ -91,7 +113,7 @@ class DiscoverMapper {
 
   static OohType _mapUnitType(String? typeName) {
     if (typeName == null) return OohType.other;
-    
+
     final lower = typeName.toLowerCase();
     if (lower.contains('billboard') || lower.contains('bilbord')) {
       return OohType.billboard;
@@ -132,7 +154,7 @@ class DiscoverMapper {
 
   static OohStatus _mapStatus(String? status) {
     if (status == null) return OohStatus.available;
-    
+
     final lower = status.toLowerCase();
     if (lower.contains('book') || lower.contains('reserv')) {
       return OohStatus.booked;
@@ -145,9 +167,10 @@ class DiscoverMapper {
 
   static Map<String, dynamic> _buildSpecifications(InventoryItemDto dto) {
     final specs = <String, dynamic>{};
-    
+
     if (dto.physicalWidth != null && dto.physicalHeight != null) {
-      specs['dimensions'] = '${dto.physicalWidth}x${dto.physicalHeight} ${dto.sizeUnit ?? 'm'}';
+      specs['dimensions'] =
+          '${dto.physicalWidth}x${dto.physicalHeight} ${dto.sizeUnit ?? 'm'}';
     }
     if (dto.pixelWidth != null && dto.pixelHeight != null) {
       specs['resolution'] = '${dto.pixelWidth}x${dto.pixelHeight}px';
@@ -170,7 +193,7 @@ class DiscoverMapper {
     if (dto.currency != null) {
       specs['currency'] = dto.currency;
     }
-    
+
     return specs;
   }
 }

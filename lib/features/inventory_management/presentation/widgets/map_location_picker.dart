@@ -6,16 +6,24 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 
+/// Mapa za izbor tačne lokacije površine: klik na mapu postavlja tačku.
 class MapLocationPicker extends StatefulWidget {
   final double? initialLat;
   final double? initialLng;
   final ValueChanged<LatLng> onLocationSelected;
+
+  /// Da li je tačka već izabrana (sačuvana ili kliknuta); bez nje se prikazuje
+  /// uputstvo, a oznaka je providna.
+  final bool hasLocation;
+  final double height;
 
   const MapLocationPicker({
     super.key,
     this.initialLat,
     this.initialLng,
     required this.onLocationSelected,
+    this.hasLocation = true,
+    this.height = 260,
   });
 
   @override
@@ -44,33 +52,12 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Icon(Icons.map, size: 18, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text(
-              'Lokacija na mapi',
-              style: AppTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.foreground,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Kliknite na mapu da postavite lokaciju',
-          style: AppTypography.bodySmall.copyWith(
-            color: AppColors.mutedForeground,
-          ),
-        ),
-        const SizedBox(height: 12),
         Container(
-          height: 250,
+          height: widget.height,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
+            borderRadius: BorderRadius.circular(AppRadius.md),
             border: Border.all(color: AppColors.border),
           ),
           clipBehavior: Clip.antiAlias,
@@ -88,19 +75,24 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate:
+                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.ooh.mobile',
               ),
               MarkerLayer(
                 markers: [
                   Marker(
                     point: _selectedLocation,
-                    width: 40,
-                    height: 40,
-                    child: const Icon(
-                      Icons.location_pin,
-                      color: Colors.red,
-                      size: 40,
+                    width: 44,
+                    height: 44,
+                    alignment: Alignment.topCenter,
+                    child: Opacity(
+                      opacity: widget.hasLocation ? 1 : 0.45,
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: AppColors.primary,
+                        size: 44,
+                      ),
                     ),
                   ),
                 ],
@@ -110,9 +102,14 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Lat: ${_selectedLocation.latitude.toStringAsFixed(5)}, '
-          'Lng: ${_selectedLocation.longitude.toStringAsFixed(5)}',
-          style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
+          widget.hasLocation
+              ? '${_selectedLocation.latitude.toStringAsFixed(5)}, '
+                  '${_selectedLocation.longitude.toStringAsFixed(5)}'
+              : 'Kliknite na mapu da označite tačnu lokaciju.',
+          style: AppTypography.caption.copyWith(
+            color: AppColors.mutedForeground,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
         ),
       ],
     );

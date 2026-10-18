@@ -93,7 +93,7 @@ class AdminUserBloc extends Bloc<AdminUserEvent, AdminUserState> {
     final result = await _repository.updateUser(event.id, event.data);
     switch (result) {
       case Success():
-        emit(AdminUserActionSuccess('Korisnik azuriran'));
+        emit(AdminUserActionSuccess('Korisnik je sačuvan'));
         add(LoadUsers(role: _lastRole, enabled: _lastEnabled, search: _lastSearch));
       case Error(failure: final failure):
         emit(AdminUserError(failure.message));
@@ -107,7 +107,7 @@ class AdminUserBloc extends Bloc<AdminUserEvent, AdminUserState> {
     final result = await _repository.disableUser(event.id);
     switch (result) {
       case Success():
-        emit(AdminUserActionSuccess('Korisnik deaktiviran'));
+        emit(AdminUserActionSuccess('Nalog je deaktiviran'));
         add(LoadUsers(role: _lastRole, enabled: _lastEnabled, search: _lastSearch));
       case Error(failure: final failure):
         emit(AdminUserError(failure.message));
@@ -121,7 +121,7 @@ class AdminUserBloc extends Bloc<AdminUserEvent, AdminUserState> {
     final result = await _repository.enableUser(event.id);
     switch (result) {
       case Success():
-        emit(AdminUserActionSuccess('Korisnik aktiviran'));
+        emit(AdminUserActionSuccess('Nalog je aktiviran'));
         add(LoadUsers(role: _lastRole, enabled: _lastEnabled, search: _lastSearch));
       case Error(failure: final failure):
         emit(AdminUserError(failure.message));

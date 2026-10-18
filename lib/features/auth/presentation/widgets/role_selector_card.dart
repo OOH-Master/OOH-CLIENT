@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../domain/entities/role.dart';
 
-class RoleSelectorCard extends StatelessWidget {
+/// Izbor uloge pri registraciji: naziv, kratko objašnjenje i oznaka izbora.
+/// Izabrana kartica dobija indigo ivicu i blagu indigo podlogu.
+class RoleSelectorCard extends StatefulWidget {
   final Role role;
   final bool isSelected;
   final VoidCallback onTap;
@@ -17,21 +18,15 @@ class RoleSelectorCard extends StatelessWidget {
     required this.onTap,
   });
 
-  IconData get _icon {
-    switch (role) {
-      case Role.brand:
-        return Icons.storefront_outlined;
-      case Role.agency:
-        return Icons.business_center_outlined;
-      case Role.mediaOwner:
-        return Icons.tv_outlined;
-      case Role.admin:
-        return Icons.admin_panel_settings_outlined;
-    }
-  }
+  @override
+  State<RoleSelectorCard> createState() => _RoleSelectorCardState();
+}
+
+class _RoleSelectorCardState extends State<RoleSelectorCard> {
+  bool _hover = false;
 
   String get _title {
-    switch (role) {
+    switch (widget.role) {
       case Role.brand:
         return 'Brend';
       case Role.agency:
@@ -39,88 +34,106 @@ class RoleSelectorCard extends StatelessWidget {
       case Role.mediaOwner:
         return 'Vlasnik medija';
       case Role.admin:
-        return 'Admin';
+        return 'Stručnjak za lokacije';
     }
   }
 
   String get _description {
-    switch (role) {
+    switch (widget.role) {
       case Role.brand:
-        return 'Oglasavac koji trazi reklamni prostor za svoje kampanje.';
+        return 'Oglašivač koji traži površine za svoje kampanje.';
       case Role.agency:
-        return 'Agencija koja upravlja kampanjama za vise brendova.';
+        return 'Planira i zakupljuje kampanje za više brendova.';
       case Role.mediaOwner:
-        return 'Vlasnik oglasnog inventara (bilbordi, citylight-ovi, ekrani).';
+        return 'Nudi bilborde, city light panele i digitalne ekrane.';
       case Role.admin:
-        return 'Administrator sistema.';
+        return 'Predlaže lokacije i vodi upite klijenata.';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.secondary : Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+    final selected = widget.isSelected;
+    final borderColor = selected
+        ? AppColors.primary
+        : (_hover ? AppColors.input : AppColors.border);
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: _title,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primarySoft : AppColors.surface,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor, width: selected ? 1.6 : 1),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _title,
+                        style: AppTypography.labelLarge.copyWith(
+                          fontSize: 15,
+                          color: selected
+                              ? AppColors.primaryStrong
+                              : AppColors.foreground,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _description,
+                        style: AppTypography.bodySmall
+                            .copyWith(color: AppColors.mutedForeground),
+                      ),
+                    ],
                   ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: 0.15)
-                    : AppColors.muted,
-                borderRadius: BorderRadius.circular(AppRadius.md),
-              ),
-              child: Icon(
-                _icon,
-                size: 28,
-                color: isSelected ? AppColors.primary : AppColors.mutedForeground,
-              ),
+                ),
+                const SizedBox(width: 12),
+                _SelectionDot(selected: selected),
+              ],
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              _title,
-              style: AppTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600,
-                color: isSelected ? AppColors.primary : AppColors.foreground,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxs),
-            Text(
-              _description,
-              textAlign: TextAlign.center,
-              style: AppTypography.caption.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Icon(Icons.check_circle, color: AppColors.primary, size: 20),
-            ],
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _SelectionDot extends StatelessWidget {
+  final bool selected;
+
+  const _SelectionDot({required this.selected});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      width: 22,
+      height: 22,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? AppColors.primary : Colors.transparent,
+        border: Border.all(
+          color: selected ? AppColors.primary : AppColors.input,
+          width: 1.6,
+        ),
+      ),
+      child: selected
+          ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+          : null,
     );
   }
 }

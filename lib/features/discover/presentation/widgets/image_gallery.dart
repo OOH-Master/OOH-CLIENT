@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/ui/ui.dart';
 
+/// Velika fotografija površine sa sličicama ispod (kada ih ima više) i
+/// pregledom preko celog ekrana. Bez fotografije crta tamnu "noćnu" podlogu.
 class ImageGallery extends StatefulWidget {
   final List<String> images;
   final String? placeholderLabel;
   final double aspectRatio;
   final bool showThumbnails;
+  final double radius;
+  final bool digital;
+
+  /// Oznaka preko fotografije (tip površine).
+  final Widget? topLeft;
 
   const ImageGallery({
     super.key,
@@ -15,6 +23,9 @@ class ImageGallery extends StatefulWidget {
     this.placeholderLabel,
     this.aspectRatio = 16 / 9,
     this.showThumbnails = true,
+    this.radius = 20,
+    this.digital = false,
+    this.topLeft,
   });
 
   @override
@@ -40,84 +51,65 @@ class _ImageGalleryState extends State<ImageGallery> {
     super.dispose();
   }
 
+  Widget _photo(String? url) => LayoutBuilder(
+        builder: (context, box) => UnitThumb(
+          imageUrl: url,
+          width: box.maxWidth,
+          height: box.maxHeight,
+          radius: 0,
+          digital: widget.digital,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final images = _validImages;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Main image / carousel
         AspectRatio(
           aspectRatio: widget.aspectRatio,
-          child: Stack(
-            children: [
-              if (images.isEmpty)
-                _buildPlaceholder()
-              else if (images.length == 1)
-                GestureDetector(
-                  onTap: () => _openLightbox(context, 0),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      images[0],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                      errorBuilder: (_, __, ___) => _buildPlaceholder(),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(widget.radius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (images.isEmpty)
+                  _buildPlaceholder()
+                else if (images.length == 1)
+                  GestureDetector(
+                    onTap: () => _openLightbox(context, 0),
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.zoomIn,
+                      child: _photo(images.first),
                     ),
-                  ),
-                )
-              else
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: PageView.builder(
+                  )
+                else
+                  PageView.builder(
                     controller: _pageController,
                     itemCount: images.length,
                     onPageChanged: (index) =>
                         setState(() => _currentIndex = index),
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        onTap: () => _openLightbox(context, index),
-                        child: Image.network(
-                          images[index],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          height: double.infinity,
-                          errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                        ),
-                      );
-                    },
+                    itemBuilder: (context, index) => GestureDetector(
+                      onTap: () => _openLightbox(context, index),
+                      child: _photo(images[index]),
+                    ),
                   ),
-                ),
-              // Dots indicator
-              if (images.length > 1)
-                Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(images.length, (index) {
-                      final isActive = index == _currentIndex;
-                      return Container(
-                        width: isActive ? 20 : 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 2),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? AppColors.primary
-                              : Colors.white.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      );
-                    }),
+                if (widget.topLeft != null)
+                  Positioned(top: 14, left: 14, child: widget.topLeft!),
+                if (images.length > 1)
+                  Positioned(
+                    top: 14,
+                    right: 14,
+                    child: _CounterPill(
+                        text: '${_currentIndex + 1} / ${images.length}'),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
-        // Thumbnails
         if (widget.showThumbnails && images.length > 1) ...[
           const SizedBox(height: 12),
           SizedBox(
@@ -137,23 +129,23 @@ class _ImageGalleryState extends State<ImageGallery> {
                       curve: Curves.easeInOut,
                     );
                   },
-                  child: Container(
-                    width: 72,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: isSelected ? AppColors.primary : AppColors.border,
+                        color:
+                            isSelected ? AppColors.primary : AppColors.border,
                         width: isSelected ? 2 : 1,
                       ),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(7),
-                      child: Image.network(
-                        images[index],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            Container(color: AppColors.muted),
-                      ),
+                    child: UnitThumb(
+                      imageUrl: images[index],
+                      width: 76,
+                      height: 48,
+                      radius: 9,
+                      digital: widget.digital,
                     ),
                   ),
                 );
@@ -166,27 +158,23 @@ class _ImageGalleryState extends State<ImageGallery> {
   }
 
   Widget _buildPlaceholder() {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.muted,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.image, size: 64, color: AppColors.mutedForeground),
-            if (widget.placeholderLabel != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                widget.placeholderLabel!,
-                style: AppTypography.labelMedium
-                    .copyWith(color: AppColors.mutedForeground),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _photo(null),
+        if (widget.placeholderLabel != null)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 18,
+            child: Text(
+              widget.placeholderLabel!,
+              textAlign: TextAlign.center,
+              style:
+                  AppTypography.labelMedium.copyWith(color: AppColors.inkMuted),
+            ),
+          ),
+      ],
     );
   }
 
@@ -196,13 +184,38 @@ class _ImageGalleryState extends State<ImageGallery> {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: const Color(0xE60F1226),
       builder: (context) {
         return _LightboxDialog(
           images: images,
           initialIndex: initialIndex,
         );
       },
+    );
+  }
+}
+
+class _CounterPill extends StatelessWidget {
+  final String text;
+
+  const _CounterPill({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.ink.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: AppTypography.labelSmall.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
     );
   }
 }
@@ -246,41 +259,43 @@ class _LightboxDialogState extends State<_LightboxDialog> {
           itemCount: widget.images.length,
           onPageChanged: (i) => setState(() => _currentIndex = i),
           itemBuilder: (context, index) {
+            final src = UnitThumb.resolve(widget.images[index]);
             return InteractiveViewer(
               child: Center(
-                child: Image.network(
-                  widget.images[index],
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Icon(
-                    Icons.broken_image,
-                    size: 64,
-                    color: Colors.white54,
-                  ),
-                ),
+                child: src == null
+                    ? const Icon(Icons.broken_image_outlined,
+                        size: 64, color: Colors.white54)
+                    : Image.network(
+                        src,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.broken_image_outlined,
+                          size: 64,
+                          color: Colors.white54,
+                        ),
+                      ),
               ),
             );
           },
         ),
-        // Close button
         Positioned(
-          top: 40,
+          top: 32,
           right: 16,
           child: IconButton(
-            icon: const Icon(Icons.close, color: Colors.white, size: 28),
+            tooltip: 'Zatvori',
+            icon:
+                const Icon(Icons.close_rounded, color: Colors.white, size: 28),
             onPressed: () => Navigator.pop(context),
           ),
         ),
-        // Page indicator
         if (widget.images.length > 1)
           Positioned(
-            bottom: 40,
+            bottom: 36,
             left: 0,
             right: 0,
             child: Center(
-              child: Text(
-                '${_currentIndex + 1} / ${widget.images.length}',
-                style: AppTypography.bodyMedium.copyWith(color: Colors.white),
-              ),
+              child: _CounterPill(
+                  text: '${_currentIndex + 1} / ${widget.images.length}'),
             ),
           ),
       ],

@@ -1,24 +1,26 @@
-import 'dart:convert';
-
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../core/config/api_client.dart';
-import '../../../../core/config/api_config.dart';
-import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
+import '../../../../core/utils/sr_labels.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../../auth/domain/entities/role.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../data/repository/inquiry_repository.dart';
+import '../../domain/entities/currency_totals.dart';
 import '../../domain/entities/inquiry.dart';
 import '../blocs/inquiry_bloc.dart';
+import '../utils/amount_input.dart';
+import '../utils/inquiry_errors.dart';
+import '../utils/pdf_opener.dart';
+import '../widgets/inquiry_layout.dart';
+import '../widgets/inquiry_progress.dart';
 import '../widgets/inquiry_status_badge.dart';
+import '../widgets/inquiry_unit_row.dart';
+import '../widgets/pdf_download_button.dart';
 
 class InquiryDetailPage extends StatelessWidget {
   final String inquiryId;
@@ -35,9 +37,13 @@ class InquiryDetailPage extends StatelessWidget {
     final role = authState.user.role;
     final id = int.tryParse(inquiryId);
     if (id == null) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('Invalid inquiry ID')),
+      return InquiryScaffold(
+        title: 'Upit',
+        body: const EmptyState(
+          icon: Icons.search_off_rounded,
+          title: 'Upit nije pronađen',
+          message: 'Adresa ne sadrži ispravan broj upita.',
+        ),
       );
     }
 
@@ -61,13 +67,18 @@ class _InquiryDetailView extends StatefulWidget {
 
 class _InquiryDetailViewState extends State<_InquiryDetailView> {
   final _notesController = TextEditingController();
-  final _priceFormatter = NumberFormat('#,##0.00');
-
-  AppLocalizations get l10n => AppLocalizations.of(context)!;
-  bool _downloadingPdf = false;
   bool _downloadingInvoice = false;
+  Inquiry? _last;
 
+  bool get _isAdmin => widget.role == Role.admin;
+
+  bool get _isClient => widget.role == Role.brand || widget.role == Role.agency;
+
+  /// Brend i agencija dobijaju PDF svog upita u svakoj fazi (pregled upita, a
+  /// posle i ponudu); stručnjak, kao i do sada, od slanja ponude.
   bool _isPdfAvailable(InquiryStatus status) {
+    if (_isClient) return true;
+    if (!_isAdmin) return false;
     return status == InquiryStatus.offerSent ||
         status == InquiryStatus.acceptedByClient ||
         status == InquiryStatus.rejectedByClient ||
@@ -75,180 +86,22 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
         status == InquiryStatus.closed;
   }
 
-  Future<void> _downloadPdf(Inquiry inquiry) async {
-    if (_downloadingPdf) return;
-    setState(() => _downloadingPdf = true);
-
-    try {
-      final apiClient = context.read<ApiClient>();
-      final response = await apiClient.get<List<int>>(
-        '${ApiConfig.adminInquiries}/${inquiry.id}/pdf',
-        options: Options(responseType: ResponseType.bytes),
-      );
-
-      final bytes = response.data ?? [];
-      final base64Data = base64Encode(bytes);
-      final dataUri = Uri.parse('data:application/pdf;base64,$base64Data');
-
-      if (await canLaunchUrl(dataUri)) {
-        await launchUrl(dataUri, mode: LaunchMode.externalApplication);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('PDF preuzet: ${inquiry.pdfFileName}')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Greska pri preuzimanju PDF-a'),
-            backgroundColor: AppColors.destructive,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _downloadingPdf = false);
-    }
+  bool _isInvoiceAvailable(InquiryStatus status) {
+    return status == InquiryStatus.acceptedByClient ||
+        status == InquiryStatus.realized ||
+        status == InquiryStatus.closed;
   }
+
+  bool _canViewOffer(Inquiry inquiry) => _isClient && inquiry.status.hasOffer;
+
+  void _reload() => context
+      .read<InquiryBloc>()
+      .add(LoadInquiryDetail(widget.inquiryId, widget.role));
 
   @override
   void dispose() {
     _notesController.dispose();
     super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(l10n.inquiryDetail),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.foreground,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: BlocConsumer<InquiryBloc, InquiryState>(
-        listener: (context, state) {
-          if (state is InquiryActionSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(state.message)),
-            );
-          }
-        },
-        builder: (context, state) {
-          if (state is InquiryLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (state is InquiryError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: AppColors.destructive),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(state.message),
-                  const SizedBox(height: AppSpacing.md),
-                  ElevatedButton(
-                    onPressed: () => context.read<InquiryBloc>().add(
-                          LoadInquiryDetail(widget.inquiryId, widget.role),
-                        ),
-                    child: Text(l10n.retry),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (state is InquiryDetailLoaded) {
-            return _buildDetail(state.inquiry);
-          }
-
-          return const SizedBox.shrink();
-        },
-      ),
-    );
-  }
-
-  Widget _buildDetail(Inquiry inquiry) {
-    if (_notesController.text.isEmpty && inquiry.adminNotes != null) {
-      _notesController.text = inquiry.adminNotes!;
-    }
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeaderCard(inquiry),
-          const SizedBox(height: AppSpacing.md),
-          _buildContactCard(inquiry),
-          const SizedBox(height: AppSpacing.md),
-          _buildCampaignCard(inquiry),
-          const SizedBox(height: AppSpacing.md),
-          if (inquiry.items.isNotEmpty) ...[
-            _buildItemsCard(inquiry),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if ((widget.role == Role.brand || widget.role == Role.agency) &&
-              inquiry.status == InquiryStatus.offerSent) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => context.push('/app/inquiries/${inquiry.id}/offer'),
-                icon: const Icon(Icons.description_outlined),
-                label: const Text('Pregled ponude'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-          ],
-          if (widget.role == Role.admin) ...[
-            _buildAdminNotesCard(inquiry),
-            const SizedBox(height: AppSpacing.md),
-            if (_isPdfAvailable(inquiry.status))
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _downloadPdf(inquiry),
-                  icon: const Icon(Icons.picture_as_pdf),
-                  label: Text(l10n.downloadPdf),
-                ),
-              ),
-          ],
-          if (_isInvoiceAvailable(inquiry.status)) ...[
-            const SizedBox(height: AppSpacing.md),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _downloadingInvoice ? null : () => _downloadInvoice(inquiry),
-                icon: _downloadingInvoice
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.receipt_long),
-                label: const Text('Skini fakturu'),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  bool _isInvoiceAvailable(InquiryStatus status) {
-    return status == InquiryStatus.acceptedByClient ||
-        status == InquiryStatus.realized ||
-        status == InquiryStatus.closed;
   }
 
   Future<void> _downloadInvoice(Inquiry inquiry) async {
@@ -259,323 +112,233 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
       final meta = await repo.getInvoiceForInquiry(inquiry.id);
       if (meta == null || meta['id'] == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Faktura još nije generisana')),
-          );
+          showInquirySnack(context, 'Faktura još nije generisana');
         }
         return;
       }
       final invoiceId = meta['id'] as int;
       final bytes = await repo.downloadInvoicePdf(invoiceId);
-      if (bytes == null) return;
+      if (bytes == null || bytes.isEmpty) return;
 
-      final base64Data = base64Encode(bytes);
-      final dataUri = Uri.parse('data:application/pdf;base64,$base64Data');
-      if (await canLaunchUrl(dataUri)) {
-        await launchUrl(dataUri, mode: LaunchMode.externalApplication);
-      }
+      final number = meta['invoiceNumber']?.toString() ?? '$invoiceId';
+      final opened = await openPdfBytes(bytes, 'faktura-$number.pdf');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Faktura ${meta['invoiceNumber']} preuzeta')),
+        showInquirySnack(
+          context,
+          opened
+              ? 'Faktura $number je preuzeta'
+              : 'Otvaranje PDF-a nije podržano na ovom uređaju.',
+          error: !opened,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Greška pri preuzimanju fakture: $e'),
-            backgroundColor: AppColors.destructive,
-          ),
-        );
+        showInquirySnack(context, InquiryErrors.describe(e), error: true);
       }
     } finally {
       if (mounted) setState(() => _downloadingInvoice = false);
     }
   }
 
-  Widget _buildHeaderCard(Inquiry inquiry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Inquiry #${inquiry.id}',
-                  style: AppTypography.h3.copyWith(
-                    color: AppColors.foreground,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (inquiry.requesterType != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    inquiry.requesterType!,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.mutedForeground,
-                    ),
-                  ),
-                ],
-                if (inquiry.createdAt != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    inquiry.createdAt!,
-                    style: AppTypography.caption.copyWith(
-                      color: AppColors.mutedForeground,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          InquiryStatusBadge(status: inquiry.status),
-        ],
-      ),
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<InquiryBloc, InquiryState>(
+      listener: (context, state) {
+        if (state is InquiryActionSuccess) {
+          showInquirySnack(context, state.message);
+        }
+        if (state is InquiryError && _last != null) {
+          showInquirySnack(context, InquiryErrors.describe(state.message),
+              error: true);
+        }
+      },
+      builder: (context, state) {
+        if (state is InquiryDetailLoaded) _last = state.inquiry;
+        final inquiry = _last;
+
+        final Widget body;
+        if (inquiry == null) {
+          body = state is InquiryError
+              ? InquiryErrorView(error: state.message, onRetry: _reload)
+              : const InquiryLoadingView();
+        } else {
+          if (_notesController.text.isEmpty && inquiry.adminNotes != null) {
+            _notesController.text = inquiry.adminNotes!;
+          }
+          body = Column(
+            children: [
+              InquiryRefreshBar(visible: state is InquiryLoading),
+              Expanded(child: _buildDetail(inquiry)),
+            ],
+          );
+        }
+
+        return InquiryScaffold(
+          title: 'Upit #${widget.inquiryId}',
+          appBarActions: [
+            if (inquiry != null && _isPdfAvailable(inquiry.status))
+              PdfDownloadButton(
+                inquiryId: inquiry.id,
+                role: widget.role,
+                iconOnly: true,
+              ),
+          ],
+          body: body,
+        );
+      },
     );
   }
 
-  Widget _buildContactCard(Inquiry inquiry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.contactName,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          _buildInfoRow(Icons.person, l10n.contactName, inquiry.contactName ?? '—'),
-          _buildInfoRow(Icons.email, l10n.contactEmail, inquiry.contactEmail ?? '—'),
-          _buildInfoRow(Icons.phone, l10n.contactPhone, inquiry.contactPhone ?? '—'),
-        ],
-      ),
-    );
+  /// "Izbor površina, podnet 18.10.2026."; stručnjak vidi i klijenta:
+  /// "Aurora Kozmetika d.o.o., izbor površina, podnet 18.10.2026."
+  String _subtitle(Inquiry inquiry) {
+    final client = !_isClient && (inquiry.clientName ?? '').isNotEmpty
+        ? inquiry.clientName!
+        : null;
+    final type = SrLabels.inquiryType(inquiry.inquiryType);
+    final parts = <String>[
+      if (client != null) client,
+      if (type.isNotEmpty) client == null ? type : type.toLowerCase(),
+      if (inquiry.createdAt != null)
+        'podnet ${SrFormat.date(inquiry.createdAt)}',
+    ];
+    return parts.join(', ');
   }
 
-  Widget _buildCampaignCard(Inquiry inquiry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.campaignBrief,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            inquiry.campaignBrief ?? '—',
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.foreground,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
+  Widget _buildDetail(Inquiry inquiry) {
+    final wide = InquiryLayout.isWide(context);
+    final offer = _canViewOffer(inquiry);
+
+    final invoiceButton = _isInvoiceAvailable(inquiry.status)
+        ? OutlinedButton.icon(
+            onPressed:
+                _downloadingInvoice ? null : () => _downloadInvoice(inquiry),
+            icon: _downloadingInvoice
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.receipt_long_outlined, size: 19),
+            label: const Text('Preuzmi fakturu'),
+          )
+        : null;
+
+    final offerButton = FilledButton(
+      onPressed: () =>
+          context.push('/app/inquiries/${inquiry.id}/offer').then((_) {
+        if (mounted) _reload();
+      }),
+      child: const Text('Pogledaj ponudu'),
+    );
+
+    final actions = <Widget>[
+      InquiryStatusBadge(status: inquiry.status),
+      if (wide && _isPdfAvailable(inquiry.status))
+        PdfDownloadButton(inquiryId: inquiry.id, role: widget.role),
+      if (invoiceButton != null) invoiceButton,
+      if (wide && offer) offerButton,
+    ];
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final gutter = InquiryLayout.gutter(constraints.maxWidth, wide: wide);
+      final contentWidth = constraints.maxWidth - 2 * gutter;
+      final twoColumns = contentWidth >= 980;
+
+      final progress = _ProgressCard(inquiry: inquiry);
+      final facts = _FactsCard(inquiry: inquiry);
+      final brief =
+          _hasBriefData(inquiry) ? _BriefCard(inquiry: inquiry) : null;
+      final items = _ItemsCard(
+        inquiry: inquiry,
+        isClient: _isClient,
+        onEditPrice:
+            _isAdmin ? (item) => _showQuotedPriceDialog(inquiry, item) : null,
+      );
+      final notes = _isAdmin ? _buildAdminNotesCard(inquiry) : null;
+
+      final List<Widget> content;
+      if (twoColumns) {
+        content = [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildInfoRow(
-                  Icons.calendar_today,
-                  l10n.startDate,
-                  inquiry.startDate ?? '—',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [progress, const SizedBox(height: 20), items],
                 ),
               ),
-              Expanded(
-                child: _buildInfoRow(
-                  Icons.calendar_today,
-                  l10n.endDate,
-                  inquiry.endDate ?? '—',
+              const SizedBox(width: 24),
+              SizedBox(
+                width: 360,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    facts,
+                    if (brief != null) ...[const SizedBox(height: 20), brief],
+                    if (notes != null) ...[const SizedBox(height: 20), notes],
+                  ],
                 ),
               ),
             ],
           ),
-          if (inquiry.budget != null)
-            _buildInfoRow(
-              Icons.monetization_on,
-              l10n.budget,
-              '€${_priceFormatter.format(inquiry.budget)}',
-            ),
+        ];
+      } else {
+        content = [
+          if (!wide && offer) ...[
+            SizedBox(width: double.infinity, child: offerButton),
+            const SizedBox(height: 16),
+          ],
+          progress,
+          const SizedBox(height: 16),
+          facts,
+          if (brief != null) ...[const SizedBox(height: 16), brief],
+          const SizedBox(height: 16),
+          items,
+          if (notes != null) ...[const SizedBox(height: 16), notes],
+        ];
+      }
+
+      return ListView(
+        padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 40),
+        children: [
+          InquiryHeader(
+            title: 'Upit #${inquiry.id}',
+            subtitle: _subtitle(inquiry),
+            showBack: true,
+            actions: actions,
+          ),
+          ...content,
         ],
-      ),
-    );
+      );
+    });
   }
 
-  Widget _buildItemsCard(Inquiry inquiry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '${l10n.items} (${inquiry.items.length})',
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ...inquiry.items.map((item) => _buildItemRow(inquiry, item)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemRow(Inquiry inquiry, InquiryItem item) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.muted,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.inventory_2, size: 20, color: AppColors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.inventoryItemName ?? 'Item #${item.id}',
-                  style: AppTypography.bodyMedium.copyWith(
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.foreground,
-                  ),
-                ),
-                if (item.mediaOwnerName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      children: [
-                        Icon(Icons.business, size: 14, color: AppColors.mutedForeground),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.mediaOwnerName!,
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.mutedForeground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (item.inventoryItemAddress != null || item.inventoryItemCity != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Row(
-                      children: [
-                        Icon(Icons.location_on, size: 14, color: AppColors.mutedForeground),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            [
-                              if (item.inventoryItemAddress != null) item.inventoryItemAddress!,
-                              if (item.inventoryItemCity != null) item.inventoryItemCity!,
-                            ].join(', '),
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.mutedForeground,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (item.quotedPrice != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      '${l10n.quotedPrice}: \u20AC${_priceFormatter.format(item.quotedPrice)}',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (widget.role == Role.admin)
-            IconButton(
-              icon: Icon(Icons.edit, size: 18, color: AppColors.primary),
-              onPressed: () => _showQuotedPriceDialog(inquiry.id, item),
-              tooltip: l10n.updatePrice,
-            ),
-        ],
-      ),
-    );
-  }
+  bool _hasBriefData(Inquiry inquiry) =>
+      inquiry.isBrief ||
+      (inquiry.campaignBrief ?? '').trim().isNotEmpty ||
+      inquiry.targetCityNames.isNotEmpty ||
+      inquiry.preferredMediaTypeNames.isNotEmpty;
 
   Widget _buildAdminNotesCard(Inquiry inquiry) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
-      ),
+    return SectionCard(
+      title: 'Napomene stručnjaka',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            l10n.adminNotes,
-            style: AppTypography.bodyMedium.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _notesController,
             maxLines: 4,
-            decoration: InputDecoration(
-              hintText: l10n.adminNotes,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
+            minLines: 3,
+            decoration: const InputDecoration(
+              hintText: 'Dogovor sa klijentom, napomene za vlasnike medija…',
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
-            child: ElevatedButton(
+            child: FilledButton(
               onPressed: () {
                 context.read<InquiryBloc>().add(
                       UpdateAdminNotes(
@@ -585,11 +348,7 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
                       ),
                     );
               },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
-              ),
-              child: Text(l10n.saveNotes),
+              child: const Text('Sačuvaj napomene'),
             ),
           ),
         ],
@@ -597,78 +356,346 @@ class _InquiryDetailViewState extends State<_InquiryDetailView> {
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: AppColors.mutedForeground),
-          const SizedBox(width: 8),
-          Text(
-            '$label: ',
-            style: AppTypography.bodySmall.copyWith(
-              color: AppColors.mutedForeground,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: AppTypography.bodySmall.copyWith(
-                color: AppColors.foreground,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showQuotedPriceDialog(int inquiryId, InquiryItem item) {
-    final controller = TextEditingController(
-      text: item.quotedPrice?.toStringAsFixed(2) ?? '',
-    );
+  void _showQuotedPriceDialog(Inquiry inquiry, InquiryItem item) {
+    final controller =
+        TextEditingController(text: AmountInput.format(item.quotedPrice));
+    final unit = item.summary;
+    final currency = SrFormat.currencyLabel(item.priceCurrency);
 
     showDialog(
       context: context,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(l10n.updatePrice),
-          content: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              labelText: l10n.quotedPrice,
-              prefixText: '€ ',
-              border: const OutlineInputBorder(),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final price = double.tryParse(controller.text);
-                if (price != null) {
-                  context.read<InquiryBloc>().add(
-                        UpdateQuotedPrice(
-                          inquiryId,
-                          item.id,
-                          price,
-                          widget.role,
-                        ),
-                      );
-                  Navigator.pop(dialogContext);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
+        String? error;
+        return StatefulBuilder(builder: (dialogContext, setDialogState) {
+          void save() {
+            final price = AmountInput.parse(controller.text);
+            if (price == null || price < 0) {
+              setDialogState(() => error = 'Unesite ispravan iznos');
+              return;
+            }
+            context.read<InquiryBloc>().add(
+                  UpdateQuotedPrice(inquiry.id, item.id, price, widget.role),
+                );
+            Navigator.pop(dialogContext);
+          }
+
+          return AlertDialog(
+            title: const Text('Izmena cene'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  UnitLine(
+                    imageUrl: unit.imageUrl,
+                    digital: unit.isDigital,
+                    code: unit.codeLabel,
+                    title: unit.title,
+                    subtitle: unit.location,
+                    compact: true,
+                    padding: const EdgeInsets.only(bottom: 16),
+                  ),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    textAlign: TextAlign.right,
+                    style: AppTypography.money,
+                    onSubmitted: (_) => save(),
+                    decoration: InputDecoration(
+                      labelText: 'Cena za period kampanje',
+                      suffixText: currency.isEmpty ? null : currency,
+                      helperText: item.cyclesText.isEmpty
+                          ? null
+                          : 'Trajanje zakupa: ${item.cyclesText}',
+                      errorText: error,
+                    ),
+                  ),
+                ],
               ),
-              child: Text(l10n.save),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Otkaži'),
+              ),
+              FilledButton(onPressed: save, child: const Text('Sačuvaj')),
+            ],
+          );
+        });
+      },
+    ).whenComplete(controller.dispose);
+  }
+}
+
+/// Tok upita: koraci izvedeni iz statusa.
+class _ProgressCard extends StatelessWidget {
+  final Inquiry inquiry;
+
+  const _ProgressCard({required this.inquiry});
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      title: 'Tok upita',
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: InquiryProgress(
+          status: inquiry.status,
+          brief: inquiry.isBrief,
+          createdAt: inquiry.createdAt,
+        ),
+      ),
+    );
+  }
+}
+
+/// Osnovni podaci: period, budžet, tip, klijent i kontakt.
+class _FactsCard extends StatelessWidget {
+  final Inquiry inquiry;
+
+  const _FactsCard({required this.inquiry});
+
+  @override
+  Widget build(BuildContext context) {
+    final client = inquiry.clientName ?? '';
+    final requester = SrLabels.requesterType(inquiry.requesterType);
+    final noPeriod = inquiry.startDate == null && inquiry.endDate == null;
+
+    final facts = <MetaItem>[
+      MetaItem(
+        label: 'Period kampanje',
+        value: noPeriod
+            ? 'Nije naveden'
+            : SrFormat.period(inquiry.startDate, inquiry.endDate),
+        note: noPeriod ? null : SrFormat.daysLabel(inquiry.days),
+      ),
+      MetaItem(
+        label: 'Budžet',
+        value: inquiry.budget == null
+            ? 'Nije naveden'
+            : SrFormat.money(inquiry.budget, 'EUR'),
+        emphasize: inquiry.budget != null,
+      ),
+      if (SrLabels.inquiryType(inquiry.inquiryType).isNotEmpty)
+        MetaItem(
+          label: 'Tip upita',
+          value: SrLabels.inquiryType(inquiry.inquiryType),
+        ),
+      if (client.isNotEmpty || requester.isNotEmpty)
+        MetaItem(
+          label: 'Klijent',
+          value: client.isNotEmpty ? client : requester,
+          note: client.isNotEmpty && requester.isNotEmpty ? requester : null,
+        ),
+      if ((inquiry.contactName ?? '').isNotEmpty)
+        MetaItem(label: 'Kontakt osoba', value: inquiry.contactName!),
+      if ((inquiry.contactEmail ?? '').isNotEmpty)
+        MetaItem(label: 'Email', value: inquiry.contactEmail!),
+      if ((inquiry.contactPhone ?? '').isNotEmpty)
+        MetaItem(label: 'Telefon', value: inquiry.contactPhone!),
+      if (inquiry.createdAt != null)
+        MetaItem(label: 'Podnet', value: SrFormat.date(inquiry.createdAt)),
+    ];
+
+    return SectionCard(
+      title: 'Podaci o upitu',
+      child: LayoutBuilder(builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 480 ? 2 : 1;
+        final itemWidth = (constraints.maxWidth - (columns - 1) * 20) / columns;
+        return Wrap(
+          spacing: 20,
+          runSpacing: 16,
+          children: [
+            for (final fact in facts) SizedBox(width: itemWidth, child: fact),
+          ],
+        );
+      }),
+    );
+  }
+}
+
+/// Brif kampanje: opis, ciljani gradovi, tipovi medija, publika i zahtevi.
+class _BriefCard extends StatelessWidget {
+  final Inquiry inquiry;
+
+  const _BriefCard({required this.inquiry});
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(top: 16, bottom: 8),
+        child: Text(text,
+            style: AppTypography.labelMedium.copyWith(
+                color: AppColors.mutedForeground, fontWeight: FontWeight.w600)),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final brief = (inquiry.campaignBrief ?? '').trim();
+    final paragraph = AppTypography.bodyMedium
+        .copyWith(color: AppColors.foreground, height: 1.55);
+    return SectionCard(
+      title: inquiry.isBrief ? 'Brif kampanje' : 'Opis kampanje',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(brief.isEmpty ? 'Opis kampanje nije naveden.' : brief,
+              style: brief.isEmpty
+                  ? paragraph.copyWith(color: AppColors.mutedForeground)
+                  : paragraph),
+          if (inquiry.targetCityNames.isNotEmpty) ...[
+            _label('Ciljani gradovi'),
+            Text(inquiry.targetCityNames.join(', '), style: paragraph),
+          ],
+          if (inquiry.preferredMediaTypeNames.isNotEmpty) ...[
+            _label('Tipovi medija'),
+            Text(inquiry.preferredMediaTypeNames.join(', '), style: paragraph),
+          ],
+          if ((inquiry.targetAudience ?? '').isNotEmpty) ...[
+            _label('Ciljna publika'),
+            Text(inquiry.targetAudience!, style: paragraph),
+          ],
+          if ((inquiry.additionalRequirements ?? '').isNotEmpty) ...[
+            _label('Dodatni zahtevi'),
+            Text(inquiry.additionalRequirements!, style: paragraph),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Izabrane površine, grupisane po vlasniku medija, sa cenom za period.
+class _ItemsCard extends StatelessWidget {
+  final Inquiry inquiry;
+  final bool isClient;
+  final void Function(InquiryItem item)? onEditPrice;
+
+  const _ItemsCard({
+    required this.inquiry,
+    required this.isClient,
+    this.onEditPrice,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final items = inquiry.items;
+    if (items.isEmpty) {
+      return SectionCard(
+        title: 'Izabrane površine',
+        child: const EmptyState(
+          compact: true,
+          icon: Icons.view_quilt_outlined,
+          title: 'Površine još nisu dodeljene',
+        ),
+      );
+    }
+
+    // Grupe po vlasniku medija, redosledom prvog pojavljivanja.
+    final groups = <String, List<InquiryItem>>{};
+    for (final item in items) {
+      groups.putIfAbsent(item.ownerName ?? '', () => []).add(item);
+    }
+    final cities = inquiry.unitCities.length;
+    final owners = groups.keys.where((k) => k.isNotEmpty).length;
+    final subtitle = [
+      SrFormat.count(items.length, 'površina', 'površine', 'površina'),
+      if (owners > 0)
+        SrFormat.count(
+            owners, 'vlasnik medija', 'vlasnika medija', 'vlasnika medija'),
+      if (cities > 0) SrFormat.count(cities, 'grad', 'grada', 'gradova'),
+    ].join(', ');
+
+    final totals = inquiry.itemTotals;
+
+    return SectionCard(
+      title: 'Izabrane površine',
+      subtitle: subtitle,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final entry in groups.entries) ...[
+            if (entry.key != groups.keys.first)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(),
+              ),
+            if (entry.key.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: OwnerGroupHeader(
+                  name: entry.key,
+                  countLabel: SrFormat.count(
+                      entry.value.length, 'površina', 'površine', 'površina'),
+                ),
+              ),
+            for (var i = 0; i < entry.value.length; i++) ...[
+              if (i > 0) const Divider(color: AppColors.borderSoft),
+              _ItemRow(item: entry.value[i], onEditPrice: onEditPrice),
+            ],
+          ],
+          if (totals.isNotEmpty) ...[
+            const Divider(),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text('Ukupno po stavkama',
+                      style: AppTypography.labelLarge),
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (final label in CurrencyTotals.labels(totals))
+                      Text(label,
+                          style: AppTypography.money.copyWith(fontSize: 18)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ItemRow extends StatelessWidget {
+  final InquiryItem item;
+  final void Function(InquiryItem item)? onEditPrice;
+
+  const _ItemRow({required this.item, this.onEditPrice});
+
+  @override
+  Widget build(BuildContext context) {
+    final price = item.quotedPrice;
+    return InquiryUnitRow(
+      unit: item.summary,
+      trailing: (context, narrow) {
+        final column = PriceColumn(
+          amount: price == null
+              ? 'Čeka cenu'
+              : SrFormat.money(price, item.priceCurrency),
+          caption: price == null ? null : item.cyclesText,
+          muted: price == null,
+        );
+        final edit = onEditPrice == null
+            ? null
+            : IconButton(
+                tooltip: 'Izmeni cenu',
+                onPressed: () => onEditPrice!(item),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: AppColors.primary),
+              );
+        return Row(
+          mainAxisSize: narrow ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            column,
+            if (edit != null) ...[const SizedBox(width: 4), edit],
           ],
         );
       },

@@ -1,266 +1,137 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/responsive/responsive.dart';
+import '../../../../core/widgets/ui/ui.dart';
+import 'landing_shared.dart';
 
+/// Kategorije oglasnog prostora: četiri kartice koje vode na pretragu.
 class CategoriesSection extends StatelessWidget {
   const CategoriesSection({super.key});
 
-  static const List<Map<String, String>> categories = [
-    {
-      'id': '1',
-      'title': 'Digital Billboards',
-      'subtitle': 'High-impact digital displays in prime locations',
-      'image': 'assets/images/digital_billboard.jpg',
-    },
-    {
-      'id': '2',
-      'title': 'Subway Screens',
-      'subtitle': 'Engage commuters in high-traffic stations',
-      'image': 'assets/images/subway.jpg',
-    },
-    {
-      'id': '3',
-      'title': 'Bus Shelters',
-      'subtitle': 'Street-level advertising on transit shelters',
-      'image': 'assets/images/bus_shelter.jpg',
-    },
-    {
-      'id': '4',
-      'title': 'Airports',
-      'subtitle': 'Connect with global traveler audiences',
-      'image': 'assets/images/airport.jpg',
-    },
+  static const List<_Category> _categories = [
+    _Category(
+      title: 'Digitalni bilbordi',
+      subtitle: 'Upečatljivi LED ekrani na najprometnijim lokacijama u gradu.',
+    ),
+    _Category(
+      title: 'Ekrani u javnom prevozu',
+      subtitle: 'Publika putnika na stanicama, terminalima i u vozilima.',
+    ),
+    _Category(
+      title: 'City light na stajalištima',
+      subtitle:
+          'Osvetljene vitrine u nivou ulice, na nadstrešnicama i trotoarima.',
+    ),
+    _Category(
+      title: 'Aerodromi',
+      subtitle: 'Putnici iz zemlje i sveta u zonama dolazaka i odlazaka.',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.background,
-      padding: EdgeInsets.symmetric(
-        vertical: context.isDesktop ? 96 : 64,
-        horizontal: context.isDesktop ? 48 : 16,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Istražite kategorije',
-              style: context.isDesktop
-                  ? AppTypography.displaySmall.copyWith(fontWeight: FontWeight.w700)
-                  : AppTypography.h1.copyWith(fontWeight: FontWeight.w700),
-            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
-            const SizedBox(height: 8),
-            Text(
-              'Pronađite idealan oglasni prostor za vašu kampanju.',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-            ).animate().fadeIn(delay: 100.ms, duration: 600.ms),
-            const SizedBox(height: 40),
-            ResponsiveLayout(
-              mobile: _buildMobileGrid(),
-              tablet: _buildTabletGrid(),
-              desktop: _buildDesktopGrid(),
+    return LandingSection(
+      key: LandingKeys.categories,
+      color: AppColors.surface,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(
+            title: 'Istražite oglasni prostor po vrsti',
+            trailing: OutlinedButton(
+              onPressed: () => context.go('/discover'),
+              child: const Text('Sve površine'),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 40),
+          LayoutBuilder(builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            final cols = w >= 1000 ? 4 : (w >= 560 ? 2 : 1);
+            const gap = 20.0;
+            final tileWidth = (w - gap * (cols - 1)) / cols;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final c in _categories)
+                  SizedBox(width: tileWidth, child: _CategoryCard(category: c)),
+              ],
+            );
+          }),
+        ],
       ),
-    );
-  }
-
-  Widget _buildMobileGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 16 / 9,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        return _CategoryCard(
-          category: categories[index],
-          delay: index * 100,
-        );
-      },
-    );
-  }
-
-  Widget _buildTabletGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 24,
-        crossAxisSpacing: 24,
-        childAspectRatio: 16 / 10,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        return _CategoryCard(
-          category: categories[index],
-          delay: index * 100,
-        );
-      },
-    );
-  }
-
-  Widget _buildDesktopGrid() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 24,
-        crossAxisSpacing: 24,
-        childAspectRatio: 3 / 4,
-      ),
-      itemCount: categories.length,
-      itemBuilder: (context, index) {
-        return _CategoryCard(
-          category: categories[index],
-          delay: index * 100,
-        );
-      },
     );
   }
 }
 
-class _CategoryCard extends StatefulWidget {
-  final Map<String, String> category;
-  final int delay;
+class _Category {
+  final String title;
+  final String subtitle;
 
-  const _CategoryCard({
-    required this.category,
-    required this.delay,
-  });
+  const _Category({required this.title, required this.subtitle});
+}
+
+class _CategoryCard extends StatefulWidget {
+  final _Category category;
+
+  const _CategoryCard({required this.category});
 
   @override
   State<_CategoryCard> createState() => _CategoryCardState();
 }
 
 class _CategoryCardState extends State<_CategoryCard> {
-  bool _isHovered = false;
+  bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
+    final c = widget.category;
+
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: () {},
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        onTap: () => context.go('/discover'),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.all(22),
+          decoration: AppDecorations.card().copyWith(
+            border: Border.all(
+              color: _hovered
+                  ? AppColors.primary.withValues(alpha: 0.35)
+                  : AppColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(c.title, style: AppTypography.h5),
+              const SizedBox(height: 6),
+              SizedBox(
+                height: 42,
+                child: Text(
+                  c.subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.bodySmall
+                      .copyWith(color: AppColors.mutedForeground),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Pogledaj površine',
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // Background Image
-                AnimatedScale(
-                  scale: _isHovered ? 1.1 : 1.0,
-                  duration: AppDuration.normal,
-                  curve: Curves.easeInOut,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          AppColors.primary.withValues(alpha: 0.7),
-                          AppColors.accent.withValues(alpha: 0.5),
-                        ],
-                      ),
-                    ),
-                    child: Icon(
-                      _getCategoryIcon(widget.category['id']!),
-                      size: 80,
-                      color: Colors.white.withValues(alpha: 0.3),
-                    ),
-                  ),
-                ),
-                
-                // Gradient Overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.4),
-                        Colors.black.withValues(alpha: 0.8),
-                      ],
-                    ),
-                  ),
-                ),
-                
-                // Content
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.category['title']!,
-                        style: AppTypography.h3.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        widget.category['subtitle']!,
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: Colors.white.withValues(alpha: 0.8),
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms, delay: Duration(milliseconds: widget.delay))
-            .slideY(begin: 0.2, end: 0, duration: 600.ms, delay: Duration(milliseconds: widget.delay)),
+        ),
       ),
     );
-  }
-
-  IconData _getCategoryIcon(String id) {
-    switch (id) {
-      case '1':
-        return Icons.tv;
-      case '2':
-        return Icons.subway;
-      case '3':
-        return Icons.bus_alert;
-      case '4':
-        return Icons.flight;
-      default:
-        return Icons.ads_click;
-    }
   }
 }

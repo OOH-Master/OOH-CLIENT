@@ -1,14 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
 import '../../../../core/widgets/app_snackbar.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../data/dto/campaign_dto.dart';
 import '../../data/repository/campaign_repository.dart';
 import '../blocs/campaign_bloc.dart';
@@ -29,224 +30,508 @@ class CampaignDetailPage extends StatelessWidget {
   }
 }
 
-class _CampaignDetailView extends StatelessWidget {
+class _CampaignDetailView extends StatefulWidget {
   final String campaignId;
+
   const _CampaignDetailView({required this.campaignId});
+
+  @override
+  State<_CampaignDetailView> createState() => _CampaignDetailViewState();
+}
+
+class _CampaignDetailViewState extends State<_CampaignDetailView> {
+  /// Poslednje učitana kampanja; ostaje vidljiva dok se menja status.
+  CampaignDto? _last;
+  bool _deleting = false;
+
+  int get _id => int.tryParse(widget.campaignId) ?? 0;
+
+  Future<void> _edit() async {
+    final bloc = context.read<CampaignBloc>();
+    await context.push('/app/campaigns/${widget.campaignId}/edit');
+    if (mounted) bloc.add(LoadCampaignDetail(_id));
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDesktop = context.isDesktop;
-    final priceFormatter = NumberFormat('#,##0.00');
+    final wide = MediaQuery.sizeOf(context).width >= 900;
 
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(l10n.campaignDetail),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.foreground,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () => context.push('/app/campaigns/$campaignId/edit'),
-            tooltip: 'Izmeni',
-          ),
-        ],
-      ),
+      appBar: wide
+          ? null
+          : AppBar(
+              title: Text(l10n.campaignDetail),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: _edit,
+                  tooltip: 'Izmeni',
+                ),
+              ],
+            ),
       body: BlocConsumer<CampaignBloc, CampaignState>(
         listener: (context, state) {
           if (state is CampaignFormSuccess) {
             AppSnackbar.show(context, state.message);
+            // Posle uspešnog brisanja vraća se na listu, koja se tada osvežava.
+            if (_deleting) context.pop();
           } else if (state is CampaignError) {
+            _deleting = false;
             AppSnackbar.show(context, state.message, isError: true);
           }
         },
+        buildWhen: (previous, current) => current is! CampaignFormSuccess,
         builder: (context, state) {
-          if (state is CampaignLoading) {
+          if (state is CampaignDetailLoaded) _last = state.campaign;
+          final campaign = _last;
+          final busy = state is CampaignLoading || state is CampaignInitial;
+
+          if (campaign == null) {
+            if (state is CampaignError) {
+              return EmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Kampanja trenutno nije dostupna',
+                message: state.message,
+                action: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.read<CampaignBloc>().add(LoadCampaignDetail(_id)),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(l10n.retry),
+                ),
+              );
+            }
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (state is CampaignDetailLoaded) {
-            final campaign = state.campaign;
-            final status = CampaignStatus.fromApi(campaign.status);
-
-            return SingleChildScrollView(
-              padding: EdgeInsets.all(isDesktop ? AppSpacing.lg : AppSpacing.md),
-              child: Center(
-                child: Container(
-                  constraints: BoxConstraints(maxWidth: isDesktop ? 700 : double.infinity),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              campaign.name ?? 'Kampanja #${campaign.id}',
-                              style: AppTypography.h4,
-                            ),
-                          ),
-                          CampaignStatusBadge(status: status),
-                        ],
-                      ),
-                      if (campaign.description != null) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          campaign.description!,
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.mutedForeground),
-                        ),
-                      ],
-                      const SizedBox(height: AppSpacing.lg),
-                      // Details card
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(color: AppColors.border),
-                        ),
-                        child: Column(
-                          children: [
-                            _detailRow(Icons.calendar_today, l10n.startDate, campaign.startDate ?? '—'),
-                            _detailRow(Icons.calendar_today, l10n.endDate, campaign.endDate ?? '—'),
-                            if (campaign.budget != null)
-                              _detailRow(Icons.euro, l10n.budget, priceFormatter.format(campaign.budget)),
-                            if (campaign.brandUsername != null)
-                              _detailRow(Icons.business, l10n.brandUsername, campaign.brandUsername!),
-                            _detailRow(Icons.access_time, 'Kreirana', campaign.createdAt ?? '—'),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      // Status transition buttons
-                      Text('Promena statusa', style: AppTypography.h6),
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: AppSpacing.sm,
-                        runSpacing: AppSpacing.sm,
-                        children: _buildTransitionButtons(context, status, campaign.id),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      // Delete button
-                      OutlinedButton.icon(
-                        onPressed: () => _confirmDelete(context, campaign.id),
-                        icon: Icon(Icons.delete_outline, color: AppColors.destructive),
-                        label: Text('Obrisi kampanju', style: TextStyle(color: AppColors.destructive)),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.destructive.withValues(alpha: 0.3)),
-                        ),
-                      ),
-                    ],
-                  ),
+          return Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final side = wide ? 32.0 : 16.0;
+                  final gutter =
+                      math.max(side, (constraints.maxWidth - 1240) / 2);
+                  final contentWidth = constraints.maxWidth - 2 * gutter;
+                  return SingleChildScrollView(
+                    padding:
+                        EdgeInsets.fromLTRB(gutter, wide ? 0 : 16, gutter, 40),
+                    child: _buildContent(
+                        context, campaign, wide, contentWidth, busy, l10n),
+                  );
+                },
+              ),
+              if (busy)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
                 ),
-              ),
-            );
-          }
-
-          if (state is CampaignError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: AppColors.destructive),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(state.message),
-                  const SizedBox(height: AppSpacing.md),
-                  ElevatedButton(
-                    onPressed: () => context.read<CampaignBloc>().add(
-                      LoadCampaignDetail(int.tryParse(campaignId) ?? 0),
-                    ),
-                    child: Text(l10n.retry),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return const SizedBox.shrink();
+            ],
+          );
         },
       ),
     );
   }
 
-  Widget _detailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
+  Widget _buildContent(BuildContext context, CampaignDto campaign, bool wide,
+      double width, bool busy, AppLocalizations l10n) {
+    final raw = (campaign.status ?? 'DRAFT').toUpperCase();
+    final status = CampaignStatus.fromApi(campaign.status);
+    final name = (campaign.name == null || campaign.name!.trim().isEmpty)
+        ? 'Kampanja #${campaign.id}'
+        : campaign.name!;
+    final transitions = raw == 'CANCELLED'
+        ? <(CampaignStatus, String, bool)>[]
+        : _transitions(status);
+    final subtitle = _headerSubtitle(campaign);
+
+    final header = wide
+        ? PageHeader(
+            title: name,
+            subtitle: subtitle,
+            showBack: true,
+            padding: const EdgeInsets.only(top: 28, bottom: 22),
+            actions: [
+              OutlinedButton.icon(
+                onPressed: _edit,
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Izmeni'),
+              ),
+              for (final t in transitions.where((t) => t.$3))
+                FilledButton(
+                  onPressed: busy ? null : () => _changeStatus(t.$1),
+                  child: Text(t.$2),
+                ),
+            ],
+          )
+        : Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name, style: AppTypography.h4),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: AppTypography.bodySmall
+                          .copyWith(color: AppColors.mutedForeground)),
+                ],
+              ],
+            ),
+          );
+
+    final overview = SectionCard(
+      title: 'Pregled',
+      trailing: CampaignStatusBadge(status: status, raw: campaign.status),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, size: 18, color: AppColors.mutedForeground),
-          const SizedBox(width: AppSpacing.xs),
-          SizedBox(
-            width: 130,
-            child: Text(label, style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground)),
-          ),
-          Expanded(
-            child: Text(value, style: AppTypography.bodySmall.copyWith(fontWeight: FontWeight.w500)),
-          ),
+          _FactsGrid(facts: [
+            MetaItem(
+              label: 'Period zakupa',
+              value: (campaign.startDate == null && campaign.endDate == null)
+                  ? 'Nije određen'
+                  : SrFormat.period(campaign.startDate, campaign.endDate),
+            ),
+            MetaItem(
+              label: 'Trajanje',
+              value: _days(campaign).isEmpty ? '—' : _days(campaign),
+            ),
+            MetaItem(
+              label: l10n.budget,
+              value: campaign.budget == null
+                  ? 'Nije unet'
+                  : SrFormat.money(campaign.budget, 'EUR'),
+              emphasize: campaign.budget != null,
+            ),
+            MetaItem(
+              label: 'Brend',
+              value: (campaign.brandUsername == null ||
+                      campaign.brandUsername!.isEmpty)
+                  ? '—'
+                  : campaign.brandUsername!,
+            ),
+            MetaItem(
+              label: 'Kreirana',
+              value: campaign.createdAt == null
+                  ? '—'
+                  : SrFormat.date(campaign.createdAt),
+            ),
+          ]),
+          if (campaign.description != null &&
+              campaign.description!.trim().isNotEmpty) ...[
+            const SizedBox(height: 18),
+            const Divider(),
+            const SizedBox(height: 14),
+            Text('Opis',
+                style: AppTypography.labelMedium
+                    .copyWith(color: AppColors.mutedForeground)),
+            const SizedBox(height: 4),
+            Text(campaign.description!,
+                style:
+                    AppTypography.bodyMedium.copyWith(color: AppColors.text2)),
+          ],
         ],
       ),
     );
+
+    final timeline = SectionCard(
+      title: 'Tok kampanje',
+      child: raw == 'CANCELLED'
+          ? Text('Kampanja je otkazana.',
+              style: AppTypography.bodyMedium.copyWith(color: AppColors.text2))
+          : _StatusTimeline(current: raw),
+    );
+
+    // Završena ili otkazana kampanja nema prelaza, pa ni ove kartice.
+    final Widget? nextStep = transitions.isEmpty
+        ? null
+        : SectionCard(
+            title: 'Sledeći korak',
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final t in transitions)
+                  t.$3
+                      ? FilledButton(
+                          onPressed: busy ? null : () => _changeStatus(t.$1),
+                          child: Text(t.$2),
+                        )
+                      : OutlinedButton(
+                          onPressed: busy ? null : () => _changeStatus(t.$1),
+                          child: Text(t.$2),
+                        ),
+              ],
+            ),
+          );
+
+    final danger = SectionCard(
+      title: 'Brisanje kampanje',
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: () => _confirmDelete(context, campaign.id),
+          icon: const Icon(Icons.delete_outline_rounded, size: 18),
+          label: const Text('Obriši kampanju'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.destructive,
+            side: BorderSide(
+                color: AppColors.destructive.withValues(alpha: 0.35)),
+          ),
+        ),
+      ),
+    );
+
+    const gap = SizedBox(height: 16);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
+        if (width >= 900)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(children: [overview, gap, timeline]),
+              ),
+              const SizedBox(width: 20),
+              Expanded(
+                flex: 2,
+                child: Column(children: [
+                  if (nextStep != null) ...[nextStep, gap],
+                  danger,
+                ]),
+              ),
+            ],
+          )
+        else ...[
+          overview,
+          gap,
+          timeline,
+          gap,
+          if (nextStep != null) ...[nextStep, gap],
+          danger,
+        ],
+      ],
+    );
   }
 
-  List<Widget> _buildTransitionButtons(BuildContext context, CampaignStatus current, int id) {
-    final transitions = <(CampaignStatus, String)>[];
+  /// "1.12. – 28.12.2026, budžet 2.500 €, brend"; bez podataka nema podnaslova.
+  String? _headerSubtitle(CampaignDto c) {
+    final parts = <String>[
+      if (c.startDate != null || c.endDate != null)
+        SrFormat.period(c.startDate, c.endDate),
+      if (c.budget != null) 'budžet ${SrFormat.money(c.budget, 'EUR')}',
+      if (c.brandUsername != null && c.brandUsername!.isNotEmpty)
+        c.brandUsername!,
+    ];
+    return parts.isEmpty ? null : parts.join(', ');
+  }
+
+  String _days(CampaignDto c) =>
+      SrFormat.daysLabel(SrFormat.days(c.startDate, c.endDate));
+
+  /// Dozvoljeni prelazi statusa: (novi status, tekst dugmeta, da li je glavni).
+  List<(CampaignStatus, String, bool)> _transitions(CampaignStatus current) {
     switch (current) {
       case CampaignStatus.draft:
-        transitions.add((CampaignStatus.inNegotiation, 'Zapocni pregovore'));
+        return [(CampaignStatus.inNegotiation, 'Započni pregovore', true)];
       case CampaignStatus.inNegotiation:
-        transitions.add((CampaignStatus.booked, 'Potvrdi rezervaciju'));
-        transitions.add((CampaignStatus.draft, 'Vrati u nacrt'));
+        return [
+          (CampaignStatus.booked, 'Potvrdi zakup', true),
+          (CampaignStatus.draft, 'Vrati u nacrt', false),
+        ];
       case CampaignStatus.booked:
-        transitions.add((CampaignStatus.running, 'Pokreni kampanju'));
+        return [(CampaignStatus.running, 'Pokreni kampanju', true)];
       case CampaignStatus.running:
-        transitions.add((CampaignStatus.finished, 'Zavrsi kampanju'));
+        return [(CampaignStatus.finished, 'Završi kampanju', true)];
       case CampaignStatus.finished:
-        break;
+        return [];
     }
+  }
 
-    return transitions.map((t) {
-      return ElevatedButton(
-        onPressed: () {
-          context.read<CampaignBloc>().add(ChangeStatus(id, t.$1.name.toUpperCase()));
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.primaryForeground,
-        ),
-        child: Text(t.$2),
-      );
-    }).toList();
+  void _changeStatus(CampaignStatus next) {
+    context
+        .read<CampaignBloc>()
+        .add(ChangeStatus(_id, CampaignStatusBadge.apiValue(next)));
   }
 
   void _confirmDelete(BuildContext context, int id) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Potvrda brisanja'),
-        content: const Text('Da li ste sigurni da zelite da obrisete ovu kampanju?'),
+        title: const Text('Obrisati kampanju?'),
+        content: const SizedBox(
+          width: 420,
+          child: Text(
+              'Kampanja se trajno uklanja sa liste. Ova radnja se ne može poništiti.'),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Otkazi'),
+            child: const Text('Otkaži'),
           ),
-          ElevatedButton(
+          FilledButton(
             onPressed: () {
               Navigator.pop(dialogContext);
+              _deleting = true;
               context.read<CampaignBloc>().add(DeleteCampaign(id));
-              context.pop();
             },
-            style: ElevatedButton.styleFrom(
+            style: FilledButton.styleFrom(
               backgroundColor: AppColors.destructive,
               foregroundColor: AppColors.destructiveForeground,
             ),
-            child: const Text('Obrisi'),
+            child: const Text('Obriši'),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Podaci kampanje u dve ili tri kolone.
+class _FactsGrid extends StatelessWidget {
+  final List<Widget> facts;
+
+  const _FactsGrid({required this.facts});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cols = constraints.maxWidth >= 640
+            ? 3
+            : (constraints.maxWidth >= 380 ? 2 : 1);
+        final w = (constraints.maxWidth - (cols - 1) * 16) / cols;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [for (final f in facts) SizedBox(width: w, child: f)],
+        );
+      },
+    );
+  }
+}
+
+/// Faze kampanje od nacrta do završetka; trenutna je istaknuta.
+class _StatusTimeline extends StatelessWidget {
+  final String current;
+
+  const _StatusTimeline({required this.current});
+
+  static const _steps = [
+    'DRAFT',
+    'IN_NEGOTIATION',
+    'BOOKED',
+    'RUNNING',
+    'FINISHED',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final index = math.max(0, _steps.indexOf(current));
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final vertical = constraints.maxWidth < 620;
+        final items = [
+          for (var i = 0; i < _steps.length; i++)
+            _StepDot(
+              label: CampaignStatusBadge.labelFor(_steps[i]),
+              done: i < index,
+              active: i == index,
+            ),
+        ];
+        if (vertical) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < items.length; i++) ...[
+                items[i],
+                if (i < items.length - 1)
+                  Container(
+                    margin: const EdgeInsets.only(left: 11),
+                    width: 2,
+                    height: 14,
+                    color: i < index ? AppColors.primary : AppColors.border,
+                  ),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              items[i],
+              if (i < items.length - 1)
+                Expanded(
+                  child: Container(
+                    height: 2,
+                    margin: const EdgeInsets.symmetric(horizontal: 10),
+                    color: i < index ? AppColors.primary : AppColors.border,
+                  ),
+                ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _StepDot extends StatelessWidget {
+  final String label;
+  final bool done;
+  final bool active;
+
+  const _StepDot(
+      {required this.label, required this.done, required this.active});
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = done || active;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: filled ? AppColors.primary : AppColors.surface,
+            border: Border.all(
+              color: filled ? AppColors.primary : AppColors.input,
+              width: 1.5,
+            ),
+          ),
+          child: done
+              ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+              : (active
+                  ? const Center(
+                      child: SizedBox(
+                        width: 8,
+                        height: 8,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                              color: Colors.white, shape: BoxShape.circle),
+                        ),
+                      ),
+                    )
+                  : null),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: AppTypography.labelMedium.copyWith(
+            color: filled ? AppColors.foreground : AppColors.mutedForeground,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

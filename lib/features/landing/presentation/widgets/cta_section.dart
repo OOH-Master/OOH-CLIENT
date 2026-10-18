@@ -1,68 +1,73 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_typography.dart';
+import 'landing_shared.dart';
 
+/// Poziv na registraciju: tamni panel sa naslovom i dva dugmeta.
 class CTASection extends StatelessWidget {
   const CTASection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      padding: EdgeInsets.symmetric(
-        vertical: context.isDesktop ? 96 : 64,
-        horizontal: context.isDesktop ? 48 : 16,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 800),
-        child: Column(
-          children: [
-            Text(
-              'Ready to elevate your brand\'s presence?',
-              style: context.isDesktop
-                  ? AppTypography.displaySmall
-                  : AppTypography.h1,
-              textAlign: TextAlign.center,
-            )
-                .animate()
-                .fadeIn(duration: 600.ms)
-                .slideY(begin: 0.2, end: 0),
-            const SizedBox(height: 16),
-            Text(
-              'Join thousands of leading brands who use our platform to create impactful OOH campaigns. Sign up today and get started in minutes.',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-              textAlign: TextAlign.center,
-            )
-                .animate()
-                .fadeIn(delay: 100.ms, duration: 600.ms),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () => context.go('/auth/register'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                textStyle: AppTypography.bodyLarge.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              child: const Text('Start Your Campaign'),
-            )
-                .animate()
-                .fadeIn(delay: 200.ms, duration: 600.ms)
-                .scale(),
-          ],
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+    return LandingSection(
+      color: AppColors.surface,
+      vertical: wide ? 88 : 56,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.ink,
+          borderRadius: BorderRadius.circular(16),
         ),
+        padding: EdgeInsets.symmetric(
+            horizontal: wide ? 56 : 24, vertical: wide ? 48 : 32),
+        child: wide
+            ? Row(
+                children: [
+                  Expanded(child: _copy()),
+                  const SizedBox(width: 40),
+                  _buttons(context),
+                ],
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _copy(),
+                  const SizedBox(height: 24),
+                  _buttons(context),
+                ],
+              ),
       ),
+    );
+  }
+
+  Widget _copy() {
+    return Text(
+      'Spremni da vaš brend bude viđen?',
+      style: AppTypography.h2.copyWith(color: Colors.white),
+    );
+  }
+
+  Widget _buttons(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        FilledButton(
+          onPressed: () => context.go('/auth/register'),
+          child: const Text('Započnite kampanju'),
+        ),
+        OutlinedButton(
+          onPressed: () => context.go('/discover'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.transparent,
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.28)),
+          ),
+          child: const Text('Istražite površine'),
+        ),
+      ],
     );
   }
 }

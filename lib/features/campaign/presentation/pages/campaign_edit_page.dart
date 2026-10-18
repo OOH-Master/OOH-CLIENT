@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/responsive_builder.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/widgets/app_button.dart';
+import '../../../../core/utils/sr_format.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/widgets/app_text_field.dart';
+import '../../data/dto/campaign_dto.dart';
 import '../../data/repository/campaign_repository.dart';
 import '../blocs/campaign_bloc.dart';
+import '../widgets/campaign_form_widgets.dart';
 
 class CampaignEditPage extends StatelessWidget {
   final String campaignId;
@@ -40,6 +39,7 @@ class _CampaignEditViewState extends State<_CampaignEditView> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _budgetController = TextEditingController();
+  // Datumi u ISO obliku ("2026-11-16"), kako ih API prima.
   final _startDateController = TextEditingController();
   final _endDateController = TextEditingController();
   bool _populated = false;
@@ -54,12 +54,17 @@ class _CampaignEditViewState extends State<_CampaignEditView> {
     super.dispose();
   }
 
-  void _populateFields(dynamic campaign) {
+  void _populateFields(CampaignDto campaign) {
     if (_populated) return;
     _populated = true;
     _nameController.text = campaign.name ?? '';
     _descriptionController.text = campaign.description ?? '';
-    _budgetController.text = campaign.budget?.toString() ?? '';
+    final budget = campaign.budget;
+    _budgetController.text = budget == null
+        ? ''
+        : (budget == budget.roundToDouble()
+            ? budget.toInt().toString()
+            : budget.toString());
     _startDateController.text = campaign.startDate ?? '';
     _endDateController.text = campaign.endDate ?? '';
   }
@@ -74,127 +79,137 @@ class _CampaignEditViewState extends State<_CampaignEditView> {
       'endDate': _endDateController.text.trim(),
     };
     if (_budgetController.text.isNotEmpty) {
-      data['budget'] = double.tryParse(_budgetController.text.trim());
+      data['budget'] = campaignBudget(_budgetController.text);
     }
 
     context.read<CampaignBloc>().add(
-      UpdateCampaign(int.tryParse(widget.campaignId) ?? 0, data),
-    );
+          UpdateCampaign(int.tryParse(widget.campaignId) ?? 0, data),
+        );
   }
 
   Future<void> _selectDate(TextEditingController controller) async {
+    final current = SrFormat.parseDate(controller.text);
+    final initial = (current != null &&
+            !current.isBefore(DateTime(2020)) &&
+            !current.isAfter(DateTime(2030)))
+        ? current
+        : DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2030),
     );
     if (date != null) {
-      controller.text = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      setState(() => controller.text = campaignIsoDate(date));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDesktop = context.isDesktop;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Izmeni kampanju'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.foreground,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: BlocConsumer<CampaignBloc, CampaignState>(
-        listener: (context, state) {
-          if (state is CampaignFormSuccess) {
-            AppSnackbar.show(context, state.message);
-            context.pop();
-          } else if (state is CampaignError) {
-            AppSnackbar.show(context, state.message, isError: true);
-          }
-        },
-        builder: (context, state) {
-          if (state is CampaignLoading && !_populated) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return BlocConsumer<CampaignBloc, CampaignState>(
+      listener: (context, state) {
+        if (state is CampaignFormSuccess) {
+          AppSnackbar.show(context, state.message);
+          context.pop();
+        } else if (state is CampaignError) {
+          AppSnackbar.show(context, state.message, isError: true);
+        }
+      },
+      builder: (context, state) {
+        if (state is CampaignDetailLoaded) {
+          _populateFields(state.campaign);
+        }
+        final loadingDetail =
+            (state is CampaignLoading || state is CampaignInitial) &&
+                !_populated;
+        final start = SrFormat.parseDate(_startDateController.text);
+        final end = SrFormat.parseDate(_endDateController.text);
 
-          if (state is CampaignDetailLoaded) {
-            _populateFields(state.campaign);
-          }
-
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(isDesktop ? AppSpacing.lg : AppSpacing.md),
-            child: Center(
-              child: Container(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 600 : double.infinity),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        return CampaignFormScaffold(
+          title: 'Izmena kampanje',
+          subtitle:
+              _nameController.text.isEmpty ? null : _nameController.text,
+          loading: state is CampaignLoading,
+          saveLabel: l10n.save,
+          onSave: _onSave,
+          builder: (context, width) {
+            if (loadingDetail) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 80),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            return Form(
+              key: _formKey,
+              child: CampaignFormColumns(
+                width: width,
+                left: [
+                  CampaignFormSection(
+                    title: 'Osnovno',
                     children: [
-                      AppTextField(
-                        label: l10n.campaignName,
+                      TextFormField(
                         controller: _nameController,
-                        prefixIcon: Icons.campaign_outlined,
-                        validator: (v) => (v == null || v.isEmpty) ? 'Obavezno polje' : null,
+                        textInputAction: TextInputAction.next,
+                        decoration: InputDecoration(
+                          labelText: '${l10n.campaignName} *',
+                        ),
+                        validator: (v) =>
+                            (v == null || v.isEmpty) ? 'Obavezno polje' : null,
                       ),
-                      const SizedBox(height: AppSpacing.md),
-                      AppTextField(
-                        label: l10n.description,
+                      TextFormField(
                         controller: _descriptionController,
-                        prefixIcon: Icons.description_outlined,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      AppTextField(
-                        label: l10n.budget,
-                        controller: _budgetController,
-                        prefixIcon: Icons.euro,
-                        keyboardType: TextInputType.number,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      GestureDetector(
-                        onTap: () => _selectDate(_startDateController),
-                        child: AbsorbPointer(
-                          child: AppTextField(
-                            label: l10n.startDate,
-                            controller: _startDateController,
-                            prefixIcon: Icons.calendar_today,
-                          ),
+                        maxLines: 5,
+                        minLines: 3,
+                        decoration: InputDecoration(
+                          labelText: l10n.description,
+                          alignLabelWithHint: true,
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      GestureDetector(
-                        onTap: () => _selectDate(_endDateController),
-                        child: AbsorbPointer(
-                          child: AppTextField(
-                            label: l10n.endDate,
-                            controller: _endDateController,
-                            prefixIcon: Icons.calendar_today,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xl),
-                      BlocBuilder<CampaignBloc, CampaignState>(
-                        builder: (context, state) {
-                          return PrimaryButton(
-                            text: l10n.save,
-                            onPressed: _onSave,
-                            isLoading: state is CampaignLoading,
-                          );
-                        },
                       ),
                     ],
                   ),
-                ),
+                ],
+                right: [
+                  CampaignFormSection(
+                    title: 'Period i budžet',
+                    children: [
+                      CampaignDateField(
+                        label: l10n.startDate,
+                        value: start,
+                        onTap: () => _selectDate(_startDateController),
+                      ),
+                      CampaignDateField(
+                        label: l10n.endDate,
+                        value: end,
+                        onTap: () => _selectDate(_endDateController),
+                      ),
+                      if (start != null && end != null)
+                        CampaignPeriodHint(start: start, end: end),
+                      TextFormField(
+                        controller: _budgetController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: l10n.budget,
+                          suffixText: '€',
+                          prefixIcon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                              size: 20),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -4,13 +4,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/config/api_client.dart';
 import '../../../../core/config/api_config.dart';
-import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
+import '../../../../core/utils/sr_labels.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../data/repository/inquiry_repository.dart';
+import '../../domain/entities/unit_summary.dart';
 import '../blocs/inquiry_bloc.dart';
+import '../utils/inquiry_errors.dart';
+import '../widgets/inquiry_layout.dart';
+import '../widgets/inquiry_unit_row.dart';
 
 class InquiryCreatePage extends StatelessWidget {
   final List<String> unitIds;
@@ -45,6 +50,8 @@ class _InquiryCreateForm extends StatefulWidget {
 }
 
 class _InquiryCreateFormState extends State<_InquiryCreateForm> {
+  static const _required = 'Obavezno polje';
+
   final _formKey = GlobalKey<FormState>();
   final _contactNameController = TextEditingController();
   final _contactEmailController = TextEditingController();
@@ -69,7 +76,8 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
   List<_DictItem> _availableMediaTypes = [];
   bool _loadingDictionaries = true;
 
-  AppLocalizations get l10n => AppLocalizations.of(context)!;
+  // Izabrane površine za prikaz (fotografija, lokacija, cena); null = učitava se.
+  Map<String, UnitSummary?>? _selectedUnits;
 
   @override
   void initState() {
@@ -79,6 +87,7 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
         : InquiryFlow.campaignBrief;
     _prefillFromProfile();
     _loadDictionaries();
+    _loadSelectedUnits();
   }
 
   void _prefillFromProfile() {
@@ -108,24 +117,36 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
 
       if (mounted) {
         setState(() {
-          _availableCities = (citiesResponse.data ?? [])
-              .map((json) {
-                final m = json as Map<String, dynamic>;
-                return _DictItem(m['id'] as int, m['name'] as String);
-              })
-              .toList();
-          _availableMediaTypes = (unitTypesResponse.data ?? [])
-              .map((json) {
-                final m = json as Map<String, dynamic>;
-                return _DictItem(m['id'] as int, m['name'] as String);
-              })
-              .toList();
+          _availableCities = (citiesResponse.data ?? []).map((json) {
+            final m = json as Map<String, dynamic>;
+            return _DictItem(m['id'] as int, m['name'] as String);
+          }).toList();
+          _availableMediaTypes = (unitTypesResponse.data ?? []).map((json) {
+            final m = json as Map<String, dynamic>;
+            return _DictItem(m['id'] as int, m['name'] as String);
+          }).toList();
           _loadingDictionaries = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _loadingDictionaries = false);
     }
+  }
+
+  /// Samo za prikaz: podaci izabranih površina iz javnog inventara.
+  Future<void> _loadSelectedUnits() async {
+    if (widget.unitIds.isEmpty) return;
+    final repository = context.read<InquiryRepository>();
+    final result = <String, UnitSummary?>{};
+    await Future.wait(widget.unitIds.map((id) async {
+      final parsed = int.tryParse(id);
+      try {
+        result[id] = parsed == null ? null : await repository.getUnit(parsed);
+      } catch (_) {
+        result[id] = null;
+      }
+    }));
+    if (mounted) setState(() => _selectedUnits = result);
   }
 
   @override
@@ -143,339 +164,348 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(l10n.newInquiry),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.foreground,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-      ),
+    return InquiryScaffold(
+      title: 'Novi upit',
       body: BlocConsumer<InquiryBloc, InquiryState>(
         listener: (context, state) {
           if (state is InquirySubmitSuccess) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(l10n.inquiryCreated)),
-            );
-            context.pop();
+            showInquirySnack(context, 'Upit je uspešno poslat', success: true);
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/app/inquiries');
+            }
           }
           if (state is InquiryError) {
             setState(() => _isSubmitting = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(state.message),
-                backgroundColor: AppColors.destructive,
-              ),
-            );
+            showInquirySnack(context, InquiryErrors.describe(state.message),
+                error: true);
           }
         },
         builder: (context, state) {
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Flow Selector
-                  _buildFlowSelector(),
-                  const SizedBox(height: AppSpacing.lg),
-
-                  // Contact Information Section
-                  _buildSectionLabel(l10n.contactInformation),
-                  const SizedBox(height: AppSpacing.sm),
-                  _buildTextField(
-                    controller: _contactNameController,
-                    label: l10n.contactName,
-                    prefixIcon: Icons.person_outline,
-                    validator: (v) =>
-                        v == null || v.isEmpty ? l10n.validatorRequired : null,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildTextField(
-                    controller: _contactEmailController,
-                    label: l10n.contactEmail,
-                    prefixIcon: Icons.email_outlined,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v == null || v.isEmpty) return l10n.validatorEmailRequired;
-                      if (!v.contains('@') || !v.contains('.')) {
-                        return l10n.validatorEmailInvalid;
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  _buildTextField(
-                    controller: _contactPhoneController,
-                    label: l10n.contactPhone,
-                    prefixIcon: Icons.phone_outlined,
-                    keyboardType: TextInputType.phone,
-                  ),
-
-                  const SizedBox(height: AppSpacing.lg),
-
-                  if (_selectedFlow == InquiryFlow.selectInventory)
-                    _buildFlowA()
-                  else
-                    _buildFlowB(),
-
-                  const SizedBox(height: AppSpacing.xl),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _onSubmit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.primaryForeground,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
+          final wide = InquiryLayout.isWide(context);
+          return LayoutBuilder(builder: (context, constraints) {
+            final gutter =
+                InquiryLayout.gutter(constraints.maxWidth, wide: wide);
+            return SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 40),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 880),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const InquiryHeader(
+                          title: 'Novi upit',
+                          showBack: true,
                         ),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : Text(l10n.submitInquiry,
-                              style: AppTypography.button),
+                        _buildFlowSelector(),
+                        const SizedBox(height: 16),
+                        _buildContactSection(),
+                        const SizedBox(height: 16),
+                        if (_selectedFlow == InquiryFlow.selectInventory)
+                          _buildFlowA()
+                        else
+                          _buildFlowB(),
+                        const SizedBox(height: 24),
+                        _buildSubmit(wide),
+                      ],
                     ),
                   ),
-
-                  const SizedBox(height: AppSpacing.lg),
-                ],
+                ),
               ),
-            ),
-          );
+            );
+          });
         },
       ),
     );
   }
 
+  Widget _buildSubmit(bool wide) {
+    final button = FilledButton.icon(
+      onPressed: _isSubmitting ? null : _onSubmit,
+      icon: _isSubmitting
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.subtle),
+            )
+          : const Icon(Icons.send_rounded, size: 18),
+      label: const Text('Pošalji upit'),
+      style: FilledButton.styleFrom(minimumSize: const Size(220, 50)),
+    );
+    if (!wide) return button;
+    return Align(alignment: Alignment.centerRight, child: button);
+  }
+
   Widget _buildFlowSelector() {
-    return SegmentedButton<InquiryFlow>(
-      segments: [
-        ButtonSegment(
-          value: InquiryFlow.selectInventory,
-          label: const Text('Odaberi inventar'),
-          icon: const Icon(Icons.inventory_2_outlined, size: 18),
+    return SectionCard(
+      title: 'Vrsta upita',
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: SegmentedButton<InquiryFlow>(
+          segments: const [
+            ButtonSegment(
+              value: InquiryFlow.selectInventory,
+              label: Text('Izbor površina'),
+            ),
+            ButtonSegment(
+              value: InquiryFlow.campaignBrief,
+              label: Text('Brif kampanje'),
+            ),
+          ],
+          showSelectedIcon: false,
+          selected: {_selectedFlow},
+          onSelectionChanged: (selection) {
+            if (selection.isNotEmpty) {
+              setState(() => _selectedFlow = selection.first);
+            }
+          },
+          style: SegmentedButton.styleFrom(
+            selectedBackgroundColor: AppColors.primarySoft,
+            selectedForegroundColor: AppColors.primaryStrong,
+          ),
         ),
-        ButtonSegment(
-          value: InquiryFlow.campaignBrief,
-          label: const Text('Opis kampanje'),
-          icon: const Icon(Icons.description_outlined, size: 18),
-        ),
-      ],
-      selected: {_selectedFlow},
-      onSelectionChanged: (selection) {
-        if (selection.isNotEmpty) {
-          setState(() => _selectedFlow = selection.first);
-        }
-      },
-      style: SegmentedButton.styleFrom(
-        selectedBackgroundColor: AppColors.primary.withValues(alpha: 0.1),
-        selectedForegroundColor: AppColors.primary,
       ),
     );
   }
 
+  Widget _buildContactSection() {
+    final name = _buildTextField(
+      controller: _contactNameController,
+      label: 'Kontakt osoba',
+      validator: (v) => v == null || v.isEmpty ? _required : null,
+    );
+    final email = _buildTextField(
+      controller: _contactEmailController,
+      label: 'Email',
+      keyboardType: TextInputType.emailAddress,
+      validator: (v) {
+        if (v == null || v.isEmpty) return 'Unesite email';
+        if (!v.contains('@') || !v.contains('.')) {
+          return 'Unesite ispravan email';
+        }
+        return null;
+      },
+    );
+    final phone = _buildTextField(
+      controller: _contactPhoneController,
+      label: 'Telefon',
+      keyboardType: TextInputType.phone,
+    );
+    return SectionCard(
+      title: 'Kontakt',
+      child: LayoutBuilder(builder: (context, constraints) {
+        if (constraints.maxWidth >= 600) {
+          return Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: name),
+                  const SizedBox(width: 12),
+                  Expanded(child: email),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: phone),
+                const SizedBox(width: 12),
+                const Expanded(child: SizedBox()),
+              ]),
+            ],
+          );
+        }
+        return Column(
+          children: [
+            name,
+            const SizedBox(height: 12),
+            email,
+            const SizedBox(height: 12),
+            phone,
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildDates() {
+    return Row(
+      children: [
+        Expanded(child: _buildDateField(true)),
+        const SizedBox(width: 12),
+        Expanded(child: _buildDateField(false)),
+      ],
+    );
+  }
+
+  Widget _buildBudget() => _buildTextField(
+        controller: _budgetController,
+        label: 'Budžet',
+        keyboardType: TextInputType.number,
+        suffixText: '€',
+      );
+
   Widget _buildFlowA() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Campaign Details Section
-        _buildSectionLabel(l10n.campaignDetails),
-        const SizedBox(height: AppSpacing.sm),
-        _buildTextField(
-          controller: _campaignBriefController,
-          label: l10n.campaignBrief,
-          maxLines: 4,
-          validator: (v) =>
-              v == null || v.isEmpty ? l10n.validatorRequired : null,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        Row(
-          children: [
-            Expanded(child: _buildDateField(true)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _buildDateField(false)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-        _buildTextField(
-          controller: _budgetController,
-          label: l10n.budget,
-          keyboardType: TextInputType.number,
-          prefixText: 'EUR ',
+        SectionCard(
+          title: 'Detalji kampanje',
+          child: Column(
+            children: [
+              _buildTextField(
+                controller: _campaignBriefController,
+                label: 'Opis kampanje',
+                maxLines: 4,
+                validator: (v) => v == null || v.isEmpty ? _required : null,
+              ),
+              const SizedBox(height: 12),
+              _buildDates(),
+              const SizedBox(height: 12),
+              _buildBudget(),
+            ],
+          ),
         ),
 
         // Selected Units
         if (widget.unitIds.isNotEmpty) ...[
-          const SizedBox(height: AppSpacing.lg),
-          _buildSectionLabel(l10n.selectedUnits),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(AppRadius.sm),
-              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.inventory_2_outlined,
-                    color: AppColors.primary, size: 20),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  '${widget.unitIds.length} ${l10n.items.toLowerCase()}',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const SizedBox(height: 16),
+          _buildSelectedUnits(),
         ],
       ],
     );
   }
 
-  Widget _buildFlowB() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Campaign Description
-        _buildSectionLabel('Opis kampanje'),
-        const SizedBox(height: AppSpacing.sm),
-        _buildTextField(
-          controller: _campaignDescriptionController,
-          label: 'Detaljni opis kampanje',
-          maxLines: 4,
-          validator: (v) =>
-              v == null || v.isEmpty ? l10n.validatorRequired : null,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-
-        // Target Cities
-        _buildSectionLabel('Ciljani gradovi'),
-        const SizedBox(height: AppSpacing.sm),
-        if (_loadingDictionaries)
-          const Center(child: CircularProgressIndicator())
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _availableCities.map((city) {
-              final isSelected = _selectedCityIds.contains(city.id);
-              return FilterChip(
-                label: Text(city.name),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedCityIds.add(city.id);
-                    } else {
-                      _selectedCityIds.remove(city.id);
-                    }
-                  });
-                },
-                selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                checkmarkColor: AppColors.primary,
-                labelStyle: AppTypography.bodySmall.copyWith(
-                  color: isSelected ? AppColors.primary : AppColors.foreground,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              );
-            }).toList(),
-          ),
-        const SizedBox(height: AppSpacing.lg),
-
-        // Preferred Media Types
-        _buildSectionLabel('Preferirani tipovi medija'),
-        const SizedBox(height: AppSpacing.sm),
-        if (_loadingDictionaries)
-          const Center(child: CircularProgressIndicator())
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _availableMediaTypes.map((type) {
-              final isSelected = _selectedMediaTypeIds.contains(type.id);
-              return FilterChip(
-                label: Text(type.name),
-                selected: isSelected,
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      _selectedMediaTypeIds.add(type.id);
-                    } else {
-                      _selectedMediaTypeIds.remove(type.id);
-                    }
-                  });
-                },
-                selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                checkmarkColor: AppColors.primary,
-                labelStyle: AppTypography.bodySmall.copyWith(
-                  color: isSelected ? AppColors.primary : AppColors.foreground,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-              );
-            }).toList(),
-          ),
-        const SizedBox(height: AppSpacing.lg),
-
-        // Budget Range
-        _buildTextField(
-          controller: _budgetController,
-          label: l10n.budget,
-          keyboardType: TextInputType.number,
-          prefixText: 'EUR ',
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // Campaign Period
-        Row(
-          children: [
-            Expanded(child: _buildDateField(true)),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _buildDateField(false)),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // Target Audience
-        _buildTextField(
-          controller: _targetAudienceController,
-          label: 'Ciljna publika',
-          maxLines: 2,
-        ),
-        const SizedBox(height: AppSpacing.md),
-
-        // Additional Requirements
-        _buildTextField(
-          controller: _additionalRequirementsController,
-          label: 'Dodatni zahtevi',
-          maxLines: 3,
-        ),
-      ],
+  Widget _buildSelectedUnits() {
+    final units = _selectedUnits;
+    return SectionCard(
+      title: 'Izabrane površine',
+      subtitle: SrFormat.count(
+          widget.unitIds.length, 'površina', 'površine', 'površina'),
+      child: units == null
+          ? const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < widget.unitIds.length; i++) ...[
+                  if (i > 0) const Divider(color: AppColors.borderSoft),
+                  _selectedUnitRow(widget.unitIds[i], units[widget.unitIds[i]]),
+                ],
+              ],
+            ),
     );
   }
 
-  Widget _buildSectionLabel(String label) {
-    return Text(
-      label,
-      style: AppTypography.bodyMedium.copyWith(
-        fontWeight: FontWeight.w600,
-        color: AppColors.foreground,
+  Widget _selectedUnitRow(String id, UnitSummary? unit) {
+    final summary = unit ?? UnitSummary.basic(id: int.tryParse(id));
+    final price = summary.pricePerCycle;
+    return InquiryUnitRow(
+      unit: summary,
+      trailing: (context, narrow) => PriceColumn(
+        amount: price == null
+            ? 'Cena na upit'
+            : SrFormat.priceWithCycle(
+                price, summary.currency, summary.cycleType),
+        muted: price == null,
+        fontSize: 15,
+        footnote: summary.mediaOwnerName,
       ),
+    );
+  }
+
+  Widget _buildChips(
+      List<_DictItem> items, Set<int> selected, String Function(String) label) {
+    if (_loadingDictionaries) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: items.map((item) {
+        final isSelected = selected.contains(item.id);
+        return FilterChip(
+          label: Text(label(item.name)),
+          selected: isSelected,
+          onSelected: (value) {
+            setState(() {
+              if (value) {
+                selected.add(item.id);
+              } else {
+                selected.remove(item.id);
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFlowB() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionCard(
+          title: 'Opis kampanje',
+          child: _buildTextField(
+            controller: _campaignDescriptionController,
+            label: 'Detaljni opis kampanje',
+            maxLines: 4,
+            validator: (v) => v == null || v.isEmpty ? _required : null,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Ciljani gradovi',
+          child: _buildChips(_availableCities, _selectedCityIds, SrLabels.city),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Tipovi medija',
+          child: _buildChips(
+              _availableMediaTypes, _selectedMediaTypeIds, SrLabels.unitType),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Budžet i period',
+          child: Column(
+            children: [
+              _buildBudget(),
+              const SizedBox(height: 12),
+              _buildDates(),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        SectionCard(
+          title: 'Publika i dodatni zahtevi',
+          child: Column(
+            children: [
+              _buildTextField(
+                controller: _targetAudienceController,
+                label: 'Ciljna publika',
+                maxLines: 2,
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                controller: _additionalRequirementsController,
+                label: 'Dodatni zahtevi',
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -484,8 +514,7 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
     required String label,
     int maxLines = 1,
     TextInputType? keyboardType,
-    String? prefixText,
-    IconData? prefixIcon,
+    String? suffixText,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
@@ -495,26 +524,18 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
       validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        prefixText: prefixText,
-        prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, size: 20, color: AppColors.mutedForeground)
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
+        alignLabelWithHint: maxLines > 1,
+        suffixText: suffixText,
       ),
     );
   }
 
   Widget _buildDateField(bool isStart) {
     final date = isStart ? _startDate : _endDate;
-    final label = isStart ? l10n.startDate : l10n.endDate;
+    final label = isStart ? 'Početak kampanje' : 'Kraj kampanje';
 
     return InkWell(
+      borderRadius: BorderRadius.circular(12),
       onTap: () async {
         final picked = await showDatePicker(
           context: context,
@@ -535,24 +556,14 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            borderSide: BorderSide(color: AppColors.border),
-          ),
-          suffixIcon: Icon(Icons.calendar_today,
+          suffixIcon: const Icon(Icons.calendar_today_outlined,
               size: 18, color: AppColors.mutedForeground),
         ),
         child: Text(
-          date != null
-              ? _formatDate(date)
-              : '\u2014',
+          date != null ? SrFormat.date(date) : '—',
           style: AppTypography.bodyMedium.copyWith(
-            color: date != null
-                ? AppColors.foreground
-                : AppColors.mutedForeground,
+            color:
+                date != null ? AppColors.foreground : AppColors.mutedForeground,
           ),
         ),
       ),
@@ -591,7 +602,8 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
         data['campaignBrief'] = _campaignBriefController.text.trim();
       }
       if (widget.unitIds.isNotEmpty) {
-        data['unitIds'] = widget.unitIds.map((id) => int.tryParse(id) ?? 0).toList();
+        data['unitIds'] =
+            widget.unitIds.map((id) => int.tryParse(id) ?? 0).toList();
       }
     } else {
       // Brief flow
@@ -607,7 +619,8 @@ class _InquiryCreateFormState extends State<_InquiryCreateForm> {
         data['targetAudience'] = _targetAudienceController.text.trim();
       }
       if (_additionalRequirementsController.text.isNotEmpty) {
-        data['additionalRequirements'] = _additionalRequirementsController.text.trim();
+        data['additionalRequirements'] =
+            _additionalRequirementsController.text.trim();
       }
     }
 

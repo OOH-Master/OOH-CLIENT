@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/config/api_client.dart';
 import '../../../../core/config/api_config.dart';
 import '../dto/inquiry_dto.dart';
+import '../dto/json_read.dart';
 
 class InquiryApiService {
   final ApiClient _apiClient;
@@ -46,16 +47,29 @@ class InquiryApiService {
     );
   }
 
-  Future<void> updateQuotedPrice(int inquiryId, int itemId, double price) async {
+  Future<void> updateQuotedPrice(
+      int inquiryId, int itemId, double price) async {
     await _apiClient.put(
       '${ApiConfig.adminInquiries}/$inquiryId/items/$itemId/quoted-price',
       data: {'quotedPrice': price},
     );
   }
 
-  Future<Response<List<int>>> downloadPdf(int id) async {
+  /// PDF upita za stručnjaka (admin).
+  Future<Response<List<int>>> downloadPdf(int id) =>
+      _pdf(ApiConfig.adminInquiryPdf(id));
+
+  /// PDF objedinjene ponude (ili pregleda upita) za brend koji je poslao upit.
+  Future<Response<List<int>>> downloadBrandPdf(int id) =>
+      _pdf(ApiConfig.brandInquiryPdf(id));
+
+  /// PDF objedinjene ponude (ili pregleda upita) za agenciju koja je poslala upit.
+  Future<Response<List<int>>> downloadAgencyPdf(int id) =>
+      _pdf(ApiConfig.agencyInquiryPdf(id));
+
+  Future<Response<List<int>>> _pdf(String path) {
     return _apiClient.get<List<int>>(
-      '${ApiConfig.adminInquiries}/$id/pdf',
+      path,
       options: Options(responseType: ResponseType.bytes),
     );
   }
@@ -93,9 +107,11 @@ class InquiryApiService {
   }
 
   Future<void> transitionStatus(int id, String newStatus) async {
+    // Backend (TransitionStatusRequestDto) čita `newStatus`; `status` ostaje
+    // radi starijih verzija, nepoznato polje se ignoriše.
     await _apiClient.put(
       '${ApiConfig.adminInquiries}/$id/status',
-      data: {'status': newStatus},
+      data: {'newStatus': newStatus, 'status': newStatus},
     );
   }
 
@@ -116,7 +132,8 @@ class InquiryApiService {
 
   // Brand endpoints
   Future<List<InquiryDto>> getBrandInquiries() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiConfig.brandInquiries);
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.brandInquiries);
     return (response.data ?? [])
         .map((json) => InquiryDto.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -152,7 +169,8 @@ class InquiryApiService {
 
   // Agency endpoints
   Future<List<InquiryDto>> getAgencyInquiries() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiConfig.agencyInquiries);
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.agencyInquiries);
     return (response.data ?? [])
         .map((json) => InquiryDto.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -188,7 +206,8 @@ class InquiryApiService {
 
   // Media Owner endpoints
   Future<List<InquiryDto>> getMediaOwnerInquiries() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiConfig.mediaOwnerInquiries);
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.mediaOwnerInquiries);
     return (response.data ?? [])
         .map((json) => InquiryDto.fromJson(json as Map<String, dynamic>))
         .toList();
@@ -202,7 +221,8 @@ class InquiryApiService {
   }
 
   Future<List<Map<String, dynamic>>> getMediaOwnerQuotes() async {
-    final response = await _apiClient.get<List<dynamic>>(ApiConfig.mediaOwnerQuotes);
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.mediaOwnerQuotes);
     return (response.data ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
@@ -216,19 +236,58 @@ class InquiryApiService {
     await _apiClient.post('${ApiConfig.mediaOwnerQuotes}/$quoteId/decline');
   }
 
-  Future<void> updateQuoteItem(int quoteId, int itemId, Map<String, dynamic> data) async {
+  Future<void> updateQuoteItem(
+      int quoteId, int itemId, Map<String, dynamic> data) async {
     await _apiClient.put(
       '${ApiConfig.mediaOwnerQuotes}/$quoteId/items/$itemId',
       data: data,
     );
   }
 
-  // Public endpoint
+  // Public endpoints
   Future<Map<String, dynamic>> createInquiry(Map<String, dynamic> data) async {
     final response = await _apiClient.post<Map<String, dynamic>>(
       ApiConfig.publicInquiries,
       data: data,
     );
     return response.data ?? {};
+  }
+
+  /// Javni inventar (`InventoryItemDto`), bez filtera: lista za dodelu površina.
+  Future<List<Map<String, dynamic>>> getPublicUnits() async {
+    final response = await _apiClient.get<List<dynamic>>(ApiConfig.publicUnits);
+    return JsonRead.objects(response.data);
+  }
+
+  /// Jedna površina iz javnog inventara (`InventoryItemDto`).
+  Future<Map<String, dynamic>> getPublicUnit(int id) async {
+    final response = await _apiClient.get<Map<String, dynamic>>(
+      '${ApiConfig.publicUnits}/$id',
+    );
+    return response.data ?? {};
+  }
+
+  /// Rečnik gradova: ID → naziv.
+  Future<Map<int, String>> getCityNames() async {
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.publicCities);
+    return _namesById(response.data);
+  }
+
+  /// Rečnik tipova površina: ID → naziv.
+  Future<Map<int, String>> getUnitTypeNames() async {
+    final response =
+        await _apiClient.get<List<dynamic>>(ApiConfig.publicUnitTypes);
+    return _namesById(response.data);
+  }
+
+  static Map<int, String> _namesById(List<dynamic>? data) {
+    final names = <int, String>{};
+    for (final entry in JsonRead.objects(data)) {
+      final id = JsonRead.integer(entry['id']);
+      final name = JsonRead.text(entry['name']);
+      if (id != null && name != null) names[id] = name;
+    }
+    return names;
   }
 }

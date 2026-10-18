@@ -2,15 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../domain/entities/ooh_unit.dart';
+import 'unit_card_parts.dart';
+import 'unit_labels.dart';
 
-class DiscoverCardList extends StatelessWidget {
+/// Površina kao red liste: sličica, šifra, naziv, mesto, svojstva, cena,
+/// dostupnost i korpa. Isti podaci kao na kartici, gušće složeni.
+class DiscoverCardList extends StatefulWidget {
   final OohUnit unit;
   final bool isSelected;
   final bool isSelectedForInquiry;
   final VoidCallback? onTap;
   final VoidCallback? onAddToInquiry;
+  final ValueChanged<bool>? onHoverChanged;
 
   const DiscoverCardList({
     super.key,
@@ -19,130 +24,112 @@ class DiscoverCardList extends StatelessWidget {
     this.isSelectedForInquiry = false,
     this.onTap,
     this.onAddToInquiry,
+    this.onHoverChanged,
   });
 
   @override
+  State<DiscoverCardList> createState() => _DiscoverCardListState();
+}
+
+class _DiscoverCardListState extends State<DiscoverCardList> {
+  bool _hovered = false;
+
+  void _setHovered(bool value) {
+    if (_hovered == value) return;
+    setState(() => _hovered = value);
+    widget.onHoverChanged?.call(value);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            // Thumbnail
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(7)),
-              child: SizedBox(
-                width: 60,
-                height: 60,
-                child: unit.imageUrl != null
-                    ? Image.network(
-                        unit.imageUrl!,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
-                      )
-                    : _buildPlaceholder(),
-              ),
+    final unit = widget.unit;
+    final inBasket = widget.isSelectedForInquiry;
+    final ring = inBasket
+        ? AppColors.primary
+        : (widget.isSelected
+            ? AppColors.primaryTint
+            : AppColors.primary.withValues(alpha: 0));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 520;
+        final specs = [
+          if (unit.typeLabel.isNotEmpty) unit.typeLabel,
+          ...unit.specChips(max: narrow ? 1 : 3),
+        ];
+
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => _setHovered(true),
+          onExit: (_) => _setHovered(false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(
+                  color: _hovered
+                      ? AppColors.subtle.withValues(alpha: 0.5)
+                      : AppColors.border),
             ),
-            // Info
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
-                  children: [
-                    // Name + location
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            unit.name,
-                            style: AppTypography.bodySmall.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.foreground,
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(color: ring, width: 2),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.card - 1),
+              child: Material(
+                color: Colors.transparent,
+                child: UnitLine(
+                  imageUrl: unit.imageUrl,
+                  digital: unit.isDigitalUnit,
+                  code: unit.code == unit.title ? null : unit.code,
+                  title: unit.title,
+                  subtitle: unit.placeLine,
+                  specs: specs,
+                  compact: narrow,
+                  padding: const EdgeInsets.fromLTRB(12, 12, 14, 12),
+                  onTap: widget.onTap,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ConstrainedBox(
+                        constraints:
+                            BoxConstraints(maxWidth: narrow ? 104 : 150),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            UnitPriceText(
+                              unit: unit,
+                              fontSize: 15.5,
+                              alignment: CrossAxisAlignment.end,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${unit.cityName}, ${unit.address}',
-                            style: AppTypography.caption.copyWith(
-                              color: AppColors.mutedForeground,
+                            const SizedBox(height: 6),
+                            StatusPill(
+                              label: unit.statusLabel,
+                              tone: unit.statusTone,
+                              dense: true,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Price
-                    Text(
-                      unit.priceDisplay,
-                      style: AppTypography.bodySmall.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Status dot
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: unit.isAvailable ? AppColors.success : AppColors.destructive,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Add to inquiry
-                    GestureDetector(
-                      onTap: onAddToInquiry,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: isSelectedForInquiry
-                              ? AppColors.primary
-                              : AppColors.muted,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Icon(
-                          isSelectedForInquiry
-                              ? Icons.check
-                              : Icons.add_shopping_cart,
-                          color: isSelectedForInquiry
-                              ? Colors.white
-                              : AppColors.primary,
-                          size: 16,
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                      if (widget.onAddToInquiry != null) ...[
+                        const SizedBox(width: 12),
+                        InquiryBasketButton(
+                          selected: inBasket,
+                          onTap: widget.onAddToInquiry,
+                          size: 36,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      color: AppColors.muted,
-      child: Center(
-        child: Icon(Icons.image, size: 24, color: AppColors.mutedForeground),
-      ),
+          ),
+        );
+      },
     );
   }
 }

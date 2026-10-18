@@ -78,7 +78,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     final result = await _repository.updateProfile(event.data);
     switch (result) {
       case Success(data: final data):
-        emit(ProfileUpdateSuccess('Profil azuriran', data));
+        emit(ProfileUpdateSuccess('Profil je sačuvan', data));
         emit(ProfileLoaded(data));
       case Error(failure: final failure):
         emit(ProfileError(failure.message));
@@ -96,7 +96,7 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     );
     switch (result) {
       case Success():
-        emit(PasswordChangeSuccess('Lozinka uspesno promenjena'));
+        emit(PasswordChangeSuccess('Lozinka je promenjena'));
       case Error(failure: final failure):
         emit(ProfileError(failure.message));
     }

@@ -1,61 +1,63 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/l10n/l10n.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_labels.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../data/dto/campaign_dto.dart';
 
+/// Status kampanje na srpskom: siva za nacrt, ljubičasta dok traju pregovori,
+/// indigo za zakupljenu, zelena dok je kampanja u toku, crvena za otkazanu.
 class CampaignStatusBadge extends StatelessWidget {
   final CampaignStatus status;
 
-  const CampaignStatusBadge({super.key, required this.status});
+  /// Vrednost iz API-ja ("CANCELLED" nema svoj enum u aplikaciji, pa se
+  /// prikazuje preko nje kada postoji).
+  final String? raw;
+  final bool dense;
+
+  const CampaignStatusBadge({
+    super.key,
+    required this.status,
+    this.raw,
+    this.dense = false,
+  });
+
+  static String apiValue(CampaignStatus status) => switch (status) {
+        CampaignStatus.draft => 'DRAFT',
+        CampaignStatus.inNegotiation => 'IN_NEGOTIATION',
+        CampaignStatus.booked => 'BOOKED',
+        CampaignStatus.running => 'RUNNING',
+        CampaignStatus.finished => 'FINISHED',
+      };
+
+  static PillTone toneFor(String? raw) {
+    switch ((raw ?? '').toUpperCase()) {
+      case 'IN_NEGOTIATION':
+        return PillTone.violet;
+      case 'BOOKED':
+        return PillTone.primary;
+      case 'RUNNING':
+        return PillTone.success;
+      case 'FINISHED':
+        return PillTone.info;
+      case 'CANCELLED':
+        return PillTone.danger;
+      default:
+        return PillTone.neutral;
+    }
+  }
+
+  static String labelFor(String? raw) {
+    final label = SrLabels.campaignStatus(raw);
+    return label.isEmpty ? SrLabels.campaignStatus('DRAFT') : label;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-
-    final (Color bg, Color fg, String label) = switch (status) {
-      CampaignStatus.draft => (
-        AppColors.muted,
-        AppColors.mutedForeground,
-        l10n.statusDraft,
-      ),
-      CampaignStatus.inNegotiation => (
-        const Color(0xFFFEF3C7),
-        const Color(0xFF92400E),
-        l10n.statusInNegotiation,
-      ),
-      CampaignStatus.booked => (
-        const Color(0xFFDBEAFE),
-        const Color(0xFF1E40AF),
-        l10n.statusBooked,
-      ),
-      CampaignStatus.running => (
-        const Color(0xFFD1FAE5),
-        const Color(0xFF065F46),
-        l10n.statusRunning,
-      ),
-      CampaignStatus.finished => (
-        const Color(0xFFE5E7EB),
-        const Color(0xFF374151),
-        l10n.statusFinished,
-      ),
-    };
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadius.full),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.labelSmall.copyWith(
-          color: fg,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+    final value = (raw != null && raw!.isNotEmpty) ? raw! : apiValue(status);
+    return StatusPill(
+      label: labelFor(value),
+      tone: toneFor(value),
+      dense: dense,
     );
   }
 }

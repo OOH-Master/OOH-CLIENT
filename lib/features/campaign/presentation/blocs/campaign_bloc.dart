@@ -125,7 +125,7 @@ class CampaignBloc extends Bloc<CampaignEvent, CampaignState> {
     emit(CampaignLoading());
     try {
       await _repository.createCampaign(event.data);
-      emit(CampaignFormSuccess('Kampanja kreirana'));
+      emit(CampaignFormSuccess('Kampanja je napravljena'));
     } catch (e) {
       emit(CampaignError(e.toString()));
     }
@@ -138,7 +138,7 @@ class CampaignBloc extends Bloc<CampaignEvent, CampaignState> {
     emit(CampaignLoading());
     try {
       await _repository.updateCampaign(event.id, event.data);
-      emit(CampaignFormSuccess('Kampanja azurirana'));
+      emit(CampaignFormSuccess('Izmene su sačuvane'));
     } catch (e) {
       emit(CampaignError(e.toString()));
     }
@@ -151,7 +151,7 @@ class CampaignBloc extends Bloc<CampaignEvent, CampaignState> {
     emit(CampaignLoading());
     try {
       await _repository.deleteCampaign(event.id);
-      emit(CampaignFormSuccess('Kampanja obrisana'));
+      emit(CampaignFormSuccess('Kampanja je obrisana'));
     } catch (e) {
       emit(CampaignError(e.toString()));
     }
@@ -164,7 +164,7 @@ class CampaignBloc extends Bloc<CampaignEvent, CampaignState> {
     emit(CampaignLoading());
     try {
       final campaign = await _repository.changeStatus(event.id, event.status);
-      emit(CampaignFormSuccess('Status promenjen'));
+      emit(CampaignFormSuccess('Status je promenjen'));
       emit(CampaignDetailLoaded(campaign));
     } catch (e) {
       emit(CampaignError(e.toString()));

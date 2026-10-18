@@ -76,6 +76,15 @@ class UpdateQuoteItemPrice extends InquiryEvent {
   UpdateQuoteItemPrice(this.quoteId, this.itemId, this.price);
 }
 
+/// Čuva cene stavki ([prices]: ID stavke → cena), redom, pa tek onda šalje
+/// ponudu. Zasebni [UpdateQuoteItemPrice] i [SubmitQuote] se obrađuju
+/// istovremeno, pa bi slanje moglo da stigne pre izmene cene.
+class SubmitQuoteWithPrices extends InquiryEvent {
+  final int quoteId;
+  final Map<int, double> prices;
+  SubmitQuoteWithPrices(this.quoteId, this.prices);
+}
+
 class LoadOffer extends InquiryEvent {
   final int inquiryId;
   LoadOffer(this.inquiryId);
@@ -158,6 +167,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     on<SubmitQuote>(_onSubmitQuote);
     on<DeclineQuote>(_onDeclineQuote);
     on<UpdateQuoteItemPrice>(_onUpdateQuoteItemPrice);
+    on<SubmitQuoteWithPrices>(_onSubmitQuoteWithPrices);
     on<LoadOffer>(_onLoadOffer);
     on<AcceptOffer>(_onAcceptOffer);
     on<RejectOffer>(_onRejectOffer);
@@ -195,7 +205,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
   ) async {
     try {
       await _repository.updateAdminNotes(event.inquiryId, event.notes);
-      emit(InquiryActionSuccess('Notes updated'));
+      emit(InquiryActionSuccess('Napomene su sačuvane'));
       add(LoadInquiryDetail(event.inquiryId, event.role));
     } catch (e) {
       emit(InquiryError(e.toString()));
@@ -212,7 +222,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
         event.itemId,
         event.price,
       );
-      emit(InquiryActionSuccess('Price updated'));
+      emit(InquiryActionSuccess('Cena je sačuvana'));
       add(LoadInquiryDetail(event.inquiryId, event.role));
     } catch (e) {
       emit(InquiryError(e.toString()));
@@ -227,7 +237,7 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     try {
       await _repository.createInquiry(event.data);
       Analytics.track(AnalyticsEvents.inquirySubmitted);
-      emit(InquirySubmitSuccess('Inquiry submitted successfully'));
+      emit(InquirySubmitSuccess('Upit je poslat'));
     } catch (e) {
       emit(InquiryError(e.toString()));
     }
@@ -287,6 +297,25 @@ class InquiryBloc extends Bloc<InquiryEvent, InquiryState> {
     Emitter<InquiryState> emit,
   ) async {
     try {
+      await _repository.submitQuote(event.quoteId);
+      emit(InquiryActionSuccess('Ponuda poslata'));
+    } catch (e) {
+      emit(InquiryError(e.toString()));
+    }
+  }
+
+  Future<void> _onSubmitQuoteWithPrices(
+    SubmitQuoteWithPrices event,
+    Emitter<InquiryState> emit,
+  ) async {
+    try {
+      for (final entry in event.prices.entries) {
+        await _repository.updateQuoteItem(
+          event.quoteId,
+          entry.key,
+          {'price': entry.value},
+        );
+      }
       await _repository.submitQuote(event.quoteId);
       emit(InquiryActionSuccess('Ponuda poslata'));
     } catch (e) {

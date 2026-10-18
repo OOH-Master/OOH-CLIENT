@@ -87,7 +87,7 @@ class AdminConfigBloc extends Bloc<AdminConfigEvent, AdminConfigState> {
     try {
       await _repository.createItem(event.type, event.name,
           countryId: event.countryId);
-      emit(AdminConfigCreateSuccess('Item created', event.type));
+      emit(AdminConfigCreateSuccess('Stavka je dodata', event.type));
       add(LoadConfigTab(event.type));
     } catch (e) {
       emit(AdminConfigError(e.toString()));
@@ -101,7 +101,7 @@ class AdminConfigBloc extends Bloc<AdminConfigEvent, AdminConfigState> {
     try {
       await _repository.updateItem(event.type, event.id, event.name,
           countryId: event.countryId);
-      emit(AdminConfigCreateSuccess('Item updated', event.type));
+      emit(AdminConfigCreateSuccess('Stavka je izmenjena', event.type));
       add(LoadConfigTab(event.type));
     } catch (e) {
       emit(AdminConfigError(e.toString()));
@@ -114,7 +114,7 @@ class AdminConfigBloc extends Bloc<AdminConfigEvent, AdminConfigState> {
   ) async {
     try {
       await _repository.deleteItem(event.type, event.id);
-      emit(AdminConfigCreateSuccess('Item deleted', event.type));
+      emit(AdminConfigCreateSuccess('Stavka je obrisana', event.type));
       add(LoadConfigTab(event.type));
     } catch (e) {
       emit(AdminConfigError(e.toString()));

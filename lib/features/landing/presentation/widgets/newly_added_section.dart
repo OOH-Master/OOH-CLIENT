@@ -1,223 +1,261 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/responsive/responsive.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_constants.dart';
+import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
+import '../../../../core/utils/sr_labels.dart';
+import '../../../../core/widgets/ui/ui.dart';
+import 'landing_shared.dart';
+
+/// Nove površine na platformi: vodoravni niz kartica sa fotografijom, mestom,
+/// formatom i cenom za period zakupa. Kartica otvara pretragu po nazivu.
 class NewlyAddedSection extends StatelessWidget {
   const NewlyAddedSection({super.key});
 
-  static const List<Map<String, dynamic>> mediaListings = [
-    {
-      'id': '1',
-      'title': 'Highway Billboard I-95',
-      'location': 'New York, NY',
-      'price': 150000,
-      'priceUnit': 'month',
-    },
-    {
-      'id': '2',
-      'title': 'Mall Facade, Downtown',
-      'location': 'New York, NY',
-      'price': 200000,
-      'priceUnit': 'month',
-    },
-    {
-      'id': '3',
-      'title': 'Grand Central Terminal Screen',
-      'location': 'New York, NY',
-      'price': 70000,
-      'priceUnit': 'month',
-    },
-    {
-      'id': '4',
-      'title': 'Times Square Digital Tower',
-      'location': 'New York, NY',
-      'price': 500000,
-      'priceUnit': 'month',
-    },
-    {
-      'id': '5',
-      'title': 'LAX Terminal 4 Network',
-      'location': 'Los Angeles, CA',
-      'price': 85000,
-      'priceUnit': 'month',
-    },
-    {
-      'id': '6',
-      'title': 'Chicago Bus Shelter Network',
-      'location': 'Chicago, IL',
-      'price': 45000,
-      'priceUnit': 'month',
-    },
+  static const List<_Listing> _listings = [
+    _Listing(
+      title: 'Knez Mihailova',
+      format: 'City light',
+      city: 'Beograd',
+      country: 'Srbija',
+      price: 200,
+      currency: 'EUR',
+      cycle: 'FOUR_WEEK',
+      size: '1,2 × 1,8 m',
+      asset: LandingAssets.cityLightKnez,
+    ),
+    _Listing(
+      title: 'Slavija',
+      format: 'LED ekran',
+      city: 'Beograd',
+      country: 'Srbija',
+      price: 1450,
+      currency: 'EUR',
+      cycle: 'TWO_WEEK',
+      size: '8 × 4 m',
+      asset: LandingAssets.ledSlavija,
+      digital: true,
+    ),
+    _Listing(
+      title: 'Brankov most',
+      format: 'Bilbord 12 × 4',
+      city: 'Beograd',
+      country: 'Srbija',
+      price: 680,
+      currency: 'EUR',
+      cycle: 'FOUR_WEEK',
+      size: '12 × 4 m',
+      asset: LandingAssets.bilbordBrankov,
+    ),
+    _Listing(
+      title: 'Ilica',
+      format: 'City light',
+      city: 'Zagreb',
+      country: 'Hrvatska',
+      price: 160,
+      currency: 'EUR',
+      cycle: 'TWO_WEEK',
+      size: '1,2 × 1,8 m',
+    ),
+    _Listing(
+      title: 'Avenija Dubrovnik',
+      format: 'Digitalni ekran',
+      city: 'Zagreb',
+      country: 'Hrvatska',
+      price: 950,
+      currency: 'EUR',
+      cycle: 'ONE_WEEK',
+      size: '6 × 3 m',
+      digital: true,
+    ),
+    _Listing(
+      title: 'Ferhadija',
+      format: 'City light',
+      city: 'Sarajevo',
+      country: 'Bosna i Hercegovina',
+      price: 390,
+      currency: 'BAM',
+      cycle: 'TWO_WEEK',
+      size: '1,2 × 1,8 m',
+    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return LandingSection(
       color: AppColors.background,
-      padding: EdgeInsets.symmetric(
-        vertical: context.isDesktop ? 96 : 64,
-        horizontal: context.isDesktop ? 48 : 16,
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Newly Added Media',
-                  style: context.isDesktop
-                      ? AppTypography.displaySmall
-                      : AppTypography.h1,
-                )
-                    .animate()
-                    .fadeIn(duration: 600.ms)
-                    .slideY(begin: 0.2, end: 0),
-                const SizedBox(height: 8),
-                Text(
-                  'Explore the latest OOH opportunities on our platform.',
-                  style: AppTypography.bodyLarge.copyWith(
-                    color: AppColors.mutedForeground,
-                  ),
-                )
-                    .animate()
-                    .fadeIn(delay: 100.ms, duration: 600.ms)
-                    .slideY(begin: 0.2, end: 0),
-              ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(
+            title: 'Nedavno dodate površine',
+            trailing: OutlinedButton(
+              onPressed: () => context.go('/discover'),
+              child: const Text('Pogledaj mapu'),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              height: 320,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: mediaListings.length,
-                itemBuilder: (context, index) {
-                  return Padding(
-                    padding: EdgeInsets.only(
-                      right: index < mediaListings.length - 1 ? 24 : 0,
-                    ),
-                    child: _MediaListingCard(
-                      listing: mediaListings[index],
-                      delay: index * 100,
-                    ),
-                  );
-                },
-              ),
+          ),
+          const SizedBox(height: 28),
+          SizedBox(
+            height: 372,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(2, 8, 2, 24),
+              itemCount: _listings.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 20),
+              itemBuilder: (context, index) =>
+                  _ListingCard(listing: _listings[index]),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _MediaListingCard extends StatefulWidget {
-  final Map<String, dynamic> listing;
-  final int delay;
+class _Listing {
+  final String title;
+  final String format;
+  final String city;
+  final String country;
+  final double price;
+  final String currency;
+  final String cycle;
+  final String size;
+  final String? asset;
+  final bool digital;
 
-  const _MediaListingCard({
-    required this.listing,
-    required this.delay,
+  const _Listing({
+    required this.title,
+    required this.format,
+    required this.city,
+    required this.country,
+    required this.price,
+    required this.currency,
+    required this.cycle,
+    required this.size,
+    this.asset,
+    this.digital = false,
   });
-
-  @override
-  State<_MediaListingCard> createState() => _MediaListingCardState();
 }
 
-class _MediaListingCardState extends State<_MediaListingCard> {
+class _ListingCard extends StatefulWidget {
+  final _Listing listing;
+
+  const _ListingCard({required this.listing});
+
+  @override
+  State<_ListingCard> createState() => _ListingCardState();
+}
+
+class _ListingCardState extends State<_ListingCard> {
+  bool _hovered = false;
+
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-        onTap: () {},
-        child: Container(
-          width: 280,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
+    final l = widget.listing;
+    const width = 284.0;
+    const imageHeight = 168.0;
+
+    final image = l.asset != null
+        ? Image.asset(l.asset!,
+            width: width, height: imageHeight, fit: BoxFit.cover)
+        : UnitThumb(
+            imageUrl: null,
+            width: width,
+            height: imageHeight,
+            radius: 0,
+            digital: l.digital,
+          );
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        onTap: () => context.go(
+            Uri(path: '/discover', queryParameters: {'keyword': l.title})
+                .toString()),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          width: width,
+          decoration: AppDecorations.card().copyWith(
+            border: Border.all(
+              color: _hovered
+                  ? AppColors.primary.withValues(alpha: 0.35)
+                  : AppColors.border,
+            ),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
+            borderRadius: BorderRadius.circular(AppRadius.card),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Image
-                Container(
-                  height: 160,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        AppColors.primary.withValues(alpha: 0.7),
-                        AppColors.accent.withValues(alpha: 0.5),
-                      ],
+                Stack(
+                  children: [
+                    image,
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: StatusPill(
+                        label: l.digital ? 'Digitalna' : 'Statična',
+                        tone: l.digital ? PillTone.warning : PillTone.dark,
+                        dense: true,
+                      ),
                     ),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.location_city,
-                      size: 64,
-                      color: Colors.white.withValues(alpha: 0.5),
+                    const Positioned(
+                      top: 12,
+                      right: 12,
+                      child: StatusPill(
+                        label: 'Dostupno',
+                        tone: PillTone.success,
+                        dense: true,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-                // Content
-                Container(
-                  color: Colors.white,
-                  padding: const EdgeInsets.all(12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.listing['title'],
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.foreground,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        l.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
+                        style: AppTypography.h6,
                       ),
                       const SizedBox(height: 4),
-                      Row(
+                      Text(
+                        SrLabels.place(l.city, l.country),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.bodySmall
+                            .copyWith(color: AppColors.mutedForeground),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
                         children: [
-                          Icon(
-                            Icons.location_on,
-                            size: 16,
-                            color: AppColors.mutedForeground,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              widget.listing['location'],
-                              style: AppTypography.bodySmall.copyWith(
-                                color: AppColors.mutedForeground,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                          SpecChip(label: l.format),
+                          SpecChip(label: l.size),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '\$${_formatPrice(widget.listing['price'])}/${widget.listing['priceUnit']}',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      const SizedBox(height: 14),
+                      Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                            text: SrFormat.money(l.price, l.currency),
+                            style: AppTypography.money.copyWith(fontSize: 18),
+                          ),
+                          TextSpan(
+                            text: ' / ${SrFormat.cycleLabel(l.cycle)}',
+                            style: AppTypography.bodySmall
+                                .copyWith(color: AppColors.mutedForeground),
+                          ),
+                        ]),
                       ),
                     ],
                   ),
@@ -225,18 +263,8 @@ class _MediaListingCardState extends State<_MediaListingCard> {
               ],
             ),
           ),
-        )
-            .animate()
-            .fadeIn(duration: 600.ms, delay: Duration(milliseconds: widget.delay))
-            .slideX(begin: 0.2, end: 0, duration: 600.ms, delay: Duration(milliseconds: widget.delay)),
-
+        ),
+      ),
     );
-  }
-
-  String _formatPrice(int price) {
-    if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(0)}K';
-    }
-    return price.toString();
   }
 }

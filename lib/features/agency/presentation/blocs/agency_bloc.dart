@@ -63,7 +63,7 @@ class AgencyBloc extends Bloc<AgencyEvent, AgencyState> {
   ) async {
     try {
       await _repository.createBrand(event.name);
-      emit(BrandCreateSuccess('Brand created'));
+      emit(BrandCreateSuccess('Brend je dodat'));
       add(LoadBrands());
     } catch (e) {
       emit(AgencyError(e.toString()));

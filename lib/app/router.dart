@@ -34,6 +34,7 @@ import '../features/landing/presentation/pages/landing_page.dart';
 import '../features/notification/presentation/pages/notifications_page.dart';
 import '../features/profile/presentation/pages/profile_page.dart';
 import '../features/shell/presentation/pages/main_shell_page.dart';
+import '../features/shell/presentation/widgets/app_sidebar.dart';
 
 class AppRouter {
   final AuthBloc authBloc;
@@ -45,6 +46,11 @@ class AppRouter {
 
   AppRouter(this.authBloc);
 
+  bool _wasLoggedIn = false;
+
+  // Stranice sa parametrom dobijaju ključ po vrednosti parametra: go_router pravi
+  // ključ stranice od šablona rute (/app/inquiries/:id), pa bi prelaz sa upita #3
+  // na upit #6 zadržao stanje (i podatke) prethodne stranice.
   late final GoRouter router = GoRouter(
     initialLocation: '/',
     refreshListenable: _GoRouterRefreshStream(authBloc.stream),
@@ -66,14 +72,15 @@ class AppRouter {
         path: '/auth/reset-password',
         builder: (context, state) {
           final token = state.uri.queryParameters['token'] ?? '';
-          return ResetPasswordPage(token: token);
+          return ResetPasswordPage(key: ValueKey('reset-$token'), token: token);
         },
       ),
       GoRoute(
         path: '/auth/verify-email',
         builder: (context, state) {
           final token = state.uri.queryParameters['token'];
-          return EmailVerificationPage(token: token);
+          return EmailVerificationPage(
+              key: ValueKey('verify-$token'), token: token);
         },
       ),
       // Public routes - NO shell/bottom bar
@@ -85,166 +92,187 @@ class AppRouter {
         path: '/discover/:id',
         builder: (context, state) {
           final id = state.pathParameters['id'] ?? '';
-          return DiscoverDetailPage(unitId: id);
+          return DiscoverDetailPage(key: ValueKey('unit-$id'), unitId: id);
         },
       ),
-      // Authenticated routes with shell
-      StatefulShellRoute.indexedStack(
-        builder: (context, state, navigationShell) {
-          return MainShellPage(navigationShell: navigationShell);
-        },
-        branches: [
-          // Branch 0: Dashboard
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/app/dashboard',
-                builder: (context, state) => const DashboardPage(),
-              ),
-            ],
-          ),
-          // Branch 1: Discover
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/app/discover',
-                builder: (context, state) => const DiscoverPage(),
+      // Radni deo aplikacije: na širokom ekranu sve /app stranice dele isti meni (AppFrame)
+      ShellRoute(
+        builder: (context, state, child) =>
+            AppFrame(location: state.uri.path, child: child),
+        routes: [
+          // Authenticated routes with shell
+          StatefulShellRoute.indexedStack(
+            builder: (context, state, navigationShell) {
+              return MainShellPage(navigationShell: navigationShell);
+            },
+            branches: [
+              // Branch 0: Dashboard
+              StatefulShellBranch(
                 routes: [
                   GoRoute(
-                    path: ':id',
-                    builder: (context, state) {
-                      final id = state.pathParameters['id'] ?? '';
-                      return DiscoverDetailPage(unitId: id);
-                    },
+                    path: '/app/dashboard',
+                    builder: (context, state) => const DashboardPage(),
+                  ),
+                ],
+              ),
+              // Branch 1: Discover
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/app/discover',
+                    builder: (context, state) => const DiscoverPage(),
+                    routes: [
+                      GoRoute(
+                        path: ':id',
+                        builder: (context, state) {
+                          final id = state.pathParameters['id'] ?? '';
+                          return DiscoverDetailPage(
+                              key: ValueKey('unit-$id'), unitId: id);
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Branch 2: Profile
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/app/profile',
+                    builder: (context, state) => const ProfilePage(),
                   ),
                 ],
               ),
             ],
           ),
-          // Branch 2: Profile
-          StatefulShellBranch(
-            routes: [
-              GoRoute(
-                path: '/app/profile',
-                builder: (context, state) => const ProfilePage(),
-              ),
-            ],
+          // Sub-routes pushed over the shell (no bottom bar change)
+          GoRoute(
+            path: '/app/inquiries',
+            builder: (context, state) => const InquiryListPage(),
+          ),
+          GoRoute(
+            path: '/app/inquiries/create',
+            builder: (context, state) {
+              final unitIdsParam = state.uri.queryParameters['unitIds'] ?? '';
+              final unitIds = unitIdsParam.isNotEmpty
+                  ? unitIdsParam
+                      .split(',')
+                      .where((id) => id.isNotEmpty)
+                      .toList()
+                  : <String>[];
+              return InquiryCreatePage(
+                  key: ValueKey('create-$unitIdsParam'), unitIds: unitIds);
+            },
+          ),
+          GoRoute(
+            path: '/app/inquiries/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return InquiryDetailPage(
+                  key: ValueKey('inquiry-$id'), inquiryId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/inquiries/:id/offer',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return OfferReviewPage(key: ValueKey('offer-$id'), inquiryId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/my-inventory',
+            builder: (context, state) => const MyInventoryPage(),
+          ),
+          GoRoute(
+            path: '/app/inventory/create',
+            builder: (context, state) => const InventoryFormPage(),
+          ),
+          GoRoute(
+            path: '/app/inventory/:id/edit',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return InventoryFormPage(
+                  key: ValueKey('inventory-$id'), inventoryId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/campaigns',
+            builder: (context, state) => const CampaignListPage(),
+          ),
+          GoRoute(
+            path: '/app/campaigns/calendar',
+            builder: (context, state) => const CampaignCalendarPage(),
+          ),
+          GoRoute(
+            path: '/app/campaigns/create',
+            builder: (context, state) => const CampaignFormPage(),
+          ),
+          GoRoute(
+            path: '/app/campaigns/:id',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return CampaignDetailPage(
+                  key: ValueKey('campaign-$id'), campaignId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/campaigns/:id/edit',
+            builder: (context, state) {
+              final id = state.pathParameters['id'] ?? '';
+              return CampaignEditPage(
+                  key: ValueKey('campaign-edit-$id'), campaignId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/admin/config',
+            builder: (context, state) => const AdminConfigPage(),
+          ),
+          GoRoute(
+            path: '/app/admin/users',
+            builder: (context, state) => const AdminUsersPage(),
+          ),
+          GoRoute(
+            path: '/app/notifications',
+            builder: (context, state) => const NotificationsPage(),
+          ),
+          GoRoute(
+            path: '/app/favorites',
+            builder: (context, state) => const FavoritesPage(),
+          ),
+          GoRoute(
+            path: '/app/admin/inquiries',
+            builder: (context, state) => const AdminInquiryManagementPage(),
+          ),
+          GoRoute(
+            path: '/app/admin/inquiries/:id/assign-units',
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+              return AdminAssignUnitsPage(
+                  key: ValueKey('assign-$id'), inquiryId: id);
+            },
+          ),
+          GoRoute(
+            path: '/app/agency/brands',
+            builder: (context, state) => const AgencyBrandsPage(),
+          ),
+          GoRoute(
+            path: '/app/media-owner/quotes',
+            builder: (context, state) => const MediaOwnerQuotesPage(),
+          ),
+          GoRoute(
+            path: '/app/media-owner/availability',
+            builder: (context, state) => const AvailabilityManagementPage(),
           ),
         ],
-      ),
-      // Sub-routes pushed over the shell (no bottom bar change)
-      GoRoute(
-        path: '/app/inquiries',
-        builder: (context, state) => const InquiryListPage(),
-      ),
-      GoRoute(
-        path: '/app/inquiries/create',
-        builder: (context, state) {
-          final unitIdsParam = state.uri.queryParameters['unitIds'] ?? '';
-          final unitIds = unitIdsParam.isNotEmpty
-              ? unitIdsParam.split(',').where((id) => id.isNotEmpty).toList()
-              : <String>[];
-          return InquiryCreatePage(unitIds: unitIds);
-        },
-      ),
-      GoRoute(
-        path: '/app/inquiries/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          return InquiryDetailPage(inquiryId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/inquiries/:id/offer',
-        builder: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          return OfferReviewPage(inquiryId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/my-inventory',
-        builder: (context, state) => const MyInventoryPage(),
-      ),
-      GoRoute(
-        path: '/app/inventory/create',
-        builder: (context, state) => const InventoryFormPage(),
-      ),
-      GoRoute(
-        path: '/app/inventory/:id/edit',
-        builder: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          return InventoryFormPage(inventoryId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/campaigns',
-        builder: (context, state) => const CampaignListPage(),
-      ),
-      GoRoute(
-        path: '/app/campaigns/calendar',
-        builder: (context, state) => const CampaignCalendarPage(),
-      ),
-      GoRoute(
-        path: '/app/campaigns/create',
-        builder: (context, state) => const CampaignFormPage(),
-      ),
-      GoRoute(
-        path: '/app/campaigns/:id',
-        builder: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          return CampaignDetailPage(campaignId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/campaigns/:id/edit',
-        builder: (context, state) {
-          final id = state.pathParameters['id'] ?? '';
-          return CampaignEditPage(campaignId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/admin/config',
-        builder: (context, state) => const AdminConfigPage(),
-      ),
-      GoRoute(
-        path: '/app/admin/users',
-        builder: (context, state) => const AdminUsersPage(),
-      ),
-      GoRoute(
-        path: '/app/notifications',
-        builder: (context, state) => const NotificationsPage(),
-      ),
-      GoRoute(
-        path: '/app/favorites',
-        builder: (context, state) => const FavoritesPage(),
-      ),
-      GoRoute(
-        path: '/app/admin/inquiries',
-        builder: (context, state) => const AdminInquiryManagementPage(),
-      ),
-      GoRoute(
-        path: '/app/admin/inquiries/:id/assign-units',
-        builder: (context, state) {
-          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
-          return AdminAssignUnitsPage(inquiryId: id);
-        },
-      ),
-      GoRoute(
-        path: '/app/agency/brands',
-        builder: (context, state) => const AgencyBrandsPage(),
-      ),
-      GoRoute(
-        path: '/app/media-owner/quotes',
-        builder: (context, state) => const MediaOwnerQuotesPage(),
-      ),
-      GoRoute(
-        path: '/app/media-owner/availability',
-        builder: (context, state) => const AvailabilityManagementPage(),
       ),
     ],
     redirect: (context, state) {
       final authState = authBloc.state;
       final isLoggedIn = authState is AuthAuthenticated;
+      // Odjava nije "namera" da se posle prijave vrati na istu stranicu: bez ove
+      // provere sledeći korisnik bi posle prijave završio na stranici prethodnog.
+      final justLoggedOut = _wasLoggedIn && !isLoggedIn;
+      _wasLoggedIn = isLoggedIn;
       final isLoggingIn = state.uri.toString().startsWith('/auth');
       final isLanding = state.uri.toString() == '/';
       final isPublicDiscover = state.uri.toString().startsWith('/discover');
@@ -262,10 +290,17 @@ class AppRouter {
       // For /app/* routes, require auth — save intended path for post-login redirect
       if (!isLoggedIn && state.uri.toString().startsWith('/app')) {
         final path = state.uri.toString();
-        _pendingRedirect = path;
-        SharedPreferences.getInstance().then((prefs) {
-          prefs.setString('redirect_after_login', path);
-        });
+        if (justLoggedOut) {
+          _pendingRedirect = null;
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.remove('redirect_after_login');
+          });
+        } else {
+          _pendingRedirect = path;
+          SharedPreferences.getInstance().then((prefs) {
+            prefs.setString('redirect_after_login', path);
+          });
+        }
         return '/auth/login';
       }
 
@@ -278,8 +313,8 @@ class _GoRouterRefreshStream extends ChangeNotifier {
   _GoRouterRefreshStream(Stream<dynamic> stream) {
     notifyListeners();
     _subscription = stream.asBroadcastStream().listen(
-      (dynamic _) => notifyListeners(),
-    );
+          (dynamic _) => notifyListeners(),
+        );
   }
 
   late final dynamic _subscription;

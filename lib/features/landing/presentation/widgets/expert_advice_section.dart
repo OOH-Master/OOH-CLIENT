@@ -1,185 +1,201 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../../core/responsive/responsive.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/widgets/ui/ui.dart';
+import 'landing_shared.dart';
 
+/// Savet stručnjaka: generalni upit (opišete kampanju, stručnjak za lokacije
+/// predlaže površine), uz prikaz razgovora na telefonu.
 class ExpertAdviceSection extends StatelessWidget {
   const ExpertAdviceSection({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppColors.muted,
-      padding: EdgeInsets.symmetric(
-        vertical: context.isDesktop ? 96 : 64,
-        horizontal: context.isDesktop ? 48 : 16,
+    final wide = MediaQuery.sizeOf(context).width >= 1000;
+    final content = _content(context);
+    const phone = Center(child: _ExpertPhone());
+
+    return LandingSection(
+      key: LandingKeys.expert,
+      color: AppColors.background,
+      child: wide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(child: content),
+                const SizedBox(width: 64),
+                const Expanded(child: phone),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [content, const SizedBox(height: 40), phone],
+            ),
+    );
+  }
+
+  Widget _content(BuildContext context) {
+    const steps = [
+      (
+        '1',
+        'Opišite kampanju',
+        'Cilj, gradove, period zakupa i okvirni budžet, bez biranja površina.'
       ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1280),
-        child: Column(
+      (
+        '2',
+        'Stručnjak predlaže lokacije',
+        'Stručnjak za lokacije bira površine koje odgovaraju cilju i publici.'
+      ),
+      (
+        '3',
+        'Prihvatite ponudu',
+        'Predlog stiže kao jedna ponuda sa cenama svih vlasnika medija.'
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeading(title: 'Savet stručnjaka, odmah'),
+        const SizedBox(height: 28),
+        for (final s in steps)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${s.$1}. ${s.$2}', style: AppTypography.labelLarge),
+                const SizedBox(height: 3),
+                Text(
+                  s.$3,
+                  style: AppTypography.bodySmall
+                      .copyWith(color: AppColors.mutedForeground),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
           children: [
-            Text(
-              'Get expert advice, instantly',
-              style: context.isDesktop ? AppTypography.displaySmall : AppTypography.h1,
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
-            const SizedBox(height: 16),
-            Text(
-              'Our media planning experts are here to help. Get personalized recommendations and strategy advice through our in-platform consultation service.',
-              style: AppTypography.bodyLarge.copyWith(
-                color: AppColors.mutedForeground,
-              ),
-              textAlign: TextAlign.center,
-            ).animate().fadeIn(delay: 100.ms, duration: 600.ms),
-            const SizedBox(height: 48),
-            Center(
-              child: Container(
-                width: context.isDesktop ? 320 : 280,
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(40),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
-                      blurRadius: 40,
-                      offset: const Offset(0, 20),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(32),
+            FilledButton(
+              onPressed: () => context.push('/app/inquiries/create'),
+              child: const Text('Pošalji generalni upit'),
+            ),
+            OutlinedButton(
+              onPressed: () => context.go('/discover'),
+              child: const Text('Sam biram površine'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Telefon sa razgovorom: brif klijenta i predlog stručnjaka.
+class _ExpertPhone extends StatelessWidget {
+  const _ExpertPhone();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 320,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.ink,
+        borderRadius: BorderRadius.circular(40),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(31),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 14),
+              color: AppColors.surfaceSunken,
+              child: Row(
+                children: [
+                  const AppAvatar(name: 'Stručnjak Lokacije', size: 38),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Podrška stručnjaka',
+                        style: AppTypography.labelLarge),
                   ),
-                  child: Container(
-                    height: 420,
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 16, 14, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const _Bubble(
+                    mine: true,
+                    text:
+                        'Lansiramo novi proizvod. Beograd i Novi Sad, dve nedelje u novembru, budžet oko 5.000 €.',
+                  ),
+                  const SizedBox(height: 10),
+                  const _Bubble(
+                    mine: false,
+                    text:
+                        'Predlažem šest lokacija: tri digitalna ekrana u centru i tri city light vitrine na pešačkim zonama.',
+                  ),
+                  const SizedBox(height: 18),
+                  Container(
+                    height: 4,
+                    margin: const EdgeInsets.symmetric(horizontal: 90),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.pink[50]!,
-                          Colors.amber[50]!,
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(32),
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(24),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.pink[400]!,
-                                  Colors.amber[400]!,
-                                ],
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.pink[400]!.withValues(alpha: 0.3),
-                                  blurRadius: 20,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.people,
-                              size: 40,
-                              color: Colors.white,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          Text(
-                            'Expert Support',
-                            style: AppTypography.h3.copyWith(
-                              color: Colors.grey[800],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Connect with our team for personalized guidance',
-                            style: AppTypography.bodySmall.copyWith(
-                              color: AppColors.mutedForeground,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 32),
-                          _buildFeatureCard(
-                            icon: Icons.bar_chart,
-                            label: 'Campaign Analytics',
-                            color: AppColors.primary,
-                          ),
-                          const SizedBox(height: 12),
-                          _buildFeatureCard(
-                            icon: Icons.trending_up,
-                            label: 'Performance Insights',
-                            color: Colors.green[600]!,
-                          ),
-                        ],
-                      ),
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                ),
+                ],
               ),
-            ).animate().scale(duration: 800.ms, curve: Curves.easeOutBack).fadeIn(duration: 600.ms),
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildFeatureCard({
-    required IconData icon,
-    required String label,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+class _Bubble extends StatelessWidget {
+  final bool mine;
+  final String text;
+
+  const _Bubble({required this.mine, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 236),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: mine ? AppColors.primary : AppColors.surfaceSunken,
+          borderRadius: BorderRadius.only(
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(mine ? 14 : 4),
+            bottomRight: Radius.circular(mine ? 4 : 14),
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Icon(icon, size: 20, color: color),
+        ),
+        child: Text(
+          text,
+          style: AppTypography.bodySmall.copyWith(
+            color: mine ? Colors.white : AppColors.foreground,
+            height: 1.4,
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              label,
-              style: AppTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

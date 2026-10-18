@@ -1,4 +1,4 @@
-package com.example.ooh_mobile
+package com.ooh.mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -1,14 +1,14 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/responsive_builder.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
-import '../../../../core/widgets/app_button.dart';
+import '../../../../core/utils/sr_labels.dart';
 import '../../../../core/widgets/app_snackbar.dart';
-import '../../../../core/widgets/app_text_field.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../data/repository/profile_repository.dart';
 import '../blocs/profile_bloc.dart';
@@ -20,8 +20,8 @@ class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (context) => ProfileBloc(context.read<ProfileRepository>())
-        ..add(LoadProfile()),
+      create: (context) =>
+          ProfileBloc(context.read<ProfileRepository>())..add(LoadProfile()),
       child: const _ProfileView(),
     );
   }
@@ -36,6 +36,10 @@ class _ProfileView extends StatefulWidget {
 
 class _ProfileViewState extends State<_ProfileView> {
   bool _editMode = false;
+
+  /// Poslednji učitani profil; ostaje na ekranu i dok traje čuvanje ili
+  /// promena lozinke.
+  Map<String, dynamic>? _profile;
 
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -72,15 +76,20 @@ class _ProfileViewState extends State<_ProfileView> {
 
   void _onSave() {
     context.read<ProfileBloc>().add(UpdateProfile({
-      'firstName': _firstNameController.text.trim(),
-      'lastName': _lastNameController.text.trim(),
-      'email': _emailController.text.trim(),
-      'phone': _phoneController.text.trim(),
-      'companyName': _companyNameController.text.trim(),
-      'country': _countryController.text.trim(),
-      'city': _cityController.text.trim(),
-      'website': _websiteController.text.trim(),
-    }));
+          'firstName': _firstNameController.text.trim(),
+          'lastName': _lastNameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'companyName': _companyNameController.text.trim(),
+          'country': _countryController.text.trim(),
+          'city': _cityController.text.trim(),
+          'website': _websiteController.text.trim(),
+        }));
+    setState(() => _editMode = false);
+  }
+
+  void _onCancel() {
+    if (_profile != null) _populateControllers(_profile!);
     setState(() => _editMode = false);
   }
 
@@ -90,8 +99,8 @@ class _ProfileViewState extends State<_ProfileView> {
       builder: (_) => ChangePasswordDialog(
         onSubmit: (current, newPass) {
           context.read<ProfileBloc>().add(
-            ChangePassword(currentPassword: current, newPassword: newPass),
-          );
+                ChangePassword(currentPassword: current, newPassword: newPass),
+              );
         },
       ),
     );
@@ -100,7 +109,7 @@ class _ProfileViewState extends State<_ProfileView> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    final isDesktop = context.isDesktop;
+    final wide = MediaQuery.sizeOf(context).width >= 900;
 
     return BlocConsumer<ProfileBloc, ProfileState>(
       listener: (context, state) {
@@ -113,220 +122,345 @@ class _ProfileViewState extends State<_ProfileView> {
         }
       },
       builder: (context, state) {
-        if (state is ProfileLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        Map<String, dynamic>? profile;
         if (state is ProfileLoaded) {
-          profile = state.profile;
-          if (!_editMode) _populateControllers(profile);
+          _profile = state.profile;
+          if (!_editMode) _populateControllers(state.profile);
         } else if (state is ProfileUpdateSuccess) {
-          profile = state.profile;
+          _profile = state.profile;
+        }
+        final profile = _profile;
+        final busy = state is ProfileLoading || state is ProfileInitial;
+
+        if (profile == null) {
+          if (state is ProfileError) {
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              body: EmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Profil trenutno nije dostupan',
+                message: state.message,
+                action: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.read<ProfileBloc>().add(LoadProfile()),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(l10n.retry),
+                ),
+              ),
+            );
+          }
+          return const Scaffold(
+            backgroundColor: AppColors.background,
+            body: Center(child: CircularProgressIndicator()),
+          );
         }
 
         return Scaffold(
           backgroundColor: AppColors.background,
-          body: SingleChildScrollView(
-            padding: EdgeInsets.all(isDesktop ? AppSpacing.lg : AppSpacing.md),
-            child: Center(
-              child: Container(
-                constraints: BoxConstraints(maxWidth: isDesktop ? 700 : double.infinity),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header
-                    _buildHeader(context, l10n, profile),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Personal Info Section
-                    _buildSection(
-                      title: 'Licni podaci',
-                      icon: Icons.person_outline,
+          body: Stack(
+            children: [
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final side = wide ? 32.0 : 16.0;
+                  final gutter =
+                      math.max(side, (constraints.maxWidth - 1240) / 2);
+                  final contentWidth = constraints.maxWidth - 2 * gutter;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 40),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildFieldRow('Ime', _firstNameController),
-                        _buildFieldRow('Prezime', _lastNameController),
-                        _buildFieldRow('Email', _emailController),
-                        _buildFieldRow('Telefon', _phoneController),
+                        _buildHeader(wide),
+                        _buildBody(profile, contentWidth, l10n),
                       ],
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    // Organization Section
-                    _buildSection(
-                      title: 'Organizacija',
-                      icon: Icons.business_outlined,
-                      children: [
-                        _buildFieldRow('Naziv kompanije', _companyNameController),
-                        _buildFieldRow('Drzava', _countryController),
-                        _buildFieldRow('Grad', _cityController),
-                        _buildFieldRow('Veb sajt', _websiteController),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    // Account Section
-                    _buildSection(
-                      title: 'Nalog',
-                      icon: Icons.settings_outlined,
-                      children: [
-                        _buildInfoRow('Korisnicko ime', profile?['username'] ?? ''),
-                        _buildInfoRow('Uloga', profile?['role'] ?? ''),
-                        _buildInfoRow(
-                          'Email verifikovan',
-                          (profile?['emailVerified'] == true) ? 'Da' : 'Ne',
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        OutlinedButton.icon(
-                          onPressed: _showChangePasswordDialog,
-                          icon: const Icon(Icons.lock_outline, size: 18),
-                          label: const Text('Promeni lozinku'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.lg),
-                    // Actions
-                    if (_editMode) ...[
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SecondaryButton(
-                              text: 'Otkazi',
-                              onPressed: () => setState(() => _editMode = false),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: PrimaryButton(
-                              text: 'Sacuvaj',
-                              onPressed: _onSave,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    // Logout
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: () => context.read<AuthBloc>().add(LogoutRequested()),
-                        icon: Icon(Icons.logout, color: AppColors.destructive, size: 18),
-                        label: Text(
-                          l10n.logout,
-                          style: TextStyle(color: AppColors.destructive),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.destructive.withValues(alpha: 0.3)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-            ),
+              if (busy)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: LinearProgressIndicator(minHeight: 2),
+                ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildHeader(BuildContext context, AppLocalizations l10n, Map<String, dynamic>? profile) {
-    final name = profile?['username'] ?? '';
-    final role = profile?['role'] ?? '';
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 36,
-          backgroundColor: AppColors.primary,
-          child: Text(
-            name.isNotEmpty ? name[0].toUpperCase() : 'U',
-            style: AppTypography.h2.copyWith(color: Colors.white),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(name, style: AppTypography.h4),
-              Text(role, style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground)),
+  Widget _buildHeader(bool wide) {
+    return PageHeader(
+      title: 'Profil',
+      padding: wide
+          ? const EdgeInsets.only(top: 28, bottom: 22)
+          : const EdgeInsets.only(top: 18, bottom: 14),
+      actions: _editMode
+          ? [
+              TextButton(onPressed: _onCancel, child: const Text('Otkaži')),
+              FilledButton.icon(
+                onPressed: _onSave,
+                icon: const Icon(Icons.check_rounded, size: 20),
+                label: const Text('Sačuvaj'),
+              ),
+            ]
+          : [
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _editMode = true),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Izmeni profil'),
+              ),
             ],
+    );
+  }
+
+  Widget _buildBody(
+      Map<String, dynamic> profile, double width, AppLocalizations l10n) {
+    final identity = _IdentityCard(
+      profile: profile,
+      onChangePassword: _showChangePasswordDialog,
+      onLogout: () => context.read<AuthBloc>().add(LogoutRequested()),
+      logoutLabel: l10n.logout,
+    );
+
+    final personal = SectionCard(
+      title: 'Lični podaci',
+      child: _FieldGrid(children: [
+        _field('Ime', _firstNameController),
+        _field('Prezime', _lastNameController),
+        _field('Email', _emailController,
+            readOnly: true, helper: 'Ne menja se ovde.'),
+        _field('Telefon', _phoneController, keyboard: TextInputType.phone),
+      ]),
+    );
+
+    final organization = SectionCard(
+      title: 'Organizacija',
+      child: _FieldGrid(children: [
+        _field('Naziv kompanije', _companyNameController),
+        _field('Veb sajt', _websiteController, keyboard: TextInputType.url),
+        _field('Država', _countryController),
+        _field('Grad', _cityController),
+      ]),
+    );
+
+    if (width >= 880) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(width: 320, child: identity),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              children: [personal, const SizedBox(height: 16), organization],
+            ),
           ),
-        ),
-        if (!_editMode)
-          IconButton(
-            onPressed: () => setState(() => _editMode = true),
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Izmeni profil',
-            color: AppColors.primary,
-          ),
+        ],
+      );
+    }
+    return Column(
+      children: [
+        identity,
+        const SizedBox(height: 16),
+        personal,
+        const SizedBox(height: 16),
+        organization,
       ],
     );
   }
 
-  Widget _buildSection({
-    required String title,
-    required IconData icon,
-    required List<Widget> children,
+  Widget _field(
+    String label,
+    TextEditingController controller, {
+    bool readOnly = false,
+    String? helper,
+    TextInputType? keyboard,
   }) {
+    if (_editMode) {
+      return TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        keyboardType: keyboard,
+        decoration: InputDecoration(
+          labelText: label,
+          helperText: readOnly ? helper : null,
+          helperMaxLines: 2,
+          filled: true,
+          fillColor: readOnly ? AppColors.surfaceSunken : AppColors.surface,
+        ),
+      );
+    }
+    return _InfoField(label: label, value: controller.text);
+  }
+}
+
+/// Polja u dve kolone kada ima mesta.
+class _FieldGrid extends StatelessWidget {
+  final List<Widget> children;
+
+  const _FieldGrid({required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final two = constraints.maxWidth >= 520;
+        final w = two ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+        return Wrap(
+          spacing: 16,
+          runSpacing: 16,
+          children: [for (final c in children) SizedBox(width: w, child: c)],
+        );
+      },
+    );
+  }
+}
+
+class _InfoField extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InfoField({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = value.trim().isEmpty;
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.surfaceSunken.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.primary),
-              const SizedBox(width: AppSpacing.xs),
-              Text(title, style: AppTypography.h6),
-            ],
+          Text(label,
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.mutedForeground)),
+          const SizedBox(height: 2),
+          Text(
+            empty ? 'Nije uneto' : value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: empty
+                ? AppTypography.bodyMedium.copyWith(color: AppColors.subtle)
+                : AppTypography.labelLarge,
           ),
-          const SizedBox(height: AppSpacing.md),
-          ...children,
         ],
       ),
     );
   }
+}
 
-  Widget _buildFieldRow(String label, TextEditingController controller) {
-    if (_editMode) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-        child: AppTextField(
-          label: label,
-          controller: controller,
-        ),
-      );
-    }
-    return _buildInfoRow(label, controller.text);
-  }
+/// Kartica identiteta: avatar, naziv, uloga, kontakt i akcije naloga.
+class _IdentityCard extends StatelessWidget {
+  final Map<String, dynamic> profile;
+  final VoidCallback onChangePassword;
+  final VoidCallback onLogout;
+  final String logoutLabel;
 
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Row(
+  const _IdentityCard({
+    required this.profile,
+    required this.onChangePassword,
+    required this.onLogout,
+    required this.logoutLabel,
+  });
+
+  String _s(String key) => (profile[key] as String?)?.trim() ?? '';
+
+  @override
+  Widget build(BuildContext context) {
+    final username = _s('username');
+    final company = _s('companyName');
+    final person = '${_s('firstName')} ${_s('lastName')}'.trim();
+    final name =
+        company.isNotEmpty ? company : (person.isNotEmpty ? person : username);
+    final verified = profile['emailVerified'] == true;
+    final place = SrLabels.place(_s('city'), _s('country'));
+
+    return SectionCard(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          AppAvatar(name: name.isEmpty ? '?' : name, size: 64),
+          const SizedBox(height: 14),
+          Text(name.isEmpty ? '—' : name, style: AppTypography.h4),
+          if (company.isNotEmpty && person.isNotEmpty)
+            Text(
+              person,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.text2),
+            ),
+          if (username.isNotEmpty)
+            Text(
+              '@$username',
+              style: AppTypography.bodySmall
+                  .copyWith(color: AppColors.mutedForeground),
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              StatusPill(
+                label: SrLabels.role(profile['role'] as String?),
+                tone: PillTone.primary,
+              ),
+              StatusPill(
+                label: verified ? 'Email potvrđen' : 'Email nije potvrđen',
+                tone: verified ? PillTone.success : PillTone.neutral,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          const Divider(),
+          const SizedBox(height: 14),
+          _ContactLine(_s('email')),
+          _ContactLine(_s('phone')),
+          _ContactLine(place),
+          _ContactLine(_s('website')),
+          const SizedBox(height: 10),
           SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onChangePassword,
+              icon: const Icon(Icons.lock_outline_rounded, size: 18),
+              label: const Text('Promeni lozinku'),
             ),
           ),
-          Expanded(
-            child: Text(
-              value.isNotEmpty ? value : '—',
-              style: AppTypography.bodySmall.copyWith(
-                fontWeight: FontWeight.w500,
-                color: AppColors.foreground,
-              ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: onLogout,
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: Text(logoutLabel),
+              style:
+                  TextButton.styleFrom(foregroundColor: AppColors.destructive),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Jedan kontakt podatak (email, telefon, mesto, veb sajt) kao red teksta.
+class _ContactLine extends StatelessWidget {
+  final String value;
+
+  const _ContactLine(this.value);
+
+  @override
+  Widget build(BuildContext context) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.bodySmall.copyWith(color: AppColors.text2),
       ),
     );
   }

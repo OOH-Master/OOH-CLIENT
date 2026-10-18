@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/utils/sr_format.dart';
 import '../../../discover/data/dto/dto.dart';
 import '../../data/repository/inventory_management_repository.dart';
 
@@ -147,7 +148,7 @@ class InventoryManagementBloc
     emit(InventoryManagementLoading());
     try {
       await _repository.createInventory(event.data);
-      emit(InventoryFormSuccess('Inventory item created'));
+      emit(InventoryFormSuccess('Površina je dodata'));
     } catch (e) {
       emit(InventoryManagementError(e.toString()));
     }
@@ -160,7 +161,7 @@ class InventoryManagementBloc
     emit(InventoryManagementLoading());
     try {
       await _repository.updateInventory(event.id, event.data);
-      emit(InventoryFormSuccess('Inventory item updated'));
+      emit(InventoryFormSuccess('Izmene su sačuvane'));
     } catch (e) {
       emit(InventoryManagementError(e.toString()));
     }
@@ -172,7 +173,7 @@ class InventoryManagementBloc
   ) async {
     try {
       await _repository.deleteInventory(event.id);
-      emit(InventoryFormSuccess('Inventory item deleted'));
+      emit(InventoryFormSuccess('Površina je obrisana'));
       add(LoadMyInventory());
     } catch (e) {
       emit(InventoryManagementError(e.toString()));
@@ -282,7 +283,8 @@ class InventoryManagementBloc
       for (final id in event.ids) {
         await _repository.updateInventory(id, {'status': event.status});
       }
-      emit(InventoryFormSuccess('Status azuriran za ${event.ids.length} stavki'));
+      emit(InventoryFormSuccess(
+          'Status je promenjen za ${SrFormat.count(event.ids.length, 'površinu', 'površine', 'površina')}'));
       add(LoadMyInventory());
     } catch (e) {
       emit(InventoryManagementError(e.toString()));

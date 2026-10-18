@@ -54,8 +54,10 @@ class ApiConfig {
   static const String ownerInventory = '/inventory/my';
 
   // === Media Owner inventory images ===
-  static String inventoryImages(int itemId) => '/media-owner/inventory/$itemId/images';
-  static String inventoryImageDelete(int imageId) => '/media-owner/inventory/images/$imageId';
+  static String inventoryImages(int itemId) =>
+      '/media-owner/inventory/$itemId/images';
+  static String inventoryImageDelete(int imageId) =>
+      '/media-owner/inventory/images/$imageId';
 
   // === Brand endpoints ===
   static const String brandInquiries = '/brand/inquiries';
@@ -75,6 +77,14 @@ class ApiConfig {
   static const String mediaOwnerAvailability = '/media-owner/availability';
   static const String mediaOwnerAnalytics = '/media-owner/analytics';
 
+  // === PDF upita / objedinjene ponude (po ulozi) ===
+  static String adminInquiryPdf(int inquiryId) =>
+      '$adminInquiries/$inquiryId/pdf';
+  static String brandInquiryPdf(int inquiryId) =>
+      '$brandInquiries/$inquiryId/pdf';
+  static String agencyInquiryPdf(int inquiryId) =>
+      '$agencyInquiries/$inquiryId/pdf';
+
   // === Campaign endpoints ===
   static const String campaigns = '/campaigns';
 
@@ -90,8 +100,10 @@ class ApiConfig {
   // === Invoice endpoints ===
   static const String invoicesMy = '/invoices/my';
   static String invoicePdf(int invoiceId) => '/invoices/$invoiceId/pdf';
-  static String invoicesByCampaign(int campaignId) => '/invoices/campaign/$campaignId';
-  static String invoicesByInquiry(int inquiryId) => '/invoices/inquiry/$inquiryId';
+  static String invoicesByCampaign(int campaignId) =>
+      '/invoices/campaign/$campaignId';
+  static String invoicesByInquiry(int inquiryId) =>
+      '/invoices/inquiry/$inquiryId';
 
   // === File serving ===
   static String publicFileUrl(String filename) => '/public/files/$filename';
@@ -100,7 +112,8 @@ class ApiConfig {
   /// into an absolute URL by prefixing the server host from [baseUrl].
   /// If [relativePath] is already absolute (starts with http), returns it as-is.
   static String absoluteUrl(String relativePath) {
-    if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
+    if (relativePath.startsWith('http://') ||
+        relativePath.startsWith('https://')) {
       return relativePath;
     }
     // baseUrl includes /api/v1 suffix — strip to host only

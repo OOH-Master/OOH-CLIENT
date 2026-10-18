@@ -130,6 +130,8 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/logos/
+    # IBM Plex Sans i Space Grotesk (OFL), da se fontovi ne preuzimaju u toku rada
+    - google_fonts/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -5,25 +5,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../../../core/l10n/l10n.dart';
-import '../../../../core/responsive/breakpoints.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_labels.dart';
+import '../../../../core/widgets/ui/ui.dart';
 import '../../../auth/presentation/blocs/auth_bloc.dart';
 import '../../../landing/presentation/widgets/app_header.dart';
-import '../../domain/entities/city.dart';
-import '../../domain/entities/country.dart';
+import '../../data/api/inventory_api_service.dart';
 import '../../domain/entities/ooh_unit.dart';
 import '../blocs/discover_bloc.dart';
 import '../widgets/active_filter_chips.dart';
 import '../widgets/discover_card_grid.dart';
 import '../widgets/discover_card_list.dart';
+import '../widgets/discover_toolbar.dart';
 import '../widgets/filter_bottom_sheet.dart';
 import '../widgets/inventory_map.dart';
 import '../widgets/sort_dropdown.dart';
-import '../widgets/view_toggle.dart';
+import '../widgets/unit_labels.dart';
 
+/// Pretraga oglasnih površina: država, grad, pretraga i filteri na vrhu,
+/// kartice sa cenom i dostupnošću, mapa sa grupisanim oznakama.
+///
+/// Ista stranica radi javno (`/discover`, sa zaglavljem sajta) i u aplikaciji
+/// (`/app/discover`, bez zaglavlja jer meni daje ljuska). Na širokom ekranu
+/// rezultati i mapa stoje jedno pored drugog, na telefonu je mapa preko celog
+/// ekrana, a lista se izvlači preko nje.
 class DiscoverPage extends StatefulWidget {
   final String? cityId;
 
@@ -34,13 +40,21 @@ class DiscoverPage extends StatefulWidget {
 }
 
 class _DiscoverPageState extends State<DiscoverPage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  /// Od ove širine sadržaja rezultati i mapa stoje jedno pored drugog.
+  static const double _splitWidth = 880;
+
+  /// Najmanja širina kartice u mreži.
+  static const double _minCardWidth = 230;
+  static const double _gap = 16;
+
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+
+  /// Kartica nad kojom je miš; mapa ističe njenu oznaku.
+  final ValueNotifier<String?> _hoveredUnitId = ValueNotifier<String?>(null);
   Timer? _searchDebounce;
   OohUnit? _selectedUnit;
-
-  AppLocalizations get l10n => AppLocalizations.of(context)!;
+  int? _autoLoadedCityId;
 
   @override
   void initState() {
@@ -71,6 +85,7 @@ class _DiscoverPageState extends State<DiscoverPage> {
     _searchController.dispose();
     _searchDebounce?.cancel();
     _scrollController.dispose();
+    _hoveredUnitId.dispose();
     super.dispose();
   }
 
@@ -81,82 +96,90 @@ class _DiscoverPageState extends State<DiscoverPage> {
     }
   }
 
+  /// U aplikaciji (`/app/...`) stranica nema zaglavlje sajta.
+  bool get _inApp {
+    try {
+      return GoRouterState.of(context).uri.path.startsWith('/app');
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth >= Breakpoints.desktop;
-
+    final inApp = _inApp;
     return Scaffold(
-      key: _scaffoldKey,
       backgroundColor: AppColors.background,
-      appBar: const AppHeader(),
-      body: Column(
-        children: [
-          // Secondary toolbar with city dropdown and filters
-          _buildSecondaryToolbar(isDesktop),
-          // Main content
-          Expanded(
-            child: BlocConsumer<DiscoverBloc, DiscoverState>(
-              listener: (context, state) {
-                if (state is DiscoverLoaded &&
-                    state.selectedCity != null &&
-                    state.units.isEmpty &&
-                    !state.isLoadingUnits) {
-                  context.read<DiscoverBloc>().add(LoadInventoryUnits(cityId: state.selectedCity!.id));
-                }
-              },
-              builder: (context, state) {
-                if (state is DiscoverInitial || (state is DiscoverLoading && state is! DiscoverLoaded)) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (state is DiscoverFailure) {
-                  return _buildErrorState(state.message);
-                }
-
-                if (state is DiscoverLoaded) {
-                  return Column(
-                    children: [
-                      // Active filter chips
-                      if (state.activeFilterCount > 0)
-                        ActiveFilterChips(
-                          filters: state.activeFilters,
-                          unitTypes: state.unitTypes,
-                          mediaFormats: state.mediaFormats,
-                          venueTypes: state.venueTypes,
-                          onFilterRemoved: (updatedFilters) {
-                            context.read<DiscoverBloc>().add(ApplyFilters(updatedFilters));
-                          },
-                          onClearAll: () {
-                            _searchController.clear();
-                            context.read<DiscoverBloc>().add(ResetFilters());
-                          },
-                        ),
-                      // Results bar with count, sort, view toggle
-                      _buildResultsBar(state, isDesktop),
-                      // Selection bar
-                      if (state.selectedUnitsForInquiry.isNotEmpty)
-                        _buildSelectionBar(state),
-                      // Main content area
-                      Expanded(
-                        child: _buildMainContent(state, isDesktop),
-                      ),
-                    ],
-                  );
-                }
-
-                return Center(
-                  child: Text(
-                    l10n.selectCityToViewInventory,
-                    style: AppTypography.bodyMedium.copyWith(color: AppColors.foreground),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+      appBar: inApp ? null : const AppHeader(),
+      body: BlocConsumer<DiscoverBloc, DiscoverState>(
+        listener: _onStateChanged,
+        builder: (context, state) {
+          if (state is DiscoverFailure) return _buildError();
+          if (state is! DiscoverLoaded) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              return width >= _splitWidth
+                  ? _buildWide(state, width, inApp)
+                  : _buildCompact(state, width);
+            },
+          );
+        },
       ),
     );
+  }
+
+  void _onStateChanged(BuildContext context, DiscoverState state) {
+    if (state is! DiscoverLoaded) return;
+    // Rezervno učitavanje kada izabrani grad ostane bez rezultata: jednom po
+    // gradu i samo bez filtera, da prazan rezultat filtera ne zameni
+    // nefiltriranim (i da se grad bez površina ne učitava u krug).
+    final city = state.selectedCity;
+    if (city != null &&
+        state.units.isEmpty &&
+        !state.isLoadingUnits &&
+        state.activeFilterCount == 0 &&
+        _autoLoadedCityId != city.id) {
+      _autoLoadedCityId = city.id;
+      context.read<DiscoverBloc>().add(LoadInventoryUnits(cityId: city.id));
+    }
+    // Kartica iznad mape ne ostaje za površinu koje više nema u rezultatima.
+    final selected = _selectedUnit;
+    if (selected != null &&
+        !state.isLoadingUnits &&
+        !state.units.any((u) => u.id == selected.id)) {
+      setState(() => _selectedUnit = null);
+    }
+  }
+
+  // ==================== AKCIJE ====================
+
+  void _openDetail(OohUnit unit) {
+    _hoveredUnitId.value = null;
+    context.push(_inApp ? '/app/discover/${unit.id}' : '/discover/${unit.id}');
+  }
+
+  void _toggleInquiry(OohUnit unit) {
+    final id = unit.intId;
+    if (id != null && id > 0) {
+      context.read<DiscoverBloc>().add(ToggleUnitSelection(id));
+    }
+  }
+
+  void _onMarkerTap(OohUnit unit) {
+    setState(() {
+      _selectedUnit = _selectedUnit?.id == unit.id ? null : unit;
+    });
+  }
+
+  void _setHovered(OohUnit unit, bool hovered) {
+    if (hovered) {
+      _hoveredUnitId.value = unit.id;
+    } else if (_hoveredUnitId.value == unit.id) {
+      _hoveredUnitId.value = null;
+    }
   }
 
   /// Opens the general inquiry form, sending unauthenticated users to login.
@@ -169,683 +192,15 @@ class _DiscoverPageState extends State<DiscoverPage> {
     context.push('/app/inquiries/create');
   }
 
-  Widget _buildResultsBar(DiscoverLoaded state, bool isDesktop) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: Row(
-        children: [
-          // Results count: on narrow screens the sheet header already shows it,
-          // so the label is dropped to leave room for the controls.
-          if (isDesktop)
-            Expanded(
-              child: Text(
-                'Prikazano ${state.units.length} rezultata',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.mutedForeground,
-                ),
-              ),
-            )
-          else
-            const Spacer(),
-          // General inquiry: full button on desktop, icon only on narrow screens
-          if (isDesktop)
-            TextButton.icon(
-              onPressed: _openGeneralInquiry,
-              icon: Icon(Icons.mail_outline, size: 16, color: AppColors.primary),
-              label: Text(
-                'Generalni upit',
-                style: AppTypography.bodySmall.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            )
-          else
-            IconButton(
-              onPressed: _openGeneralInquiry,
-              tooltip: 'Generalni upit',
-              visualDensity: VisualDensity.compact,
-              icon: Icon(Icons.mail_outline, size: 20, color: AppColors.primary),
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.primary.withValues(alpha: 0.08),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-            ),
-          const SizedBox(width: 8),
-          // Sort dropdown
-          SortDropdown(
-            currentSort: state.sortOption,
-            onChanged: (sort) {
-              context.read<DiscoverBloc>().add(ChangeSort(sort));
-            },
-          ),
-          const SizedBox(width: 8),
-          // View toggle
-          ViewToggle(
-            currentMode: state.viewMode,
-            onChanged: (mode) {
-              context.read<DiscoverBloc>().add(ChangeViewMode(mode));
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSelectionBar(DiscoverLoaded state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.primary.withValues(alpha: 0.08),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, size: 18, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Text(
-            '${state.selectedUnitsForInquiry.length} odabrano',
-            style: AppTypography.bodySmall.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
-            ),
-          ),
-          const Spacer(),
-          TextButton(
-            onPressed: () {
-              context.read<DiscoverBloc>().add(ClearSelection());
-            },
-            child: Text(
-              'Ponisti',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton.icon(
-            onPressed: () {
-              final ids = state.selectedUnitsForInquiry.join(',');
-              context.push('/app/inquiries/create?unitIds=$ids');
-            },
-            icon: const Icon(Icons.send, size: 16),
-            label: const Text('Posalji upit'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadius.sm),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMainContent(DiscoverLoaded state, bool isDesktop) {
-    if (state.viewMode == ViewMode.mapOnly) {
-      return _buildMapSection(state);
-    }
-
-    if (isDesktop) {
-      return _buildDesktopLayout(state);
-    } else {
-      return _buildMobileLayout(state);
-    }
-  }
-
-  Widget _buildSecondaryToolbar(bool isDesktop) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
-      ),
-      child: BlocBuilder<DiscoverBloc, DiscoverState>(
-        builder: (context, state) {
-          if (state is DiscoverLoaded) {
-            return Row(
-              children: [
-                Expanded(
-                  child: _buildCountryDropdown(state),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildCityDropdown(state, isDesktop),
-                ),
-                const SizedBox(width: 12),
-                if (isDesktop) ...[
-                  Expanded(child: _buildSearchField()),
-                  const SizedBox(width: 12),
-                  _buildFilterButton(state),
-                ],
-                if (!isDesktop) ...[
-                  _buildFilterButton(state),
-                ],
-              ],
-            );
-          }
-          return const SizedBox(height: 48);
-        },
-      ),
-    );
-  }
-
-  // ==================== DESKTOP LAYOUT ====================
-  Widget _buildDesktopLayout(DiscoverLoaded state) {
-    return Row(
-      children: [
-        // Left side - inventory grid/list
-        SizedBox(
-          width: 720,
-          child: _buildInventoryPanel(state),
-        ),
-        // Right side - Map
-        Expanded(
-          child: _buildMapSection(state),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildInventoryPanel(DiscoverLoaded state) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(right: BorderSide(color: AppColors.border)),
-      ),
-      child: state.isLoadingUnits
-          ? const Center(child: CircularProgressIndicator())
-          : state.units.isEmpty
-              ? _buildEmptyState(state)
-              : state.viewMode == ViewMode.list
-                  ? _buildListView(state)
-                  : _buildGridView(state),
-    );
-  }
-
-  Widget _buildGridView(DiscoverLoaded state) {
-    return GridView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.72,
-      ),
-      itemCount: state.units.length,
-      itemBuilder: (context, index) {
-        final unit = state.units[index];
-        final unitIdInt = int.tryParse(unit.id) ?? 0;
-        return DiscoverCardGrid(
-          unit: unit,
-          isSelected: _selectedUnit?.id == unit.id,
-          isSelectedForInquiry: state.selectedUnitsForInquiry.contains(unitIdInt),
-          onTap: () {
-            setState(() => _selectedUnit = unit);
-          },
-          onAddToInquiry: () {
-            if (unitIdInt > 0) {
-              context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
-            }
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildListView(DiscoverLoaded state) {
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: state.units.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final unit = state.units[index];
-        final unitIdInt = int.tryParse(unit.id) ?? 0;
-        return DiscoverCardList(
-          unit: unit,
-          isSelected: _selectedUnit?.id == unit.id,
-          isSelectedForInquiry: state.selectedUnitsForInquiry.contains(unitIdInt),
-          onTap: () {
-            setState(() => _selectedUnit = unit);
-            _navigateToDetail(unit);
-          },
-          onAddToInquiry: () {
-            if (unitIdInt > 0) {
-              context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
-            }
-          },
-        );
-      },
-    );
-  }
-
-  // ==================== MOBILE LAYOUT ====================
-  Widget _buildMobileLayout(DiscoverLoaded state) {
-    return Stack(
-      children: [
-        // Map as background
-        _buildMapSection(state),
-        // Draggable bottom sheet with inventory list
-        DraggableScrollableSheet(
-          initialChildSize: 0.4,
-          minChildSize: 0.15,
-          maxChildSize: 0.85,
-          snap: true,
-          snapSizes: const [0.15, 0.4, 0.85],
-          builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: CustomScrollView(
-                controller: scrollController,
-                slivers: [
-                  // Handle bar and header
-                  SliverToBoxAdapter(
-                    child: Column(
-                      children: [
-                        // Handle bar
-                        GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: Container(
-                                width: 40,
-                                height: 4,
-                                decoration: BoxDecoration(
-                                  color: AppColors.border,
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Search on mobile
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                          child: _buildSearchField(),
-                        ),
-                        // Header
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '${state.units.length} rezultata',
-                                style: AppTypography.bodyLarge.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.foreground,
-                                ),
-                              ),
-                              if (state.selectedCity != null)
-                                Text(
-                                  state.selectedCity!.name,
-                                  style: AppTypography.bodySmall.copyWith(
-                                    color: AppColors.mutedForeground,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Divider(height: 1, color: AppColors.border),
-                      ],
-                    ),
-                  ),
-                  // Content
-                  if (state.isLoadingUnits)
-                    const SliverFillRemaining(
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  else if (state.units.isEmpty)
-                    SliverFillRemaining(
-                      child: _buildEmptyState(state),
-                    )
-                  else
-                    SliverPadding(
-                      padding: const EdgeInsets.all(12),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final unit = state.units[index];
-                            final unitIdInt = int.tryParse(unit.id) ?? 0;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: _buildMobileInventoryCard(unit, state, unitIdInt),
-                            );
-                          },
-                          childCount: state.units.length,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-
-  // ==================== MOBILE INVENTORY CARD ====================
-  Widget _buildMobileInventoryCard(OohUnit unit, DiscoverLoaded state, int unitIdInt) {
-    final isSelected = _selectedUnit?.id == unit.id;
-    final isSelectedForInquiry = state.selectedUnitsForInquiry.contains(unitIdInt);
-
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedUnit = unit);
-        context.push('/discover/${unit.id}');
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            // Image on left
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(11)),
-              child: SizedBox(
-                width: 120,
-                height: 100,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    unit.imageUrl != null
-                        ? Image.network(
-                            unit.imageUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                          )
-                        : _buildImagePlaceholder(),
-                    // Media type badge
-                    Positioned(
-                      top: 6,
-                      left: 6,
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.foreground.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Icon(
-                          _getTypeIcon(unit.type),
-                          color: Colors.white,
-                          size: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // Info on right
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      unit.name,
-                      style: AppTypography.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.foreground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      unit.address,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.mutedForeground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          unit.priceDisplay,
-                          style: AppTypography.bodyMedium.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Availability
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: unit.isAvailable
-                                    ? AppColors.success
-                                    : AppColors.destructive,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Add to inquiry
-                            GestureDetector(
-                              onTap: () {
-                                if (unitIdInt > 0) {
-                                  context.read<DiscoverBloc>().add(ToggleUnitSelection(unitIdInt));
-                                }
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: isSelectedForInquiry
-                                      ? AppColors.primary
-                                      : AppColors.muted,
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Icon(
-                                  isSelectedForInquiry
-                                      ? Icons.check
-                                      : Icons.add_shopping_cart,
-                                  color: isSelectedForInquiry
-                                      ? Colors.white
-                                      : AppColors.primary,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==================== SHARED COMPONENTS ====================
-  Widget _buildCountryDropdown(DiscoverLoaded state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Country?>(
-          value: state.selectedCountry,
-          dropdownColor: Colors.white,
-          hint: Text(
-            l10n.selectCountry,
-            style: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
-          ),
-          isDense: true,
-          isExpanded: true,
-          items: [
-            DropdownMenuItem<Country?>(
-              value: null,
-              child: Text(
-                l10n.allCountries,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            ...state.countries.map((country) {
-              return DropdownMenuItem<Country?>(
-                value: country,
-                child: Text(
-                  country.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, color: AppColors.foreground),
-                ),
-              );
-            }),
-          ],
-          onChanged: (country) {
-            context.read<DiscoverBloc>().add(SelectCountry(country));
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCityDropdown(DiscoverLoaded state, bool isDesktop) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<City?>(
-          value: state.selectedCity,
-          dropdownColor: Colors.white,
-          hint: Text(
-            l10n.selectCity,
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.mutedForeground,
-            ),
-          ),
-          isDense: true,
-          isExpanded: true,
-          items: [
-            DropdownMenuItem<City?>(
-              value: null,
-              child: Text(
-                l10n.allCities,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            ...state.cities.map((city) {
-              return DropdownMenuItem<City?>(
-                value: city,
-                child: Text(
-                  '${city.name}, ${city.country}',
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 14, color: AppColors.foreground),
-                ),
-              );
-            }),
-          ],
-          onChanged: (city) {
-            context.read<DiscoverBloc>().add(SelectCity(city));
-          },
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSearchField() {
-    return TextField(
-      controller: _searchController,
-      style: TextStyle(fontSize: 14, color: AppColors.foreground),
-      onChanged: _onSearchChanged,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        hintText: l10n.searchPlaceholder,
-        hintStyle: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
-        prefixIcon: Icon(Icons.search, color: AppColors.mutedForeground, size: 20),
-        suffixIcon: _searchController.text.isNotEmpty
-            ? IconButton(
-                icon: Icon(Icons.clear, size: 18, color: AppColors.mutedForeground),
-                onPressed: () {
-                  _searchController.clear();
-                  _onSearchChanged('');
-                },
-              )
-            : null,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: AppColors.border),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        isDense: true,
-      ),
-    );
+  void _sendSelection(DiscoverLoaded state) {
+    final ids = state.selectedUnitsForInquiry.join(',');
+    context.push('/app/inquiries/create?unitIds=$ids');
   }
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
       final state = context.read<DiscoverBloc>().state;
       if (state is DiscoverLoaded) {
         final keyword = value.trim();
@@ -856,252 +211,650 @@ class _DiscoverPageState extends State<DiscoverPage> {
         context.read<DiscoverBloc>().add(ApplyFilters(newFilters));
       }
     });
-    setState(() {}); // Rebuild for clear icon visibility
   }
 
-  Widget _buildFilterButton(DiscoverLoaded state) {
-    final filterCount = state.activeFilterCount;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        OutlinedButton.icon(
-          onPressed: () => _showFilterDialog(state),
-          icon: const Icon(Icons.tune, size: 16),
-          label: Text(
-            l10n.filters,
-            style: TextStyle(fontSize: 14, color: AppColors.foreground),
-          ),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-        if (filterCount > 0)
-          Positioned(
-            top: -4,
-            right: -4,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
-              child: Text(
-                '$filterCount',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
+  void _clearSearch() {
+    _searchController.clear();
+    _onSearchChanged('');
+  }
+
+  void _resetFilters() {
+    _searchController.clear();
+    context.read<DiscoverBloc>().add(ResetFilters());
+  }
+
+  void _onFilterRemoved(InventoryFilterParams filters) {
+    if (filters.keyword == null) _searchController.clear();
+    context.read<DiscoverBloc>().add(ApplyFilters(filters));
+  }
+
+  void _applyFromSheet(InventoryFilterParams filters) {
+    context.read<DiscoverBloc>().add(ApplyFilters(filters));
+    final keyword = filters.keyword ?? '';
+    if (_searchController.text != keyword) _searchController.text = keyword;
+  }
+
+  /// Filteri: na širokom ekranu bočni panel, na telefonu list odozdo.
+  void _openFilters(DiscoverLoaded state, {required bool asPanel}) {
+    FilterBottomSheet sheet(bool panel) => FilterBottomSheet(
+          unitTypes: state.unitTypes,
+          mediaFormats: state.mediaFormats,
+          venueTypes: state.venueTypes,
+          currentFilters: state.activeFilters,
+          units: state.units,
+          asPanel: panel,
+          onApply: _applyFromSheet,
+          onReset: _resetFilters,
+        );
+
+    if (!asPanel) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        clipBehavior: Clip.antiAlias,
+        backgroundColor: AppColors.surface,
+        builder: (_) => sheet(false),
+      );
+      return;
+    }
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Zatvori filtere',
+      barrierColor: AppColors.ink.withValues(alpha: 0.32),
+      transitionDuration: const Duration(milliseconds: 240),
+      pageBuilder: (context, _, __) => Align(
+        alignment: Alignment.centerRight,
+        child: SizedBox(
+          width: 440,
+          height: double.infinity,
+          child: DecoratedBox(
+            decoration: const BoxDecoration(boxShadow: AppShadows.raised),
+            child: ClipRRect(
+              borderRadius:
+                  const BorderRadius.horizontal(left: Radius.circular(20)),
+              child: sheet(true),
             ),
           ),
-      ],
+        ),
+      ),
+      transitionBuilder: (context, animation, _, child) => SlideTransition(
+        position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+            .animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+        child: child,
+      ),
     );
   }
 
-  Widget _buildEmptyState(DiscoverLoaded state) {
-    final hasActiveFilters = state.activeFilterCount > 0;
+  // ==================== ŠIROK EKRAN ====================
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
+  Widget _buildWide(DiscoverLoaded state, double width, bool inApp) {
+    final pad = width >= 1200 ? 32.0 : 24.0;
+    final selected = state.selectedUnitsForInquiry;
+
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1600),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Icon(
-              state.selectedCity == null
-                  ? Icons.location_city
-                  : hasActiveFilters
-                      ? Icons.filter_list_off
-                      : Icons.search_off,
-              size: 64,
-              color: AppColors.mutedForeground,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              state.selectedCity == null
-                  ? l10n.selectCityToViewInventory
-                  : hasActiveFilters
-                      ? l10n.noResultsWithFilters
-                      : l10n.noInventoryFound,
-              style: AppTypography.bodyLarge.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.foreground,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            if (state.selectedCity != null) ...[
-              const SizedBox(height: 8),
-              if (!hasActiveFilters)
-                Text(
-                  '${state.selectedCity!.name} - ${l10n.noAvailableBillboards}',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.mutedForeground,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              const SizedBox(height: 24),
-              if (hasActiveFilters)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    _searchController.clear();
-                    context.read<DiscoverBloc>().add(ResetFilters());
-                  },
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: Text(l10n.resetFilters),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.primaryForeground,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
+            Padding(
+              padding: EdgeInsets.fromLTRB(pad, inApp ? 26 : 18, pad, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (inApp) ...[
+                    const PageHeader(
+                      title: 'Istraži oglasne površine',
+                      padding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 18),
+                  ],
+                  DecoratedBox(
+                    decoration: AppDecorations.card(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: DiscoverToolbar(
+                        state: state,
+                        searchController: _searchController,
+                        onSearchChanged: _onSearchChanged,
+                        onClearSearch: _clearSearch,
+                        onOpenFilters: () => _openFilters(state, asPanel: true),
+                      ),
                     ),
                   ),
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: () {
-                    final belgrade = state.cities
-                        .where((c) => c.name.toLowerCase() == 'belgrade' || c.name.toLowerCase() == 'beograd')
-                        .firstOrNull;
-                    if (belgrade != null) {
-                      context.read<DiscoverBloc>().add(SelectCity(belgrade));
-                    }
-                  },
-                  icon: const Icon(Icons.explore),
-                  label: Text(l10n.exploreBelgrade),
-                ),
-            ],
+                  if (state.activeFilterCount > 0)
+                    _filterChips(state, const EdgeInsets.only(top: 12)),
+                  _animatedSelection(
+                    state,
+                    selected.isEmpty
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 14),
+                            child: DiscoverSelectionBar(
+                              count: selected.length,
+                              units: _selectionUnits(state),
+                              onClear: () => context
+                                  .read<DiscoverBloc>()
+                                  .add(ClearSelection()),
+                              onSend: () => _sendSelection(state),
+                            ),
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16, bottom: 10),
+                    child: DiscoverResultsBar(
+                      state: state,
+                      onGeneralInquiry: _openGeneralInquiry,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(child: _buildWideContent(state, pad)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildImagePlaceholder() {
-    return Container(
-      color: AppColors.muted,
-      child: Center(
-        child: Icon(Icons.image, size: 32, color: AppColors.mutedForeground),
+  Widget _buildWideContent(DiscoverLoaded state, double pad) {
+    if (state.viewMode == ViewMode.mapOnly) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(pad, 6, pad, 24),
+        child: _MapPanel(child: _buildMap(state, overlayed: false)),
+      );
+    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mapWidth = (constraints.maxWidth * 0.4).clamp(340.0, 620.0);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: _buildResults(
+                state,
+                padding: EdgeInsets.fromLTRB(pad, 6, 12, 24),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: mapWidth,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(0, 6, pad, 24),
+                child: _MapPanel(child: _buildMap(state, overlayed: false)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Rezultati kao mreža kartica ili lista redova.
+  Widget _buildResults(DiscoverLoaded state, {required EdgeInsets padding}) {
+    if (state.isLoadingUnits) return _buildSkeleton(padding);
+    if (state.units.isEmpty) {
+      return LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          padding: padding,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - padding.vertical)
+                  .clamp(0.0, double.infinity),
+            ),
+            child: Center(child: _buildEmptyState(state)),
+          ),
+        ),
+      );
+    }
+
+    if (state.viewMode == ViewMode.list) {
+      return ListView.separated(
+        controller: _scrollController,
+        padding: padding,
+        itemCount: state.units.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) => _listRow(state, state.units[index]),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsFor(constraints.maxWidth - padding.horizontal);
+        final rows = (state.units.length / columns).ceil();
+        return ListView.builder(
+          controller: _scrollController,
+          padding: padding,
+          itemCount: rows,
+          itemBuilder: (context, row) => Padding(
+            padding: const EdgeInsets.only(bottom: _gap),
+            child: _cardRow(state, row, columns),
+          ),
+        );
+      },
+    );
+  }
+
+  int _columnsFor(double width) =>
+      ((width + _gap) / (_minCardWidth + _gap)).floor().clamp(1, 4);
+
+  /// Jedan red mreže; kartice u redu imaju istu visinu jer su istog sastava.
+  Widget _cardRow(DiscoverLoaded state, int row, int columns) {
+    final start = row * columns;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < columns; i++) ...[
+          if (i > 0) const SizedBox(width: _gap),
+          Expanded(
+            child: start + i < state.units.length
+                ? _gridCard(state, state.units[start + i])
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _gridCard(DiscoverLoaded state, OohUnit unit) {
+    return DiscoverCardGrid(
+      key: ValueKey('card-${unit.id}'),
+      unit: unit,
+      isSelected: _selectedUnit?.id == unit.id,
+      isSelectedForInquiry:
+          state.selectedUnitsForInquiry.contains(unit.intId ?? 0),
+      onTap: () => _openDetail(unit),
+      onAddToInquiry: () => _toggleInquiry(unit),
+      onHoverChanged: (hovered) => _setHovered(unit, hovered),
+    );
+  }
+
+  Widget _listRow(DiscoverLoaded state, OohUnit unit) {
+    return DiscoverCardList(
+      key: ValueKey('row-${unit.id}'),
+      unit: unit,
+      isSelected: _selectedUnit?.id == unit.id,
+      isSelectedForInquiry:
+          state.selectedUnitsForInquiry.contains(unit.intId ?? 0),
+      onTap: () => _openDetail(unit),
+      onAddToInquiry: () => _toggleInquiry(unit),
+      onHoverChanged: (hovered) => _setHovered(unit, hovered),
+    );
+  }
+
+  Widget _buildSkeleton(EdgeInsets padding) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsFor(constraints.maxWidth - padding.horizontal);
+        return ListView(
+          physics: const NeverScrollableScrollPhysics(),
+          padding: padding,
+          children: [
+            for (int r = 0; r < 2; r++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: _gap),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int i = 0; i < columns; i++) ...[
+                      if (i > 0) const SizedBox(width: _gap),
+                      const Expanded(child: DiscoverCardSkeleton()),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ==================== TELEFON I TABLET ====================
+
+  Widget _buildCompact(DiscoverLoaded state, double width) {
+    final searchInToolbar = width >= 700;
+    final selected = state.selectedUnitsForInquiry;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border)),
+          ),
+          child: DiscoverToolbar(
+            state: state,
+            searchController: _searchController,
+            onSearchChanged: _onSearchChanged,
+            onClearSearch: _clearSearch,
+            onOpenFilters: () => _openFilters(state, asPanel: false),
+            showSearch: searchInToolbar,
+            compact: true,
+          ),
+        ),
+        if (state.activeFilterCount > 0)
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              color: AppColors.surface,
+              border: Border(bottom: BorderSide(color: AppColors.border)),
+            ),
+            child: _filterChips(
+                state, const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+          ),
+        _animatedSelection(
+          state,
+          selected.isEmpty
+              ? null
+              : DiscoverSelectionBar(
+                  count: selected.length,
+                  units: _selectionUnits(state),
+                  compact: true,
+                  onClear: () =>
+                      context.read<DiscoverBloc>().add(ClearSelection()),
+                  onSend: () => _sendSelection(state),
+                ),
+        ),
+        Expanded(
+          child: Stack(
+            children: [
+              Positioned.fill(child: _buildMap(state, overlayed: true)),
+              DraggableScrollableSheet(
+                initialChildSize: 0.4,
+                minChildSize: 0.15,
+                maxChildSize: 0.85,
+                snap: true,
+                snapSizes: const [0.15, 0.4, 0.85],
+                builder: (context, scrollController) => _buildSheet(
+                  state,
+                  scrollController,
+                  width: width,
+                  searchInSheet: !searchInToolbar,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSheet(
+    DiscoverLoaded state,
+    ScrollController controller, {
+    required double width,
+    required bool searchInSheet,
+  }) {
+    final columns = width >= 640 ? 2 : 1;
+    final units = state.units;
+    final rows = (units.length / columns).ceil();
+
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+              color: Color(0x2E111433), blurRadius: 28, offset: Offset(0, -6)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        child: CustomScrollView(
+          controller: controller,
+          slivers: [
+            SliverToBoxAdapter(
+              child: _SheetHeader(
+                state: state,
+                searchField: searchInSheet
+                    ? DiscoverSearchField(
+                        controller: _searchController,
+                        onChanged: _onSearchChanged,
+                        onClear: _clearSearch,
+                      )
+                    : null,
+                onGeneralInquiry: _openGeneralInquiry,
+              ),
+            ),
+            if (state.isLoadingUnits)
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 24),
+                sliver: SliverToBoxAdapter(child: DiscoverCardSkeleton()),
+              )
+            else if (units.isEmpty)
+              SliverToBoxAdapter(
+                child: _buildEmptyState(state, compact: true),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 28),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: columns == 1
+                          ? (state.viewMode == ViewMode.list
+                              ? _listRow(state, units[index])
+                              : _gridCard(state, units[index]))
+                          : _cardRow(state, index, columns),
+                    ),
+                    childCount: columns == 1 ? units.length : rows,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMapSection(DiscoverLoaded state) {
+  // ==================== ZAJEDNIČKO ====================
+
+  Widget _animatedSelection(DiscoverLoaded state, Widget? bar) {
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: bar ?? const SizedBox(width: double.infinity),
+    );
+  }
+
+  /// Izabrane površine redom kojim su dodate (za sličice u traci izbora).
+  List<OohUnit> _selectionUnits(DiscoverLoaded state) {
+    final byId = {for (final u in state.units) u.intId: u};
+    return [
+      for (final id in state.selectedUnitsForInquiry)
+        if (byId[id] != null) byId[id]!,
+    ];
+  }
+
+  Widget _filterChips(DiscoverLoaded state, EdgeInsetsGeometry padding) {
+    return ActiveFilterChips(
+      filters: state.activeFilters,
+      unitTypes: state.unitTypes,
+      mediaFormats: state.mediaFormats,
+      venueTypes: state.venueTypes,
+      padding: padding,
+      onFilterRemoved: _onFilterRemoved,
+      onClearAll: _resetFilters,
+    );
+  }
+
+  Widget _buildMap(DiscoverLoaded state, {required bool overlayed}) {
     // Determine map center and zoom based on selection
     final LatLng center;
     final double zoom;
 
     if (state.selectedCity != null) {
-      center = LatLng(state.selectedCity!.latitude, state.selectedCity!.longitude);
+      center =
+          LatLng(state.selectedCity!.latitude, state.selectedCity!.longitude);
       zoom = 12.0;
     } else if (state.selectedCountry != null && state.cities.isNotEmpty) {
-      center = LatLng(state.cities.first.latitude, state.cities.first.longitude);
+      center =
+          LatLng(state.cities.first.latitude, state.cities.first.longitude);
       zoom = 7.0;
     } else {
       center = const LatLng(44.0, 18.5);
       zoom = 6.0;
     }
 
+    final selectedIds = state.selectedUnitsForInquiry;
     return InventoryMap(
       units: state.units,
       center: center,
       zoom: zoom,
       selectedUnit: _selectedUnit,
-      onUnitTap: (unit) {
-        setState(() {
-          if (_selectedUnit?.id == unit.id) {
-            _selectedUnit = null;
-          } else {
-            _selectedUnit = unit;
-          }
-        });
-      },
-      onUnitDetailTap: (unit) => _navigateToDetail(unit),
+      onUnitTap: _onMarkerTap,
+      onUnitDetailTap: _openDetail,
+      highlightedUnitId: _hoveredUnitId,
+      isInInquiry: (unit) => selectedIds.contains(unit.intId ?? 0),
+      onToggleInquiry: _toggleInquiry,
+      overlayed: overlayed,
     );
   }
 
-  Widget _buildErrorState(String message) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.error_outline, size: 64, color: AppColors.destructive),
-          const SizedBox(height: 16),
-          Text(
-            l10n.error,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: AppColors.foreground,
+  Widget _buildEmptyState(DiscoverLoaded state, {bool compact = false}) {
+    if (state.activeFilterCount > 0) {
+      return EmptyState(
+        compact: compact,
+        icon: Icons.filter_alt_off_outlined,
+        title: 'Nema površina za izabrane filtere',
+        message: 'Probajte sa manje filtera ili širim rasponom cena.',
+        action: OutlinedButton.icon(
+          onPressed: _resetFilters,
+          icon: const Icon(Icons.restart_alt_rounded, size: 18),
+          label: const Text('Poništi filtere'),
+        ),
+      );
+    }
+
+    final city = state.selectedCity;
+    if (city != null) {
+      final belgrade = state.cities
+          .where((c) =>
+              c.name.toLowerCase() == 'belgrade' ||
+              c.name.toLowerCase() == 'beograd')
+          .firstOrNull;
+      final canExploreBelgrade = belgrade != null && belgrade.id != city.id;
+      return EmptyState(
+        compact: compact,
+        icon: Icons.location_off_outlined,
+        title: 'U gradu ${SrLabels.city(city.name)} još nema površina',
+        message: 'Izaberite drugi grad ili pošaljite generalni upit.',
+        action: canExploreBelgrade
+            ? OutlinedButton.icon(
+                onPressed: () =>
+                    context.read<DiscoverBloc>().add(SelectCity(belgrade)),
+                icon: const Icon(Icons.explore_outlined, size: 18),
+                label: const Text('Istraži Beograd'),
+              )
+            : GeneralInquiryButton(onPressed: _openGeneralInquiry),
+      );
+    }
+
+    return EmptyState(
+      compact: compact,
+      icon: Icons.location_city_outlined,
+      title: 'Izaberite grad',
+    );
+  }
+
+  Widget _buildError() {
+    return EmptyState(
+      icon: Icons.cloud_off_outlined,
+      title: 'Pretraga trenutno nije dostupna',
+      message: 'Proverite vezu sa internetom i pokušajte ponovo.',
+      action: FilledButton.icon(
+        onPressed: () {
+          final bloc = context.read<DiscoverBloc>();
+          bloc.add(LoadCountries());
+          bloc.add(LoadDictionaries());
+        },
+        icon: const Icon(Icons.refresh_rounded, size: 18),
+        label: const Text('Pokušaj ponovo'),
+      ),
+    );
+  }
+}
+
+/// Mapa u zaobljenom panelu na platnu stranice.
+class _MapPanel extends StatelessWidget {
+  final Widget child;
+
+  const _MapPanel({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadius.card),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Zaglavlje liste na telefonu: ručica, broj površina, generalni upit,
+/// redosled i (na uskom ekranu) pretraga.
+class _SheetHeader extends StatelessWidget {
+  final DiscoverLoaded state;
+  final Widget? searchField;
+  final VoidCallback onGeneralInquiry;
+
+  const _SheetHeader({
+    required this.state,
+    required this.searchField,
+    required this.onGeneralInquiry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Center(
+          child: Container(
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.input,
+              borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: TextStyle(fontSize: 14, color: AppColors.mutedForeground),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 12, 12),
+          child: Row(
+            children: [
+              Expanded(child: DiscoverCountText(state: state, stacked: true)),
+              GeneralInquiryButton(onPressed: onGeneralInquiry, iconOnly: true),
+              const SizedBox(width: 8),
+              SortDropdown(
+                currentSort: state.sortOption,
+                compact: true,
+                onChanged: (sort) =>
+                    context.read<DiscoverBloc>().add(ChangeSort(sort)),
+              ),
+            ],
           ),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () => context.read<DiscoverBloc>().add(const LoadCities()),
-            child: Text(l10n.retry),
+        ),
+        if (searchField != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: searchField!,
           ),
-        ],
-      ),
+      ],
     );
-  }
-
-  void _showFilterDialog(DiscoverLoaded state) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) {
-        return FilterBottomSheet(
-          unitTypes: state.unitTypes,
-          mediaFormats: state.mediaFormats,
-          venueTypes: state.venueTypes,
-          currentFilters: state.activeFilters,
-          onApply: (filters) {
-            context.read<DiscoverBloc>().add(ApplyFilters(filters));
-            if (filters.keyword != null && filters.keyword != _searchController.text) {
-              _searchController.text = filters.keyword!;
-            } else if (filters.keyword == null && _searchController.text.isNotEmpty) {
-              _searchController.clear();
-            }
-          },
-          onReset: () {
-            _searchController.clear();
-            context.read<DiscoverBloc>().add(ResetFilters());
-          },
-        );
-      },
-    );
-  }
-
-  void _navigateToDetail(OohUnit unit) {
-    context.push('/discover/${unit.id}');
-  }
-
-  IconData _getTypeIcon(OohType type) {
-    switch (type) {
-      case OohType.billboard:
-        return Icons.campaign;
-      case OohType.digital:
-        return Icons.monitor;
-      case OohType.subway:
-        return Icons.subway;
-      case OohType.airport:
-        return Icons.flight;
-      case OohType.bus:
-        return Icons.directions_bus;
-      case OohType.other:
-        return Icons.location_city;
-    }
   }
 }

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
 
+/// Traka grupnih akcija; pojavljuje se kada je izabrana bar jedna površina.
 class BulkActionToolbar extends StatelessWidget {
   final int selectedCount;
   final VoidCallback onActivateAll;
@@ -22,79 +24,88 @@ class BulkActionToolbar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.08),
-        border: Border(
-          bottom: BorderSide(color: AppColors.primary.withValues(alpha: 0.2)),
+    final buttonStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 38),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      textStyle:
+          AppTypography.labelMedium.copyWith(fontWeight: FontWeight.w600),
+    );
+
+    final actions = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        OutlinedButton.icon(
+          onPressed: onActivateAll,
+          style: buttonStyle,
+          icon: const Icon(Icons.play_circle_outline_rounded, size: 17),
+          label: const Text('Aktiviraj'),
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.check_circle, size: 18, color: AppColors.primary),
-          const SizedBox(width: 8),
-          Text(
-            '$selectedCount odabrano',
-            style: AppTypography.bodySmall.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.primary,
+        OutlinedButton.icon(
+          onPressed: onDeactivateAll,
+          style: buttonStyle,
+          icon: const Icon(Icons.pause_circle_outline_rounded, size: 17),
+          label: const Text('Deaktiviraj'),
+        ),
+        OutlinedButton.icon(
+          onPressed: onDeleteAll,
+          style: buttonStyle.copyWith(
+            foregroundColor:
+                const WidgetStatePropertyAll(AppColors.destructive),
+            side: WidgetStatePropertyAll(
+              BorderSide(color: AppColors.destructive.withValues(alpha: 0.35)),
             ),
           ),
-          const Spacer(),
-          _buildActionButton(
-            icon: Icons.check_circle_outline,
-            label: 'Aktiviraj',
-            color: AppColors.success,
-            onTap: onActivateAll,
-          ),
-          const SizedBox(width: 8),
-          _buildActionButton(
-            icon: Icons.pause_circle_outline,
-            label: 'Deaktiviraj',
-            color: AppColors.warning,
-            onTap: onDeactivateAll,
-          ),
-          const SizedBox(width: 8),
-          _buildActionButton(
-            icon: Icons.delete_outline,
-            label: 'Obrisi',
-            color: AppColors.destructive,
-            onTap: onDeleteAll,
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            icon: Icon(Icons.close, size: 18, color: AppColors.mutedForeground),
-            onPressed: onClearSelection,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            tooltip: 'Ponisti selekciju',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return TextButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 16, color: color),
-      label: Text(
-        label,
-        style: AppTypography.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
+          icon: const Icon(Icons.delete_outline_rounded, size: 17),
+          label: const Text('Obriši'),
         ),
+      ],
+    );
+
+    final count = Text(
+      SrFormat.count(selectedCount, 'izabrana površina', 'izabrane površine',
+          'izabranih površina'),
+      style: AppTypography.labelLarge.copyWith(color: AppColors.primaryStrong),
+    );
+
+    final close = IconButton(
+      tooltip: 'Poništi izbor',
+      icon: const Icon(Icons.close_rounded, size: 20),
+      onPressed: onClearSelection,
+    );
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+      decoration: BoxDecoration(
+        color: AppColors.primarySoft,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
       ),
-      style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 640) {
+            return Row(
+              children: [
+                count,
+                const Spacer(),
+                actions,
+                const SizedBox(width: 4),
+                close,
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [Expanded(child: count), close]),
+              const SizedBox(height: 4),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4, right: 8),
+                child: actions,
+              ),
+            ],
+          );
+        },
       ),
     );
   }

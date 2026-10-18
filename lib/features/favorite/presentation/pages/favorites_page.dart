@@ -2,270 +2,150 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/config/api_config.dart';
-import '../../../../core/l10n/l10n.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_constants.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/utils/sr_format.dart';
+import '../../../../core/widgets/ui/ui.dart';
+import '../../../discover/data/mapper/discover_mapper.dart';
+import '../../../discover/presentation/widgets/discover_card_grid.dart';
 import '../blocs/favorite_bloc.dart';
 
-class FavoritesPage extends StatelessWidget {
+/// Omiljene površine: iste kartice kao u pretrazi, sa srcem za uklanjanje.
+class FavoritesPage extends StatefulWidget {
   const FavoritesPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider.value(
-      value: context.read<FavoriteBloc>()..add(const LoadFavorites()),
-      child: const _FavoritesView(),
-    );
-  }
+  State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
-class _FavoritesView extends StatelessWidget {
-  const _FavoritesView();
+class _FavoritesPageState extends State<FavoritesPage> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<FavoriteBloc>().add(const LoadFavorites());
+  }
 
   @override
   Widget build(BuildContext context) {
+    final wide = MediaQuery.sizeOf(context).width >= 900;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(AppLocalizations.of(context)!.favorites),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.foreground,
-        elevation: 0,
-      ),
+      appBar: wide ? null : AppBar(title: const Text('Omiljene površine')),
       body: BlocBuilder<FavoriteBloc, FavoriteState>(
         builder: (context, state) {
-          if (state is FavoritesLoading || state is FavoritesInitial) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (state is FavoritesError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.error_outline, size: 48, color: AppColors.destructive),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(state.message, maxLines: 3, overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: AppSpacing.sm),
-                  OutlinedButton(
-                    onPressed: () =>
-                        context.read<FavoriteBloc>().add(const LoadFavorites()),
-                    child: Text(AppLocalizations.of(context)!.retry),
+          final count = state is FavoritesLoaded ? state.items.length : null;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (wide)
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 1304),
+                    child: PageHeader(
+                      title: 'Omiljene površine',
+                      subtitle: count == null || count == 0
+                          ? null
+                          : SrFormat.count(count, 'sačuvana površina',
+                              'sačuvane površine', 'sačuvanih površina'),
+                    ),
                   ),
-                ],
-              ),
-            );
-          }
-          if (state is FavoritesLoaded) {
-            if (state.items.isEmpty) {
-              return _buildEmpty(context);
-            }
-            return _buildGrid(context, state);
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-    );
-  }
-
-  Widget _buildEmpty(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.favorite_border, size: 72, color: AppColors.mutedForeground),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              AppLocalizations.of(context)!.noFavorites,
-              style: AppTypography.h5,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              AppLocalizations.of(context)!.noFavoritesHint,
-              textAlign: TextAlign.center,
-              style: AppTypography.bodySmall
-                  .copyWith(color: AppColors.mutedForeground),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            ElevatedButton.icon(
-              onPressed: () => context.push('/app/discover'),
-              icon: const Icon(Icons.search),
-              label: Text(AppLocalizations.of(context)!.exploreInventory),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.primaryForeground,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.sm,
                 ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGrid(BuildContext context, FavoritesLoaded state) {
-    final isWide = MediaQuery.of(context).size.width >= 900;
-    final isMed = MediaQuery.of(context).size.width >= 600;
-    final crossAxisCount = isWide ? 3 : (isMed ? 2 : 1);
-
-    return RefreshIndicator(
-      onRefresh: () async {
-        context.read<FavoriteBloc>().add(const LoadFavorites());
-      },
-      child: GridView.builder(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          childAspectRatio: 1.3,
-          crossAxisSpacing: AppSpacing.md,
-          mainAxisSpacing: AppSpacing.md,
-        ),
-        itemCount: state.items.length,
-        itemBuilder: (context, index) {
-          final item = state.items[index];
-          return _FavoriteCard(
-            imageUrl: _imageUrl(item.assetUrl),
-            title: item.siteName ?? 'Inventar #${item.id}',
-            city: item.city?.name ?? '',
-            mediaOwner: item.mediaOwnerName ?? '',
-            price: item.pricePerCycle,
-            currency: item.currency,
-            onTap: () => context.push('/app/discover/${item.id}'),
-            onUnfavorite: () {
-              context.read<FavoriteBloc>().add(ToggleFavorite(item.id));
-            },
+              Expanded(child: _buildBody(context, state, wide)),
+            ],
           );
         },
       ),
     );
   }
 
-  String? _imageUrl(String? assetUrl) {
-    if (assetUrl == null || assetUrl.isEmpty) return null;
-    return ApiConfig.absoluteUrl(assetUrl);
+  Widget _buildBody(BuildContext context, FavoriteState state, bool wide) {
+    if (state is FavoritesLoading || state is FavoritesInitial) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state is FavoritesError) {
+      return EmptyState(
+        icon: Icons.cloud_off_outlined,
+        title: 'Omiljene površine nisu učitane',
+        message: 'Proverite vezu sa internetom i pokušajte ponovo.',
+        action: OutlinedButton.icon(
+          onPressed: () =>
+              context.read<FavoriteBloc>().add(const LoadFavorites()),
+          icon: const Icon(Icons.refresh_rounded, size: 18),
+          label: const Text('Pokušaj ponovo'),
+        ),
+      );
+    }
+    if (state is FavoritesLoaded) {
+      if (state.items.isEmpty) return _buildEmpty(context);
+      return _buildGrid(context, state, wide);
+    }
+    return const SizedBox.shrink();
   }
-}
 
-class _FavoriteCard extends StatelessWidget {
-  final String? imageUrl;
-  final String title;
-  final String city;
-  final String mediaOwner;
-  final num? price;
-  final String? currency;
-  final VoidCallback onTap;
-  final VoidCallback onUnfavorite;
-
-  const _FavoriteCard({
-    required this.imageUrl,
-    required this.title,
-    required this.city,
-    required this.mediaOwner,
-    required this.price,
-    required this.currency,
-    required this.onTap,
-    required this.onUnfavorite,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadius.md),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(AppRadius.md),
-                    ),
-                    child: imageUrl != null
-                        ? Image.network(
-                            imageUrl!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) => _placeholder(),
-                          )
-                        : _placeholder(),
-                  ),
-                  Positioned(
-                    top: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: Material(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      shape: const CircleBorder(),
-                      child: IconButton(
-                        iconSize: 20,
-                        icon: const Icon(Icons.favorite, color: Colors.red),
-                        onPressed: onUnfavorite,
-                        tooltip: 'Ukloni iz omiljenih',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    '$city${mediaOwner.isNotEmpty ? ' • $mediaOwner' : ''}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.caption
-                        .copyWith(color: AppColors.mutedForeground),
-                  ),
-                  if (price != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '${currency ?? ''} ${price!.toStringAsFixed(0)}',
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Widget _buildEmpty(BuildContext context) {
+    return EmptyState(
+      icon: Icons.favorite_border_rounded,
+      title: 'Nemate sačuvanih površina',
+      message: 'Označite površinu srcem u pretrazi ili na detalju.',
+      action: FilledButton.icon(
+        onPressed: () => context.push('/app/discover'),
+        icon: const Icon(Icons.travel_explore_rounded, size: 18),
+        label: const Text('Istraži površine'),
       ),
     );
   }
 
-  Widget _placeholder() {
-    return Container(
-      color: AppColors.muted,
-      alignment: Alignment.center,
-      child: Icon(Icons.image, size: 48, color: AppColors.mutedForeground),
+  Widget _buildGrid(BuildContext context, FavoritesLoaded state, bool wide) {
+    final units = state.items.map(DiscoverMapper.unitFromDto).toList();
+    final pad = wide ? 32.0 : 16.0;
+    const gap = 16.0;
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        context.read<FavoriteBloc>().add(const LoadFavorites());
+      },
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 1240 + pad * 2),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final inner = constraints.maxWidth - pad * 2;
+              final columns = ((inner + gap) / (260 + gap)).floor().clamp(1, 4);
+              final rows = (units.length / columns).ceil();
+              return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(pad, wide ? 4 : 16, pad, 32),
+                itemCount: rows,
+                itemBuilder: (context, row) {
+                  final start = row * columns;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: gap),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (int i = 0; i < columns; i++) ...[
+                          if (i > 0) const SizedBox(width: gap),
+                          Expanded(
+                            child: start + i < units.length
+                                ? DiscoverCardGrid(
+                                    key: ValueKey('fav-${units[start + i].id}'),
+                                    unit: units[start + i],
+                                    onTap: () => context.push(
+                                        '/app/discover/${units[start + i].id}'),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
     );
   }
 }

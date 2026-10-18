@@ -5,6 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_constants.dart';
 import '../../../../core/theme/app_typography.dart';
 
+/// Fotografije površine: postojeće sa servera, izabrane koje se upravo šalju i
+/// polje za dodavanje novih.
 class ImageUploadWidget extends StatefulWidget {
   final List<String> existingImages;
   final ValueChanged<List<XFile>> onImagesAdded;
@@ -24,8 +26,25 @@ class ImageUploadWidget extends StatefulWidget {
 }
 
 class _ImageUploadWidgetState extends State<ImageUploadWidget> {
+  static const double _tileW = 132;
+  static const double _tileH = 96;
+
   final ImagePicker _picker = ImagePicker();
   final List<XFile> _pendingFiles = [];
+  final Map<XFile, Future<Widget>> _previews = {};
+
+  @override
+  void didUpdateWidget(covariant ImageUploadWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Kada slanje završi, poslate slike stižu kao postojeće; lokalni pregled se
+    // briše da se iste slike ne bi prikazale dva puta.
+    if (oldWidget.isUploading &&
+        !widget.isUploading &&
+        _pendingFiles.isNotEmpty) {
+      _pendingFiles.clear();
+      _previews.clear();
+    }
+  }
 
   Future<void> _pickImages() async {
     try {
@@ -42,7 +61,7 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Greska pri odabiru slika: $e'),
+            content: Text('Greška pri izboru fotografija: $e'),
             backgroundColor: AppColors.destructive,
           ),
         );
@@ -52,102 +71,144 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final hasAny = widget.existingImages.isNotEmpty || _pendingFiles.isNotEmpty;
+
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Slike',
-          style: AppTypography.bodyMedium.copyWith(
-            fontWeight: FontWeight.w600,
-            color: AppColors.foreground,
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        if (widget.existingImages.isNotEmpty || _pendingFiles.isNotEmpty)
-          SizedBox(
-            height: 120,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                ...widget.existingImages.asMap().entries.map((entry) {
-                  return _buildImageThumbnail(
-                    child: Image.network(
-                      entry.value,
-                      fit: BoxFit.cover,
-                      width: 120,
-                      height: 120,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 120,
-                        height: 120,
-                        color: AppColors.muted,
-                        child: Icon(Icons.broken_image, color: AppColors.mutedForeground),
+        if (hasAny)
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final entry in widget.existingImages.asMap().entries)
+                _Thumb(
+                  width: _tileW,
+                  height: _tileH,
+                  onRemove: widget.onImageRemoved != null
+                      ? () => widget.onImageRemoved!(entry.key)
+                      : null,
+                  child: Image.network(
+                    entry.value,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const ColoredBox(
+                      color: AppColors.surfaceSunken,
+                      child: Center(
+                        child: Icon(Icons.broken_image_outlined,
+                            color: AppColors.mutedForeground),
                       ),
                     ),
-                    onRemove: widget.onImageRemoved != null
-                        ? () => widget.onImageRemoved!(entry.key)
-                        : null,
-                  );
-                }),
-                ..._pendingFiles.asMap().entries.map((entry) {
-                  return _buildImageThumbnail(
-                    child: FutureBuilder<Widget>(
-                      future: _buildLocalImage(entry.value),
-                      builder: (context, snapshot) {
-                        if (snapshot.hasData) return snapshot.data!;
-                        return Container(
-                          width: 120,
-                          height: 120,
-                          color: AppColors.muted,
-                          child: const CircularProgressIndicator(),
-                        );
-                      },
-                    ),
-                    onRemove: () {
-                      setState(() => _pendingFiles.removeAt(entry.key));
+                  ),
+                ),
+              for (final entry in _pendingFiles.asMap().entries)
+                _Thumb(
+                  width: _tileW,
+                  height: _tileH,
+                  uploading: widget.isUploading,
+                  onRemove: widget.isUploading
+                      ? null
+                      : () => setState(() => _pendingFiles.removeAt(entry.key)),
+                  child: FutureBuilder<Widget>(
+                    future: _previews.putIfAbsent(
+                        entry.value, () => _buildLocalImage(entry.value)),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) return snapshot.data!;
+                      return const ColoredBox(color: AppColors.surfaceSunken);
                     },
-                  );
-                }),
-                _buildAddButton(),
-              ],
-            ),
+                  ),
+                ),
+              _AddTile(
+                width: _tileW,
+                height: _tileH,
+                onTap: widget.isUploading ? null : _pickImages,
+              ),
+            ],
           )
         else
-          _buildEmptyState(),
+          _EmptyDrop(onTap: _pickImages),
         if (widget.isUploading) ...[
-          const SizedBox(height: AppSpacing.sm),
-          const LinearProgressIndicator(),
-          const SizedBox(height: AppSpacing.xs),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: const LinearProgressIndicator(minHeight: 3),
+          ),
+          const SizedBox(height: 6),
           Text(
-            'Otpremanje slika...',
-            style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
+            'Fotografije se šalju…',
+            style: AppTypography.caption
+                .copyWith(color: AppColors.mutedForeground),
           ),
         ],
       ],
     );
   }
 
-  Widget _buildImageThumbnail({required Widget child, VoidCallback? onRemove}) {
-    return Padding(
-      padding: const EdgeInsets.only(right: AppSpacing.sm),
+  Future<Widget> _buildLocalImage(XFile file) async {
+    final bytes = await file.readAsBytes();
+    return Image.memory(bytes, fit: BoxFit.cover);
+  }
+}
+
+class _Thumb extends StatelessWidget {
+  final double width;
+  final double height;
+  final Widget child;
+  final VoidCallback? onRemove;
+  final bool uploading;
+
+  const _Thumb({
+    required this.width,
+    required this.height,
+    required this.child,
+    this.onRemove,
+    this.uploading = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      height: height,
       child: Stack(
+        fit: StackFit.expand,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-            child: SizedBox(width: 120, height: 120, child: child),
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: child,
           ),
+          if (uploading)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: ColoredBox(
+                color: AppColors.ink.withValues(alpha: 0.35),
+                child: const Center(
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white),
+                  ),
+                ),
+              ),
+            ),
           if (onRemove != null)
             Positioned(
-              top: 4,
-              right: 4,
-              child: GestureDetector(
-                onTap: onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.destructive,
-                    shape: BoxShape.circle,
+              top: 6,
+              right: 6,
+              child: Tooltip(
+                message: 'Ukloni fotografiju',
+                child: Material(
+                  color: AppColors.ink.withValues(alpha: 0.72),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onRemove,
+                    child: const Padding(
+                      padding: EdgeInsets.all(5),
+                      child: Icon(Icons.close_rounded,
+                          size: 14, color: Colors.white),
+                    ),
                   ),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
                 ),
               ),
             ),
@@ -155,66 +216,86 @@ class _ImageUploadWidgetState extends State<ImageUploadWidget> {
       ),
     );
   }
+}
 
-  Widget _buildAddButton() {
-    return GestureDetector(
-      onTap: _pickImages,
-      child: Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-          color: AppColors.muted,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_photo_alternate_outlined, size: 32, color: AppColors.mutedForeground),
-            const SizedBox(height: 4),
-            Text(
-              'Dodaj sliku',
-              style: AppTypography.caption.copyWith(color: AppColors.mutedForeground),
-            ),
-          ],
+class _AddTile extends StatelessWidget {
+  final double width;
+  final double height;
+  final VoidCallback? onTap;
+
+  const _AddTile({required this.width, required this.height, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceSunken,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: onTap,
+        child: Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.input),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_photo_alternate_outlined,
+                  size: 26, color: AppColors.primary),
+              const SizedBox(height: 4),
+              Text(
+                'Dodaj',
+                style: AppTypography.labelSmall.copyWith(
+                    color: AppColors.primary, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildEmptyState() {
-    return GestureDetector(
-      onTap: _pickImages,
-      child: Container(
-        width: double.infinity,
-        height: 120,
-        decoration: BoxDecoration(
-          color: AppColors.muted,
-          borderRadius: BorderRadius.circular(AppRadius.sm),
-          border: Border.all(color: AppColors.border, style: BorderStyle.solid),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.mutedForeground),
-            const SizedBox(height: 8),
-            Text(
-              'Dodajte slike inventara',
-              style: AppTypography.bodySmall.copyWith(color: AppColors.mutedForeground),
-            ),
-          ],
+class _EmptyDrop extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _EmptyDrop({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surfaceSunken,
+      borderRadius: BorderRadius.circular(AppRadius.md),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        onTap: onTap,
+        child: Container(
+          height: 132,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            border: Border.all(color: AppColors.input),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_photo_alternate_outlined,
+                  size: 24, color: AppColors.mutedForeground),
+              const SizedBox(height: 8),
+              Text('Dodajte fotografije površine',
+                  style: AppTypography.labelLarge),
+              const SizedBox(height: 2),
+              Text(
+                'JPEG, PNG ili WebP, do 10 MB po fotografiji',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.mutedForeground),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Future<Widget> _buildLocalImage(XFile file) async {
-    final bytes = await file.readAsBytes();
-    return Image.memory(
-      bytes,
-      fit: BoxFit.cover,
-      width: 120,
-      height: 120,
     );
   }
 }

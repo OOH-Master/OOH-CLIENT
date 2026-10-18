@@ -42,15 +42,29 @@ class AnalyticsBloc extends Bloc<AnalyticsEvent, AnalyticsState> {
     on<LoadAgencyAnalytics>(_onLoadAgencyAnalytics);
   }
 
+  /// Pregled + analitika upita (konverzija) + inventar po gradovima, u jednoj
+  /// mapi: ključevi pregleda ostaju na vrhu, ostalo pod `inquiryAnalytics` i
+  /// `inventoryAnalytics`.
   Future<void> _onLoadAdminAnalytics(
     LoadAdminAnalytics event,
     Emitter<AnalyticsState> emit,
   ) async {
     emit(AnalyticsLoading());
-    final overviewResult = await _repository.getAdminOverview();
-    switch (overviewResult) {
+    final results = await Future.wait([
+      _repository.getAdminOverview(),
+      _repository.getAdminInquiryAnalytics(),
+      _repository.getAdminInventoryAnalytics(),
+    ]);
+    final overview = results[0];
+    switch (overview) {
       case Success(data: final data):
-        emit(AnalyticsLoaded(data));
+        emit(AnalyticsLoaded({
+          ...data,
+          if (results[1] case Success(data: final inquiries))
+            'inquiryAnalytics': inquiries,
+          if (results[2] case Success(data: final inventory))
+            'inventoryAnalytics': inventory,
+        }));
       case Error(failure: final failure):
         // Return empty data instead of error - analytics are supplementary
         emit(AnalyticsLoaded({'error': failure.message}));
